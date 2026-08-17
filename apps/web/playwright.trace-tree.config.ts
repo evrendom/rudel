@@ -14,8 +14,16 @@ export default defineConfig({
 	outputDir: "../../.context/playwright/trace-tree",
 	projects: [
 		{ name: "chromium", use: { browserName: "chromium" } },
-		{ name: "webkit", use: { browserName: "webkit" } },
-		{ name: "firefox", use: { browserName: "firefox" } },
+		{
+			name: "webkit",
+			testIgnore: /session-transcript-scroll-forensics\.spec\.ts/u,
+			use: { browserName: "webkit" },
+		},
+		{
+			name: "firefox",
+			testIgnore: /session-transcript-scroll-forensics\.spec\.ts/u,
+			use: { browserName: "firefox" },
+		},
 	],
 	reporter: process.env.CI ? "github" : "line",
 	retries: process.env.CI ? 1 : 0,

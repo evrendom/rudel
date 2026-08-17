@@ -1,4 +1,5 @@
 import type { TraceEvent } from "@/components/conversation/conversation-trace";
+import { measureTranscriptSuspect } from "./transcript-forensics";
 
 export type TranscriptSectionFoldMetadata = {
 	events: number;
@@ -15,6 +16,23 @@ export type TranscriptFoldSummary = {
 };
 
 export function deriveTranscriptSectionFoldMetadata(
+	events: readonly TraceEvent[],
+	groupId: string,
+	terminalMessageId: string | undefined,
+): TranscriptSectionFoldMetadata {
+	return measureTranscriptSuspect(
+		"fold-metadata",
+		{ events: events.length, groupId },
+		() =>
+			deriveTranscriptSectionFoldMetadataUnmeasured(
+				events,
+				groupId,
+				terminalMessageId,
+			),
+	);
+}
+
+function deriveTranscriptSectionFoldMetadataUnmeasured(
 	events: readonly TraceEvent[],
 	groupId: string,
 	terminalMessageId: string | undefined,
@@ -40,6 +58,20 @@ export function deriveTranscriptSectionFoldMetadata(
 }
 
 export function deriveTranscriptFoldPlan(
+	sections: readonly {
+		fold: TranscriptSectionFoldMetadata;
+		id: string;
+	}[],
+	protectedTurn: boolean,
+) {
+	return measureTranscriptSuspect(
+		"fold-derivation",
+		{ protectedTurn, sections: sections.length },
+		() => deriveTranscriptFoldPlanUnmeasured(sections, protectedTurn),
+	);
+}
+
+function deriveTranscriptFoldPlanUnmeasured(
 	sections: readonly {
 		fold: TranscriptSectionFoldMetadata;
 		id: string;

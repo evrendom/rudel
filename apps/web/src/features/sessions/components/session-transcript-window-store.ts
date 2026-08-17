@@ -3,6 +3,7 @@ import type {
 	SessionDetailWindowRequest,
 	SessionDetailWindowTurn,
 } from "@rudel/api-routes";
+import { measureTranscriptSuspect } from "./transcript-forensics";
 
 export const WINDOW_RETENTION_LIMIT = 8;
 
@@ -258,42 +259,47 @@ export function createSessionTranscriptWindowStore(input: {
 			publish();
 			return operation;
 		},
-		mergeWindow: (window, mode, request) => {
-			if (window.revision !== snapshot.revision) {
-				return false;
-			}
-			for (const turn of window.turns) {
-				turnById.set(turn.turnId, turn);
-			}
-			const key = request
-				? JSON.stringify(request)
-				: `${mode}:${windowsLoaded}:${window.turns[0]?.turnId ?? "empty"}`;
-			const existingIndex = bodyWindows.findIndex(
-				(record) => record.key === key,
-			);
-			const record = createBodyWindowRecord(window, request, key);
-			if (existingIndex >= 0) {
-				bodyWindows[existingIndex] = record;
-			} else {
-				bodyWindows.push(record);
-				windowsLoaded += 1;
-			}
-			snapshot = {
-				...snapshot,
-				newerCursor:
-					mode === "initial" || mode === "anchor" || mode === "newer"
-						? window.newerCursor
-						: snapshot.newerCursor,
-				olderCursor:
-					mode === "initial" || mode === "anchor" || mode === "older"
-						? window.olderCursor
-						: snapshot.olderCursor,
-				total: window.total,
-			};
-			enforceRetention();
-			publish();
-			return true;
-		},
+		mergeWindow: (window, mode, request) =>
+			measureTranscriptSuspect(
+				"window-merge",
+				{ mode, turns: window.turns.length },
+				() => {
+					if (window.revision !== snapshot.revision) {
+						return false;
+					}
+					for (const turn of window.turns) {
+						turnById.set(turn.turnId, turn);
+					}
+					const key = request
+						? JSON.stringify(request)
+						: `${mode}:${windowsLoaded}:${window.turns[0]?.turnId ?? "empty"}`;
+					const existingIndex = bodyWindows.findIndex(
+						(record) => record.key === key,
+					);
+					const record = createBodyWindowRecord(window, request, key);
+					if (existingIndex >= 0) {
+						bodyWindows[existingIndex] = record;
+					} else {
+						bodyWindows.push(record);
+						windowsLoaded += 1;
+					}
+					snapshot = {
+						...snapshot,
+						newerCursor:
+							mode === "initial" || mode === "anchor" || mode === "newer"
+								? window.newerCursor
+								: snapshot.newerCursor,
+						olderCursor:
+							mode === "initial" || mode === "anchor" || mode === "older"
+								? window.olderCursor
+								: snapshot.olderCursor,
+						total: window.total,
+					};
+					enforceRetention();
+					publish();
+					return true;
+				},
+			),
 		observeVisibleTurnIds: (turnIds) => {
 			visibleTurnIds = new Set(turnIds);
 			const indices = turnIds.flatMap((turnId) => {

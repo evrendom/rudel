@@ -1,3 +1,5 @@
+import { publishTranscriptForensicsHud } from "./transcript-forensics";
+
 export type TranscriptDebugSnapshot = {
 	activeTurn: number | undefined;
 	blankFrames: number;
@@ -28,7 +30,7 @@ export function publishTranscriptDebugSnapshot(
 		"[data-transcript-debug-hud]",
 	);
 	if (hud) {
-		hud.textContent = [
+		const baseHud = [
 			snapshot.scrollMode,
 			`active ${snapshot.activeTurn ?? "–"}`,
 			`visible ${snapshot.visibleRange?.join("–") ?? "–"}`,
@@ -37,6 +39,9 @@ export function publishTranscriptDebugSnapshot(
 			`${snapshot.pending} pending`,
 			`${snapshot.blankFrames} blank`,
 		].join(" · ");
+		element.dataset.transcriptDebugBaseHud = baseHud;
+		hud.textContent = baseHud;
+		publishTranscriptForensicsHud(element);
 	}
 }
 

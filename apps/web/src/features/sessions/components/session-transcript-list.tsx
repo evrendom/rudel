@@ -1,5 +1,11 @@
 // biome-ignore-all lint/nursery/noExcessiveLinesPerFile: Virtualization, row rendering, and fixture diagnostics share one measured-row contract.
-import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
+import {
+	elementScroll,
+	measureElement as measureVirtualElement,
+	useVirtualizer,
+	type VirtualItem,
+	type Virtualizer,
+} from "@tanstack/react-virtual";
 import {
 	forwardRef,
 	memo,
@@ -11,6 +17,7 @@ import {
 	useLayoutEffect,
 	useReducer,
 	useRef,
+	useState,
 } from "react";
 import { useLatestValueRef } from "@/app/hooks/useLatestValueRef";
 import { useMountEffect } from "@/app/hooks/useMountEffect";
@@ -32,6 +39,18 @@ import {
 	markTranscriptMeasure,
 	publishTranscriptDebugSnapshot,
 } from "./transcript-debug";
+import {
+	attachTranscriptTraceScroller,
+	createTranscriptTraceInstanceId,
+	ensureTranscriptTrace,
+	recordTranscriptAdjustment,
+	recordTranscriptComponentLifecycle,
+	recordTranscriptMeasurement,
+	recordTranscriptProgrammaticWrite,
+	recordTranscriptRowLifecycle,
+	recordTranscriptRowMount,
+	type TranscriptForensicsContentFlags,
+} from "./transcript-forensics";
 
 const TRANSCRIPT_OVERSCAN = 8;
 const TRANSCRIPT_EDGE_LOAD_DISTANCE = 10;
@@ -110,6 +129,10 @@ export const SessionTranscriptList = forwardRef<
 	},
 	ref,
 ) {
+	ensureTranscriptTrace(debugEnabled);
+	const [traceInstanceId] = useState(() =>
+		createTranscriptTraceInstanceId("list"),
+	);
 	const rowsRef = useRef(model.rows);
 	const committedRowsRef = useRef(model.rows);
 	const [, resetPrependAnchor] = useReducer(
@@ -137,6 +160,15 @@ export const SessionTranscriptList = forwardRef<
 		{ kind: "free-scrolling" } | { kind: "anchoring-turn"; turnId: string }
 	>({ kind: "free-scrolling" });
 	const scrollOwnerEpochRef = useRef(0);
+	const pendingMeasurementRef = useRef<
+		| {
+				at: number;
+				est: number;
+				measured: number;
+				rowId: string;
+		  }
+		| undefined
+	>(undefined);
 	const scheduleFeederRef = useRef<() => void>(() => {});
 	const handleVirtualizerChange = useCallback(
 		() => scheduleFeederRef.current(),
@@ -154,6 +186,85 @@ export const SessionTranscriptList = forwardRef<
 		() => scrollContainerRef.current,
 		[scrollContainerRef],
 	);
+	const measureTranscriptElement = useCallback(
+		(
+			element: HTMLElement,
+			entry: ResizeObserverEntry | undefined,
+			instance: Virtualizer<HTMLDivElement, HTMLElement>,
+		) => {
+			const measured = measureVirtualElement(element, entry, instance);
+			const index = Number(element.dataset.index);
+			const row = Number.isInteger(index) ? rowsRef.current[index] : undefined;
+			if (row) {
+				const context = {
+					at: performance.now(),
+					est: estimateTranscriptRow(row),
+					measured,
+					rowId: row.id,
+				};
+				pendingMeasurementRef.current = context;
+				recordTranscriptMeasurement({
+					...context,
+					delta: measured - context.est,
+				});
+				queueMicrotask(() => {
+					if (pendingMeasurementRef.current === context) {
+						pendingMeasurementRef.current = undefined;
+					}
+				});
+			}
+			return measured;
+		},
+		[],
+	);
+	const scrollToFn = useCallback(
+		(
+			offset: number,
+			options: {
+				adjustments?: number;
+				behavior?: ScrollBehavior;
+			},
+			instance: Virtualizer<HTMLDivElement, HTMLElement>,
+		) => {
+			const element = instance.scrollElement;
+			const at = performance.now();
+			const measurement = pendingMeasurementRef.current;
+			const currentMeasurement =
+				measurement && at - measurement.at <= 4 ? measurement : undefined;
+			if (element instanceof HTMLElement) {
+				const adjustment = options.adjustments ?? 0;
+				const target = offset + adjustment;
+				const cause =
+					adjustment !== 0 && currentMeasurement
+						? "resize-adjustment"
+						: scrollModeRef.current.kind === "anchoring-turn"
+							? "turn-anchor"
+							: anchorsPrepend
+								? "prepend-anchor"
+								: "virtualizer";
+				recordTranscriptProgrammaticWrite({
+					at,
+					cause,
+					delta: target - element.scrollTop,
+					est: currentMeasurement?.est,
+					measured: currentMeasurement?.measured,
+					rowId: currentMeasurement?.rowId,
+					target,
+				});
+				if (adjustment !== 0 && currentMeasurement) {
+					recordTranscriptAdjustment({
+						at,
+						delta: adjustment,
+						est: currentMeasurement.est,
+						measured: currentMeasurement.measured,
+						rowId: currentMeasurement.rowId,
+					});
+				}
+			}
+			elementScroll(offset, options, instance);
+		},
+		[anchorsPrepend],
+	);
 	const directDomUpdates = renderMode !== "default";
 	const virtualizer = useVirtualizer<HTMLDivElement, HTMLElement>({
 		anchorTo: anchorsPrepend ? "end" : "start",
@@ -164,8 +275,10 @@ export const SessionTranscriptList = forwardRef<
 		estimateSize,
 		getItemKey,
 		getScrollElement,
+		measureElement: measureTranscriptElement,
 		onChange: handleVirtualizerChange,
 		overscan: TRANSCRIPT_OVERSCAN,
+		scrollToFn,
 		useFlushSync: renderMode === "default",
 	});
 	const virtualItems = virtualizer.getVirtualItems();
@@ -175,6 +288,58 @@ export const SessionTranscriptList = forwardRef<
 			resetPrependAnchor();
 		}
 	}, [anchorsPrepend, model.rows]);
+	const handleRowRender = useCallback<ProfilerOnRenderCallback>(
+		(id, phase, actualDuration, baseDuration, startTime, commitTime) => {
+			onTurnRender?.(
+				id,
+				phase,
+				actualDuration,
+				baseDuration,
+				startTime,
+				commitTime,
+			);
+			if (!(debugEnabled && phase === "mount")) {
+				return;
+			}
+			const rowId = id.endsWith(":virtual") ? id.slice(0, -8) : id;
+			const rowIndex = modelRef.current.rowIndex.get(rowId);
+			const row =
+				rowIndex === undefined ? undefined : modelRef.current.rows[rowIndex];
+			if (!row) {
+				return;
+			}
+			recordTranscriptRowMount({
+				actualDuration,
+				commitTime,
+				flags: getTranscriptRowContentFlags(row),
+				rowId,
+				rowKind: row.kind,
+				startTime,
+			});
+		},
+		[debugEnabled, modelRef, onTurnRender],
+	);
+	const listFingerprintRef = useLatestValueRef(
+		`${renderMode}:${model.rows.length}`,
+	);
+	useMountEffect(() => {
+		if (!debugEnabled) {
+			return;
+		}
+		recordTranscriptComponentLifecycle({
+			component: "list",
+			instanceId: traceInstanceId,
+			phase: "mount",
+			propsFingerprint: listFingerprintRef.current,
+		});
+		return () =>
+			recordTranscriptComponentLifecycle({
+				component: "list",
+				instanceId: traceInstanceId,
+				phase: "unmount",
+				propsFingerprint: listFingerprintRef.current,
+			});
+	});
 
 	useImperativeHandle(
 		ref,
@@ -256,6 +421,9 @@ export const SessionTranscriptList = forwardRef<
 		if (!scrollElement) {
 			return;
 		}
+		const detachTrace = debugEnabled
+			? attachTranscriptTraceScroller(scrollElement)
+			: () => undefined;
 		let animationFrame: number | undefined;
 		const sync = () => {
 			animationFrame = undefined;
@@ -363,6 +531,7 @@ export const SessionTranscriptList = forwardRef<
 		resizeObserver?.observe(scrollElement);
 		schedule();
 		return () => {
+			detachTrace();
 			scheduleFeederRef.current = () => {};
 			scrollElement.removeEventListener("scroll", schedule);
 			scrollElement.removeEventListener("wheel", cancelAnchor);
@@ -415,11 +584,11 @@ export const SessionTranscriptList = forwardRef<
 							virtualItem={virtualItem}
 						/>
 					);
-					return onTurnRender ? (
+					return debugEnabled || onTurnRender ? (
 						<Profiler
 							key={row.id}
 							id={`${row.id}:virtual`}
-							onRender={onTurnRender}
+							onRender={handleRowRender}
 						>
 							{rendered}
 						</Profiler>
@@ -496,6 +665,13 @@ const TranscriptVirtualRow = memo(function TranscriptVirtualRow({
 	viewModel,
 	virtualItem,
 }: TranscriptVirtualRowProps) {
+	useMountEffect(() => {
+		if (!debugEnabled) {
+			return;
+		}
+		recordTranscriptRowLifecycle(row.id, "mount");
+		return () => recordTranscriptRowLifecycle(row.id, "unmount");
+	});
 	const style = directDomUpdates
 		? { left: 0, position: "absolute" as const, width: "100%" }
 		: {
@@ -816,6 +992,59 @@ function estimateTranscriptRow(row: SessionTranscriptRow | undefined) {
 		case "subagents-anchor":
 			return 1;
 	}
+}
+
+function getTranscriptRowContentFlags(
+	row: SessionTranscriptRow,
+): TranscriptForensicsContentFlags {
+	const content =
+		row.kind === "section"
+			? row.section.payload.traceSection
+			: row.kind === "member"
+				? row.items
+				: row;
+	const inspected = inspectTranscriptContent(content, new WeakSet());
+	const traceSection =
+		row.kind === "section" ? row.section.payload.traceSection : undefined;
+	return {
+		charCount: inspected.charCount,
+		eventCount:
+			traceSection?.kind === "agent"
+				? traceSection.events.length
+				: row.kind === "member"
+					? row.items.length
+					: 0,
+		hasCodeBlock:
+			inspected.hasCodeBlock ||
+			(traceSection?.kind === "agent" &&
+				traceSection.events.some((event) => event.kind === "tool")),
+	};
+}
+
+function inspectTranscriptContent(
+	value: unknown,
+	seen: WeakSet<object>,
+): { charCount: number; hasCodeBlock: boolean } {
+	if (typeof value === "string") {
+		return {
+			charCount: value.length,
+			hasCodeBlock: value.includes("```"),
+		};
+	}
+	if (typeof value !== "object" || value === null || seen.has(value)) {
+		return { charCount: 0, hasCodeBlock: false };
+	}
+	seen.add(value);
+	return Object.values(value).reduce(
+		(result, child) => {
+			const inspected = inspectTranscriptContent(child, seen);
+			return {
+				charCount: result.charCount + inspected.charCount,
+				hasCodeBlock: result.hasCodeBlock || inspected.hasCodeBlock,
+			};
+		},
+		{ charCount: 0, hasCodeBlock: false },
+	);
 }
 
 function getTranscriptRowLabel(row: SessionTranscriptRow) {

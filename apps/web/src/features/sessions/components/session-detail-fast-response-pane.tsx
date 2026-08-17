@@ -76,6 +76,11 @@ import {
 } from "./session-transcript-sections";
 import { createSessionTranscriptWindowStore } from "./session-transcript-window-store";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
+import {
+	createTranscriptTraceInstanceId,
+	ensureTranscriptTrace,
+	recordTranscriptComponentLifecycle,
+} from "./transcript-forensics";
 
 type SessionDetailOverviewViewModel = ReturnType<
 	typeof buildSessionDetailOverviewViewModel
@@ -132,6 +137,30 @@ export function SessionDetailFastResponsePane({
 	);
 	const transcriptDebugEnabled =
 		import.meta.env.DEV && searchParams.get("transcriptDebug") === "1";
+	ensureTranscriptTrace(transcriptDebugEnabled);
+	const [traceInstanceId] = useState(() =>
+		createTranscriptTraceInstanceId("pane"),
+	);
+	const paneFingerprintRef = useRef(`${sessionId}:${revision}`);
+	paneFingerprintRef.current = `${sessionId}:${revision}`;
+	useMountEffect(() => {
+		if (!transcriptDebugEnabled) {
+			return;
+		}
+		recordTranscriptComponentLifecycle({
+			component: "pane",
+			instanceId: traceInstanceId,
+			phase: "mount",
+			propsFingerprint: paneFingerprintRef.current,
+		});
+		return () =>
+			recordTranscriptComponentLifecycle({
+				component: "pane",
+				instanceId: traceInstanceId,
+				phase: "unmount",
+				propsFingerprint: paneFingerprintRef.current,
+			});
+	});
 	const skeletonDebugKey = getSessionDetailSkeletonDebugKey(skeletonDebugMode);
 	const initialWindowRequest = useMemo<SessionDetailWindowRequest>(
 		() => ({
@@ -618,6 +647,12 @@ function SessionDetailVirtualTranscript({
 
 	return (
 		<>
+			{debugEnabled ? (
+				<output
+					className="pointer-events-none fixed top-16 right-4 z-[100] max-w-[min(72rem,calc(100vw-2rem))] whitespace-pre-wrap rounded border border-(--session-overview-border) bg-(--session-overview-surface) px-2 py-1 text-[0.6875rem] text-(--session-overview-muted) shadow-sm"
+					data-transcript-debug-hud
+				/>
+			) : null}
 			{missingTurnId ? (
 				<output className="pointer-events-none fixed top-16 right-4 z-50 rounded-md border border-(--session-overview-border) bg-(--session-overview-surface) px-3 py-2 text-xs text-(--session-overview-text) shadow-sm">
 					Turn {missingTurnId} no longer exists in the latest upload.

@@ -1,4 +1,8 @@
-import type { CSSProperties } from "react";
+import {
+	type CSSProperties,
+	Profiler,
+	type ProfilerOnRenderCallback,
+} from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { cn } from "@/lib/utils";
 import {
@@ -171,6 +175,23 @@ export function CodeBlock({
 	const lineNumberWidth = Math.max(16, String(codeLines.length).length * 8);
 	const lineGutterWidth = lineNumberWidth + 22;
 	const headerIcon = getCodeHeaderIcon(fileLabel, language);
+	const handleSyntaxRender: ProfilerOnRenderCallback = (
+		_id,
+		phase,
+		actualDuration,
+		_baseDuration,
+		startTime,
+		commitTime,
+	) => {
+		window.__transcriptTrace?.recordSyntaxHighlight({
+			actualDuration,
+			charCount: normalizedCode.length,
+			commitTime,
+			language,
+			phase,
+			startTime,
+		});
+	};
 	const getLineProps = (lineNumber: number) => {
 		const kind =
 			lineChangeKinds?.[lineNumber - 1] ??
@@ -201,6 +222,52 @@ export function CodeBlock({
 			style,
 		};
 	};
+
+	const highlightedCode = (
+		<SyntaxHighlighter
+			language={language}
+			style={interfereSyntaxTheme}
+			customStyle={{
+				background: "transparent",
+				backgroundColor: "transparent",
+				borderRadius: 0,
+				fontFamily:
+					'"Geist Mono", ui-monospace, SFMono-Regular, Consolas, monospace',
+				fontSize: "12px",
+				lineHeight: "16px",
+				margin: 0,
+				overflow: "hidden",
+				padding: "6px 8px",
+			}}
+			lineNumberStyle={{
+				color: "var(--trace-code-line-number)",
+				display: "inline-block",
+				flexShrink: 0,
+				fontStyle: "normal",
+				marginRight: "16px",
+				minWidth: `${lineNumberWidth}px`,
+				paddingRight: 0,
+				textAlign: "right",
+				width: `${lineNumberWidth}px`,
+			}}
+			lineProps={getLineProps}
+			showLineNumbers={shouldShowLineNumbers}
+			wrapLines
+			wrapLongLines
+		>
+			{normalizedCode}
+		</SyntaxHighlighter>
+	);
+	const tracedCode =
+		import.meta.env.DEV &&
+		typeof window !== "undefined" &&
+		window.__transcriptTrace ? (
+			<Profiler id={`syntax:${fileLabel}`} onRender={handleSyntaxRender}>
+				{highlightedCode}
+			</Profiler>
+		) : (
+			highlightedCode
+		);
 
 	const card = (
 		<div
@@ -253,39 +320,7 @@ export function CodeBlock({
 					event.currentTarget.focus({ preventScroll: true });
 				}}
 			>
-				<SyntaxHighlighter
-					language={language}
-					style={interfereSyntaxTheme}
-					customStyle={{
-						background: "transparent",
-						backgroundColor: "transparent",
-						borderRadius: 0,
-						fontFamily:
-							'"Geist Mono", ui-monospace, SFMono-Regular, Consolas, monospace',
-						fontSize: "12px",
-						lineHeight: "16px",
-						margin: 0,
-						overflow: "hidden",
-						padding: "6px 8px",
-					}}
-					lineNumberStyle={{
-						color: "var(--trace-code-line-number)",
-						display: "inline-block",
-						flexShrink: 0,
-						fontStyle: "normal",
-						marginRight: "16px",
-						minWidth: `${lineNumberWidth}px`,
-						paddingRight: 0,
-						textAlign: "right",
-						width: `${lineNumberWidth}px`,
-					}}
-					lineProps={getLineProps}
-					showLineNumbers={shouldShowLineNumbers}
-					wrapLines
-					wrapLongLines
-				>
-					{normalizedCode}
-				</SyntaxHighlighter>
+				{tracedCode}
 			</section>
 		</div>
 	);

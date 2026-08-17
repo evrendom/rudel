@@ -1,3 +1,4 @@
+// biome-ignore-all lint/nursery/noExcessiveLinesPerFile: Row derivation, structural sharing, and cache identity form one measured transcript-model pass.
 import type {
 	TraceEvent,
 	TraceItem,
@@ -21,6 +22,7 @@ import {
 } from "./session-transcript-section-budget";
 import { areTranscriptValuesEqual } from "./session-transcript-structural-sharing";
 import type { SessionTurn } from "./session-turns";
+import { measureTranscriptSuspect } from "./transcript-forensics";
 
 export const SECTION_MAX_RENDERED_EVENTS = 60;
 export const SECTION_MAX_ESTIMATED_PX = 800;
@@ -170,6 +172,19 @@ export function deriveTranscriptSections(input: {
 	option: SessionDetailOverviewTurnOption;
 	requestUsagePlacement: AgentTraceRequestUsagePlacement;
 }): TranscriptSection[] {
+	return measureTranscriptSuspect(
+		"section-derivation",
+		{ level: input.level, turnId: input.option.turnId },
+		() => deriveTranscriptSectionsUnmeasured(input),
+	);
+}
+
+function deriveTranscriptSectionsUnmeasured(input: {
+	body: SessionTurn;
+	level: SessionDetailLevel;
+	option: SessionDetailOverviewTurnOption;
+	requestUsagePlacement: AgentTraceRequestUsagePlacement;
+}): TranscriptSection[] {
 	const derivation = deriveConversationTraceSections({
 		items: input.body.responseItems,
 		requestUsage: input.option.metrics.usageEvents,
@@ -290,6 +305,17 @@ export function stabilizeTranscriptRows(
 	previous: readonly SessionTranscriptRow[],
 	next: readonly SessionTranscriptRow[],
 ) {
+	return measureTranscriptSuspect(
+		"stable-rows",
+		{ next: next.length, previous: previous.length },
+		() => stabilizeTranscriptRowsUnmeasured(previous, next),
+	);
+}
+
+function stabilizeTranscriptRowsUnmeasured(
+	previous: readonly SessionTranscriptRow[],
+	next: readonly SessionTranscriptRow[],
+) {
 	const previousById = new Map(previous.map((row) => [row.id, row]));
 	let changed = previous.length !== next.length;
 	const rows = next.map((row, index) => {
@@ -351,6 +377,17 @@ export function isRowUnchanged(
 }
 
 export function stabilizeSessionDetailTurnOptions(
+	previous: readonly SessionDetailOverviewTurnOption[],
+	next: readonly SessionDetailOverviewTurnOption[],
+) {
+	return measureTranscriptSuspect(
+		"stable-options",
+		{ next: next.length, previous: previous.length },
+		() => stabilizeSessionDetailTurnOptionsUnmeasured(previous, next),
+	);
+}
+
+function stabilizeSessionDetailTurnOptionsUnmeasured(
 	previous: readonly SessionDetailOverviewTurnOption[],
 	next: readonly SessionDetailOverviewTurnOption[],
 ) {
