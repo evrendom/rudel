@@ -1,29 +1,40 @@
 import type {
 	SessionDetailOverview,
 	SessionDetailTurn,
+	SessionDetailWindow,
+	SessionDetailWindowRequest,
 } from "@rudel/api-routes";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { useMountEffect } from "@/app/hooks/useMountEffect";
 import {
 	fetchSessionDetailTurn,
+	fetchSessionDetailWindow,
 	isSessionDetailStaleRevisionError,
+	isSessionDetailWindowUnsupportedError,
 	SESSION_DETAIL_BODY_CACHE_TIME_MS,
 	SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
+	SESSION_DETAIL_WINDOW_CACHE_TIME_MS,
 	sessionDetailTurnQueryKey,
+	sessionDetailWindowQueryKey,
 	shouldRetrySessionDetailFastQuery,
 } from "./session-detail-fast-query";
+import { SessionDetailFastRevisionMismatchError } from "./session-detail-fast-response";
 import {
 	loadRemainingSessionDetailOverviewPages,
 	loadSessionDetailTurnBodies,
 } from "./session-detail-full-transcript";
-import type { SessionDetailSearchLoadState } from "./session-detail-search";
+import {
+	getSessionDetailTurnSearchText,
+	type SessionDetailSearchLoadState,
+} from "./session-detail-search";
 import {
 	getSessionDetailSkeletonDebugKey,
 	getSessionDetailSkeletonTurnPolicy,
 	type SessionDetailSkeletonDebugMode,
 	waitForSessionDetailSkeletonDelay,
 } from "./session-detail-skeleton-debug";
+import { WINDOW_RETENTION_LIMIT } from "./session-transcript-window-store";
 
 export function useSessionDetailSearchLoader(input: {
 	debugMode: SessionDetailSkeletonDebugMode;
@@ -53,15 +64,21 @@ export function useSessionDetailSearchLoader(input: {
 		const controller = new AbortController();
 		controllerRef.current?.abort();
 		controllerRef.current = controller;
-		const streamedBodies = new Map(
+		const searchIndex = new Map(
+			loadModeKey === nextLoadModeKey && "index" in loadState
+				? loadState.index
+				: [],
+		);
+		const legacyBodies = new Map(
 			loadModeKey === nextLoadModeKey && "bodies" in loadState
 				? loadState.bodies
 				: [],
 		);
 		setLoadModeKey(nextLoadModeKey);
 		setLoadState({
-			bodies: streamedBodies,
+			bodies: legacyBodies,
 			completed: 0,
+			index: searchIndex,
 			phase: "pages",
 			status: "loading",
 			total: 0,
@@ -76,65 +93,82 @@ export function useSessionDetailSearchLoader(input: {
 			const allPages = [...input.pages, ...remainingPages];
 			input.onPagesLoaded(allPages.slice(1));
 			const allTurns = allPages.flatMap((page) => page.turnPage.items);
-			const hydratableTurns = allTurns.filter(
+			const searchableTurns = allTurns.filter(
 				(turn) =>
 					getSessionDetailSkeletonTurnPolicy(input.debugMode, turn.index)
 						.hydrate,
 			);
+			const searchableTurnIds = new Set(
+				searchableTurns.map((turn) => turn.turnId),
+			);
 			setLoadState({
-				bodies: streamedBodies,
+				bodies: legacyBodies,
 				completed: 0,
+				index: new Map(searchIndex),
 				phase: "turns",
 				status: "loading",
-				total: hydratableTurns.filter((turn) => turn.hasBody).length,
+				total: searchableTurns.length,
 			});
-			const result = await loadSessionDetailTurnBodies({
-				concurrency: 3,
-				loadTurn: (turn) =>
-					loadTurnWithCache({
-						controller,
-						delayMs: getSessionDetailSkeletonTurnPolicy(
-							input.debugMode,
-							turn.index,
-						).delayMs,
-						queryClient,
-						revision: input.firstOverview.revision,
-						sessionId: input.firstOverview.session.sessionId,
-						turnId: turn.turnId,
-					}),
-				onProgress: ({ completed, total }) => {
-					if (!controller.signal.aborted) {
+
+			let failedTurnIds: readonly string[] = [];
+			try {
+				failedTurnIds = await loadSearchIndexFromWindows({
+					controller,
+					debugModeKey: nextLoadModeKey,
+					onProgress: (completed) => {
 						setLoadState({
-							bodies: new Map(streamedBodies),
+							bodies: legacyBodies,
 							completed,
+							index: new Map(searchIndex),
+							phase: "turns",
+							status: "loading",
+							total: searchableTurns.length,
+						});
+					},
+					queryClient,
+					revision: input.firstOverview.revision,
+					searchIndex,
+					searchableTurnIds,
+					sessionId: input.firstOverview.session.sessionId,
+				});
+			} catch (error) {
+				if (!isSessionDetailWindowUnsupportedError(error)) {
+					throw error;
+				}
+				failedTurnIds = await loadLegacySearchIndex({
+					controller,
+					debugMode: input.debugMode,
+					legacyBodies,
+					onProgress: (completed, total) => {
+						setLoadState({
+							bodies: new Map(legacyBodies),
+							completed,
+							index: new Map(searchIndex),
 							phase: "turns",
 							status: "loading",
 							total,
 						});
-					}
-				},
-				onTurnLoaded: (turn, body) => {
-					if (!controller.signal.aborted) {
-						streamedBodies.set(turn.turnId, body);
-						setLoadState((current) =>
-							current.status === "loading"
-								? { ...current, bodies: new Map(streamedBodies) }
-								: current,
-						);
-					}
-				},
-				signal: controller.signal,
-				shouldStop: isSessionDetailStaleRevisionError,
-				turns: hydratableTurns,
-			});
+					},
+					queryClient,
+					revision: input.firstOverview.revision,
+					searchIndex,
+					sessionId: input.firstOverview.session.sessionId,
+					turns: searchableTurns,
+				});
+			}
 			setLoadState(
-				result.failures.size > 0
+				failedTurnIds.length > 0
 					? {
-							bodies: result.bodies,
-							failedTurnIds: [...result.failures.keys()],
+							bodies: new Map(legacyBodies),
+							failedTurnIds,
+							index: new Map(searchIndex),
 							status: "failed",
 						}
-					: { bodies: result.bodies, status: "complete" },
+					: {
+							bodies: new Map(legacyBodies),
+							index: new Map(searchIndex),
+							status: "complete",
+						},
 			);
 		} catch (error) {
 			if (controller.signal.aborted) {
@@ -145,8 +179,9 @@ export function useSessionDetailSearchLoader(input: {
 				return;
 			}
 			setLoadState({
-				bodies: streamedBodies,
+				bodies: legacyBodies,
 				failedTurnIds: [],
+				index: searchIndex,
 				status: "failed",
 			});
 		} finally {
@@ -166,6 +201,7 @@ export function useSessionDetailSearchLoader(input: {
 					? {
 							bodies: current.bodies,
 							completed: current.completed,
+							index: current.index,
 							status: "cancelled",
 							total: current.total,
 						}
@@ -184,6 +220,158 @@ export function useSessionDetailSearchLoader(input: {
 		loadModeKey,
 		loadState,
 	};
+}
+
+export async function loadSearchIndexFromWindows(input: {
+	controller: AbortController;
+	debugModeKey: string;
+	loadWindow?: (
+		request: SessionDetailWindowRequest,
+		signal: AbortSignal,
+	) => Promise<SessionDetailWindow>;
+	onProgress: (completed: number) => void;
+	queryClient: QueryClient;
+	revision: string;
+	searchIndex: Map<string, readonly string[]>;
+	searchableTurnIds: ReadonlySet<string>;
+	sessionId: string;
+}) {
+	const completedTurnIds = new Set<string>();
+	const failedTurnIds = new Set<string>();
+	const retainedQueryKeys: Array<
+		ReturnType<typeof sessionDetailWindowQueryKey>
+	> = [];
+	const seenCursors = new Set<string>();
+	let request: SessionDetailWindowRequest = {
+		includeBodies: true,
+		mode: "initial",
+		sessionId: input.sessionId,
+	};
+	const mutableRetainedKeys = [...retainedQueryKeys];
+	while (true) {
+		input.controller.signal.throwIfAborted();
+		const queryKey = sessionDetailWindowQueryKey(request, input.debugModeKey);
+		const window: SessionDetailWindow = input.loadWindow
+			? await input.loadWindow(request, input.controller.signal)
+			: await input.queryClient.fetchQuery({
+					gcTime: SESSION_DETAIL_WINDOW_CACHE_TIME_MS,
+					queryFn: ({ signal }) =>
+						fetchSessionDetailWindow(
+							request,
+							AbortSignal.any([signal, input.controller.signal]),
+						),
+					queryKey,
+					retry: shouldRetrySessionDetailFastQuery,
+					staleTime: SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
+				});
+		if (window.revision !== input.revision) {
+			throw new SessionDetailFastRevisionMismatchError(
+				input.revision,
+				window.revision,
+			);
+		}
+		mutableRetainedKeys.push(queryKey);
+		while (mutableRetainedKeys.length > WINDOW_RETENTION_LIMIT) {
+			// The initial query is actively observed by the transcript controller;
+			// retain it and evict the oldest directional window instead.
+			const [evictedKey] = mutableRetainedKeys.splice(1, 1);
+			if (evictedKey) {
+				input.queryClient.removeQueries({ exact: true, queryKey: evictedKey });
+			}
+		}
+		for (const turn of window.turns) {
+			if (!input.searchableTurnIds.has(turn.turnId)) {
+				continue;
+			}
+			if (turn.body) {
+				input.searchIndex.set(
+					turn.turnId,
+					getSessionDetailTurnSearchText(turn.body),
+				);
+			} else if (turn.bodyOmitted === "oversized" && turn.hasBody) {
+				try {
+					const body = await loadTurnWithCache({
+						controller: input.controller,
+						delayMs: 0,
+						queryClient: input.queryClient,
+						revision: input.revision,
+						sessionId: input.sessionId,
+						turnId: turn.turnId,
+					});
+					input.searchIndex.set(
+						turn.turnId,
+						getSessionDetailTurnSearchText(body),
+					);
+					input.queryClient.removeQueries({
+						exact: true,
+						queryKey: sessionDetailTurnQueryKey({
+							revision: input.revision,
+							sessionId: input.sessionId,
+							turnId: turn.turnId,
+						}),
+					});
+				} catch (error) {
+					if (isSessionDetailStaleRevisionError(error)) {
+						throw error;
+					}
+					failedTurnIds.add(turn.turnId);
+				}
+			}
+			completedTurnIds.add(turn.turnId);
+		}
+		input.onProgress(completedTurnIds.size);
+		if (!window.newerCursor) {
+			break;
+		}
+		if (seenCursors.has(window.newerCursor)) {
+			throw new Error(
+				"Session detail search received a repeated window cursor",
+			);
+		}
+		seenCursors.add(window.newerCursor);
+		request = {
+			cursor: window.newerCursor,
+			includeBodies: true,
+			mode: "newer",
+			sessionId: input.sessionId,
+		};
+	}
+	return [...failedTurnIds];
+}
+
+async function loadLegacySearchIndex(input: {
+	controller: AbortController;
+	debugMode: SessionDetailSkeletonDebugMode;
+	legacyBodies: Map<string, SessionDetailTurn>;
+	onProgress: (completed: number, total: number) => void;
+	queryClient: QueryClient;
+	revision: string;
+	searchIndex: Map<string, readonly string[]>;
+	sessionId: string;
+	turns: SessionDetailOverview["turnPage"]["items"];
+}) {
+	const result = await loadSessionDetailTurnBodies({
+		concurrency: 3,
+		loadTurn: (turn) =>
+			loadTurnWithCache({
+				controller: input.controller,
+				delayMs: getSessionDetailSkeletonTurnPolicy(input.debugMode, turn.index)
+					.delayMs,
+				queryClient: input.queryClient,
+				revision: input.revision,
+				sessionId: input.sessionId,
+				turnId: turn.turnId,
+			}),
+		onProgress: ({ completed, total }) => input.onProgress(completed, total),
+		onTurnLoaded: (turn, body) => {
+			input.legacyBodies.set(turn.turnId, body);
+			input.searchIndex.set(turn.turnId, getSessionDetailTurnSearchText(body));
+		},
+		signal: input.controller.signal,
+		shouldStop: isSessionDetailStaleRevisionError,
+		turns: input.turns,
+	});
+	return [...result.failures.keys()];
 }
 
 async function loadTurnWithCache(input: {

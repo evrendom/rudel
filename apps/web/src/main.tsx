@@ -76,13 +76,15 @@ function deferProductAnalyticsInit() {
 	}, 0);
 }
 
-const isTraceTreeFixture =
-	import.meta.env.DEV && window.location.pathname === "/dev/trace-tree-fixture";
+const isStandaloneDevRoute =
+	import.meta.env.DEV &&
+	(window.location.pathname === "/dev/trace-tree-fixture" ||
+		window.location.pathname === "/dev/session-detail-fast-integration");
 
 // biome-ignore lint/style/noNonNullAssertion: root element always exists
 createRoot(document.getElementById("root")!).render(
 	<StrictMode>
-		{isTraceTreeFixture ? (
+		{isStandaloneDevRoute ? (
 			<BrowserRouter>
 				<GlobalLumaScope />
 				<div className="h-full">
@@ -101,6 +103,6 @@ createRoot(document.getElementById("root")!).render(
 	</StrictMode>,
 );
 
-if (!isTraceTreeFixture) {
+if (!isStandaloneDevRoute) {
 	deferProductAnalyticsInit();
 }

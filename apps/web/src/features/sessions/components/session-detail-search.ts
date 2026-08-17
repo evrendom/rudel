@@ -14,33 +14,34 @@ export type SessionDetailSearchResult = {
 	turnNumber: number | undefined;
 };
 
+export type SessionDetailSearchIndex = ReadonlyMap<string, readonly string[]>;
+
+type SessionDetailSearchPayload = {
+	bodies: ReadonlyMap<string, SessionDetailTurn>;
+	index: SessionDetailSearchIndex;
+};
+
 export type SessionDetailSearchLoadState =
 	| { status: "idle" }
-	| {
-			bodies: ReadonlyMap<string, SessionDetailTurn>;
+	| (SessionDetailSearchPayload & {
 			completed: number;
 			phase: "pages" | "turns";
 			status: "loading";
 			total: number;
-	  }
-	| {
-			bodies: ReadonlyMap<string, SessionDetailTurn>;
+	  })
+	| (SessionDetailSearchPayload & {
 			failedTurnIds: readonly string[];
 			status: "failed";
-	  }
-	| {
-			bodies: ReadonlyMap<string, SessionDetailTurn>;
-			status: "complete";
-	  }
-	| {
-			bodies: ReadonlyMap<string, SessionDetailTurn>;
+	  })
+	| (SessionDetailSearchPayload & { status: "complete" })
+	| (SessionDetailSearchPayload & {
 			completed: number;
 			status: "cancelled";
 			total: number;
-	  };
+	  });
 
 export function searchSessionDetailTurns(input: {
-	bodies: ReadonlyMap<string, SessionDetailTurn>;
+	index: SessionDetailSearchIndex;
 	options: readonly SessionDetailOverviewTurnOption[];
 	query: string;
 }): SessionDetailSearchResult[] {
@@ -51,11 +52,10 @@ export function searchSessionDetailTurns(input: {
 
 	const results: SessionDetailSearchResult[] = [];
 	for (const [index, option] of input.options.entries()) {
-		const body = input.bodies.get(option.turnId);
 		const candidates = [
 			option.memberPreview,
 			option.preview,
-			...(body ? getSessionDetailTurnText(body) : []),
+			...(input.index.get(option.turnId) ?? []),
 		];
 		const match = candidates.find((candidate) =>
 			candidate.toLocaleLowerCase().includes(normalizedQuery),
@@ -73,7 +73,10 @@ export function searchSessionDetailTurns(input: {
 	return results;
 }
 
-function getSessionDetailTurnText(turn: SessionDetailTurn) {
+export function getSessionDetailTurnSearchText(turn: {
+	responseItems: SessionDetailTurn["responseItems"];
+	userItems: SessionDetailTurn["userItems"];
+}) {
 	return [...turn.userItems, ...turn.responseItems].flatMap(getTraceItemText);
 }
 

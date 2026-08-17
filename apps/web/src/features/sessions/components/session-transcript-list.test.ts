@@ -4,7 +4,9 @@ import {
 	getTranscriptVirtualViewport,
 	getVisibleBlankGap,
 	isTranscriptAnchorCancelKey,
+	shouldAnchorTranscriptPrepend,
 } from "./session-transcript-list";
+import type { SessionTranscriptRow } from "./session-transcript-sections";
 
 function virtualItem(index: number, start: number, end: number): VirtualItem {
 	return {
@@ -95,5 +97,39 @@ describe("virtual transcript scroll ownership", () => {
 			expect(isTranscriptAnchorCancelKey(key)).toBe(true);
 		}
 		expect(isTranscriptAnchorCancelKey("Enter")).toBe(false);
+	});
+
+	test("enables keyed anchoring only when existing turn rows shift after a prepend", () => {
+		const row = (turnId: string): SessionTranscriptRow => ({
+			id: `${turnId}:no-response`,
+			kind: "no-response",
+			turnId,
+		});
+		const olderEdge: SessionTranscriptRow = {
+			direction: "older",
+			id: "window-edge:older",
+			kind: "window-edge",
+			state: "idle",
+		};
+		const previous = [olderEdge, row("turn-1"), row("turn-2")];
+
+		expect(
+			shouldAnchorTranscriptPrepend(previous, [
+				olderEdge,
+				row("turn-0"),
+				...previous.slice(1),
+			]),
+		).toBe(true);
+		expect(
+			shouldAnchorTranscriptPrepend(previous, [
+				olderEdge,
+				row("turn-1"),
+				row("turn-1-detail"),
+				row("turn-2"),
+			]),
+		).toBe(false);
+		expect(
+			shouldAnchorTranscriptPrepend(previous, [olderEdge, row("turn-2")]),
+		).toBe(false);
 	});
 });

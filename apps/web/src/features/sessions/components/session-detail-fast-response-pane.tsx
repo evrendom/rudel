@@ -64,6 +64,7 @@ import {
 	getSessionDetailSkeletonTurnPolicy,
 	type SessionDetailSkeletonDebugMode,
 } from "./session-detail-skeleton-debug";
+import { shouldUseVirtualSessionTranscript } from "./session-detail-transcript-mode";
 import {
 	SessionTranscriptList,
 	type SessionTranscriptListHandle,
@@ -80,6 +81,7 @@ type SessionDetailOverviewViewModel = ReturnType<
 	typeof buildSessionDetailOverviewViewModel
 >;
 type SubagentSummary = SessionDetailOverview["subagents"][number];
+const EMPTY_SEARCH_INDEX = new Map<string, readonly string[]>();
 
 export function SessionDetailFastResponsePane({
 	anchorTurnId,
@@ -125,7 +127,9 @@ export function SessionDetailFastResponsePane({
 	const queryClient = useQueryClient();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const detailLevel = resolveSessionDetailLevel(searchParams.get("level"));
-	const wantsVirtualTranscript = searchParams.get("transcript") === "virtual";
+	const wantsVirtualTranscript = shouldUseVirtualSessionTranscript(
+		searchParams.get("transcript"),
+	);
 	const transcriptDebugEnabled =
 		import.meta.env.DEV && searchParams.get("transcriptDebug") === "1";
 	const skeletonDebugKey = getSessionDetailSkeletonDebugKey(skeletonDebugMode);
@@ -153,7 +157,6 @@ export function SessionDetailFastResponsePane({
 	});
 	const {
 		bodyStates,
-		effectiveTurnBodies,
 		handleRetryTurnBody,
 		handleViewportRangeChange,
 		loadedOptions,
@@ -220,7 +223,7 @@ export function SessionDetailFastResponsePane({
 					value={detailLevel}
 				/>
 				<SessionDetailSearchControl
-					bodies={effectiveTurnBodies}
+					index={"index" in searchLoad ? searchLoad.index : EMPTY_SEARCH_INDEX}
 					loadState={searchLoad}
 					onCancel={onCancelSearchLoad}
 					onFocus={onSearchFocus}
@@ -356,14 +359,24 @@ function SessionDetailVirtualTranscript({
 			}),
 		[queryClient, skeletonDebugKey],
 	);
+	const evictWindow = useCallback(
+		(request: SessionDetailWindowRequest) => {
+			queryClient.removeQueries({
+				exact: true,
+				queryKey: sessionDetailWindowQueryKey(request, skeletonDebugKey),
+			});
+		},
+		[queryClient, skeletonDebugKey],
+	);
 	const windowStore = useMemo(
 		() =>
 			createSessionTranscriptWindowStore({
 				fetchWindow,
 				initialWindow,
+				onEvictWindow: evictWindow,
 				sessionId,
 			}),
-		[fetchWindow, initialWindow, sessionId],
+		[evictWindow, fetchWindow, initialWindow, sessionId],
 	);
 	const subscribe = useCallback(
 		(listener: () => void) =>
@@ -375,6 +388,13 @@ function SessionDetailVirtualTranscript({
 		windowStore.getSnapshot,
 		windowStore.getSnapshot,
 	);
+	useEffect(() => {
+		for (const turn of snapshot.turns) {
+			if (!turn.body) {
+				sectionCache.deleteTurn(turn.turnId);
+			}
+		}
+	}, [sectionCache, snapshot.turns]);
 
 	useEffect(() => {
 		const timers: number[] = [];
@@ -522,6 +542,18 @@ function SessionDetailVirtualTranscript({
 		},
 		[onStaleRevision, windowStore],
 	);
+	const observeVisibleTurnIds = useCallback(
+		(turnIds: readonly string[]) => {
+			void windowStore
+				.observeVisibleTurnIds(turnIds)
+				.catch((error: unknown) => {
+					if (isSessionDetailStaleRevisionError(error)) {
+						onStaleRevision(error);
+					}
+				});
+		},
+		[onStaleRevision, windowStore],
+	);
 	const retryTurn = useCallback(
 		(turnId: string) => {
 			const input = { revision: snapshot.revision, sessionId, turnId };
@@ -601,6 +633,7 @@ function SessionDetailVirtualTranscript({
 				onExpandTurn={expandTurn}
 				onRetryTurn={retryTurn}
 				onToggleFold={toggleFold}
+				onVisibleTurnIds={observeVisibleTurnIds}
 				pendingCount={snapshot.pending}
 				scrollContainerRef={responseScrollRef}
 				selectedTurnId={selectedTurnId}

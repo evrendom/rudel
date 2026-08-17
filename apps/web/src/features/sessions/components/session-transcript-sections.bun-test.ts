@@ -7,6 +7,7 @@ import {
 import {
 	buildSessionTranscriptRowModel,
 	createTranscriptSectionCache,
+	SECTION_MAX_ESTIMATED_PX,
 	SECTION_MAX_RENDERED_EVENTS,
 	type SessionTranscriptTurnSource,
 	stabilizeSessionDetailTurnOptions,
@@ -231,7 +232,8 @@ describe("session transcript sections and rows", () => {
 	test("caps a legal giant request and emits an accurately counted overflow row", () => {
 		sharedCache = createTranscriptSectionCache();
 		const rows = model([source("turn-1", 0, body("turn-1", 75))]).rows;
-		const section = rows.find((row) => row.kind === "section");
+		const sections = rows.filter((row) => row.kind === "section");
+		const section = sections[0];
 		const overflow = rows.find((row) => row.kind === "section-overflow");
 
 		expect(section?.kind).toBe("section");
@@ -242,9 +244,31 @@ describe("session transcript sections and rows", () => {
 		if (section.section.payload.traceSection.kind !== "agent") {
 			throw new Error("Expected an agent section");
 		}
-		expect(section.section.payload.traceSection.events).toHaveLength(
-			SECTION_MAX_RENDERED_EVENTS,
-		);
+		expect(
+			sections.reduce(
+				(total, row) =>
+					total +
+					(row.kind === "section" &&
+					row.section.payload.traceSection.kind === "agent"
+						? row.section.payload.traceSection.events.length
+						: 0),
+				0,
+			),
+		).toBe(SECTION_MAX_RENDERED_EVENTS);
+		expect(
+			sections.every(
+				(row) =>
+					row.kind === "section" &&
+					row.section.estimatedHeight <= SECTION_MAX_ESTIMATED_PX,
+			),
+		).toBe(true);
+		expect(sections[1]?.id).toBe("turn-1:s0b1");
+		expect(
+			sections[1]?.kind === "section" &&
+				sections[1].section.payload.traceSection.kind === "agent"
+				? sections[1].section.payload.traceSection.showHeader
+				: true,
+		).toBe(false);
 		expect(overflow).toMatchObject({
 			hidden: { events: 15, kindLabel: "activity events" },
 			kind: "section-overflow",
@@ -474,7 +498,7 @@ describe("session transcript sections and rows", () => {
 			},
 		);
 		expect(
-			expanded.rows.find((row) => row.id === "turn-fold-large:s0:overflow"),
+			expanded.rows.find((row) => row.kind === "section-overflow"),
 		).toMatchObject({ hidden: { events: 15 } });
 	});
 });

@@ -4,11 +4,9 @@ import type {
 } from "@/components/conversation/conversation-trace";
 import type { AgentTraceRequestUsagePlacement } from "@/components/conversation/conversation-trace-requests";
 import {
-	type ConversationTraceAgentSection,
 	type ConversationTraceDerivedSection,
 	deriveConversationTraceSections,
 } from "@/components/conversation/conversation-trace-sections";
-import { buildAgentTraceTreeBranches } from "@/components/conversation/conversation-trace-tree-branches";
 import type { SessionDetailLevel } from "./session-detail-level";
 import type { SessionDetailOverviewTurnOption } from "./session-detail-overview-model";
 import {
@@ -17,10 +15,15 @@ import {
 	type TranscriptFoldSummary,
 	type TranscriptSectionFoldMetadata,
 } from "./session-transcript-folds";
+import {
+	boundTraceSectionEvents,
+	splitAgentSectionByEstimatedHeight,
+} from "./session-transcript-section-budget";
 import { areTranscriptValuesEqual } from "./session-transcript-structural-sharing";
 import type { SessionTurn } from "./session-turns";
 
 export const SECTION_MAX_RENDERED_EVENTS = 60;
+export const SECTION_MAX_ESTIMATED_PX = 800;
 export const TRANSCRIPT_SECTION_CACHE_LIMIT = 1_000;
 
 export type DerivedSectionPayload = {
@@ -180,24 +183,56 @@ export function deriveTranscriptSections(input: {
 				: [],
 		)
 		.at(-1)?.id;
-	return derivation.sections.map((traceSection, sectionIndex) => {
-		const bounded = boundTraceSection(traceSection);
+	const parts = derivation.sections.flatMap((traceSection, sectionIndex) => {
+		const groupId = `${input.option.turnId}:s${sectionIndex}`;
+		const bounded = boundTraceSectionEvents(
+			traceSection,
+			SECTION_MAX_RENDERED_EVENTS,
+		);
 		const events = traceSection.kind === "agent" ? traceSection.events : [];
+		const fold = deriveTranscriptSectionFoldMetadata(
+			events,
+			groupId,
+			terminalMessageId,
+		);
+		const sectionParts =
+			bounded.section.kind === "agent"
+				? splitAgentSectionByEstimatedHeight(
+						bounded.section,
+						SECTION_MAX_ESTIMATED_PX,
+					)
+				: [
+						{
+							chunkIndex: 0,
+							estimatedHeight: 56,
+							section: bounded.section,
+						},
+					];
+		return sectionParts.map((part, partIndex) => ({
+			estimatedHeight: part.estimatedHeight,
+			fold,
+			id: part.chunkIndex === 0 ? groupId : `${groupId}b${part.chunkIndex}`,
+			hiddenEventCount:
+				partIndex === sectionParts.length - 1 ? bounded.hiddenEventCount : 0,
+			traceSection: part.section,
+		}));
+	});
+	return parts.map((part, partIndex) => {
 		return {
-			estimatedHeight: estimateTranscriptSectionHeight(bounded.section),
-			fold: deriveTranscriptSectionFoldMetadata(events, terminalMessageId),
-			id: `${input.option.turnId}:s${sectionIndex}`,
+			estimatedHeight: part.estimatedHeight,
+			fold: part.fold,
+			id: part.id,
 			payload: {
 				allEvents: {
 					eventCount: derivation.events.length,
 					events: derivation.events,
 					planMode: derivation.planMode,
 				},
-				hiddenEventCount: bounded.hiddenEventCount,
-				isFirst: sectionIndex === 0,
-				isLast: sectionIndex === derivation.sections.length - 1,
+				hiddenEventCount: part.hiddenEventCount,
+				isFirst: partIndex === 0,
+				isLast: partIndex === parts.length - 1,
 				planMode: derivation.planMode,
-				traceSection: bounded.section,
+				traceSection: part.traceSection,
 			},
 			turnId: input.option.turnId,
 		};
@@ -462,35 +497,6 @@ function indexSessionTranscriptRows(
 		}
 	});
 	return { rowIndex, rows, rowTurnIndex, turnFirstRowIndex };
-}
-
-function boundTraceSection(section: ConversationTraceDerivedSection) {
-	if (
-		section.kind === "item" ||
-		section.events.length <= SECTION_MAX_RENDERED_EVENTS
-	) {
-		return { hiddenEventCount: 0, section };
-	}
-	const events = section.events.slice(0, SECTION_MAX_RENDERED_EVENTS);
-	const bounded: ConversationTraceAgentSection = {
-		...section,
-		branches: buildAgentTraceTreeBranches(events),
-		events,
-	};
-	return {
-		hiddenEventCount: section.events.length - events.length,
-		section: bounded,
-	};
-}
-
-function estimateTranscriptSectionHeight(
-	section: ConversationTraceDerivedSection,
-) {
-	if (section.kind === "item") {
-		return 56;
-	}
-	const requestHeader = section.showHeader ? 40 : 0;
-	return Math.max(40, requestHeader + section.events.length * 40);
 }
 
 function sectionCacheKey(input: {

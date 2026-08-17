@@ -1,11 +1,11 @@
-import type { SessionDetailTurn } from "@rudel/api-routes";
 import { SearchIcon, XIcon } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useDeferredValue, useMemo, useRef, useState } from "react";
 import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { Button } from "@/app/ui/button";
 import { Input } from "@/app/ui/input";
 import type { SessionDetailOverviewTurnOption } from "./session-detail-overview-model";
 import {
+	type SessionDetailSearchIndex,
 	type SessionDetailSearchLoadState,
 	searchSessionDetailTurns,
 } from "./session-detail-search";
@@ -13,14 +13,14 @@ import {
 const MAX_VISIBLE_SEARCH_RESULTS = 50;
 
 export function SessionDetailSearchControl({
-	bodies,
+	index,
 	loadState,
 	onCancel,
 	onFocus,
 	onSelectResult,
 	options,
 }: {
-	bodies: ReadonlyMap<string, SessionDetailTurn>;
+	index: SessionDetailSearchIndex;
 	loadState: SessionDetailSearchLoadState;
 	onCancel: () => void;
 	onFocus: () => void;
@@ -31,9 +31,10 @@ export function SessionDetailSearchControl({
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [focused, setFocused] = useState(false);
 	const [query, setQuery] = useState("");
+	const deferredQuery = useDeferredValue(query);
 	const results = useMemo(
-		() => searchSessionDetailTurns({ bodies, options, query }),
-		[bodies, options, query],
+		() => searchSessionDetailTurns({ index, options, query: deferredQuery }),
+		[deferredQuery, index, options],
 	);
 
 	useMountEffect(() => {

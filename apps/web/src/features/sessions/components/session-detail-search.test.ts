@@ -1,7 +1,10 @@
 import type { SessionDetailTurn } from "@rudel/api-routes";
 import { describe, expect, it } from "vitest";
 import type { SessionDetailOverviewTurnOption } from "./session-detail-overview-model";
-import { searchSessionDetailTurns } from "./session-detail-search";
+import {
+	getSessionDetailTurnSearchText,
+	searchSessionDetailTurns,
+} from "./session-detail-search";
 
 const option = {
 	compactionsBefore: [],
@@ -60,7 +63,7 @@ describe("session detail search", () => {
 	it("streams a body-only hit into the result set after that body arrives", () => {
 		expect(
 			searchSessionDetailTurns({
-				bodies: new Map(),
+				index: new Map(),
 				options: [option],
 				query: "needle",
 			}),
@@ -68,7 +71,7 @@ describe("session detail search", () => {
 
 		expect(
 			searchSessionDetailTurns({
-				bodies: new Map([[option.turnId, body]]),
+				index: new Map([[option.turnId, getSessionDetailTurnSearchText(body)]]),
 				options: [option],
 				query: "needle",
 			}),
@@ -84,7 +87,7 @@ describe("session detail search", () => {
 	it("matches overview previews before any body is loaded", () => {
 		expect(
 			searchSessionDetailTurns({
-				bodies: new Map(),
+				index: new Map(),
 				options: [option],
 				query: "ordinary",
 			}),

@@ -56,6 +56,16 @@ const SessionContinuousTraceFixturePage = import.meta.env.DEV
 		)
 	: null;
 
+const SessionDetailFastIntegrationPage = import.meta.env.DEV
+	? lazy(() =>
+			import(
+				"@/features/sessions/components/SessionDetailFastIntegrationPage"
+			).then((module) => ({
+				default: module.SessionDetailFastIntegrationPage,
+			})),
+		)
+	: null;
+
 const WrappedDesktopResumePage = lazy(() =>
 	import("@/features/get-started/WrappedDesktopResumePage").then((module) => ({
 		default: module.WrappedDesktopResumePage,
@@ -222,6 +232,16 @@ function App() {
 		traceTreeFixtureMode === "continuous"
 			? SessionContinuousTraceFixturePage
 			: ConversationTraceFixturePage;
+	const isSessionDetailFastIntegrationPath =
+		location.pathname === "/dev/session-detail-fast-integration";
+
+	if (isSessionDetailFastIntegrationPath && SessionDetailFastIntegrationPage) {
+		return (
+			<Suspense fallback={<FullscreenRouteLoadingScreen />}>
+				<SessionDetailFastIntegrationPage />
+			</Suspense>
+		);
+	}
 
 	if (isTraceTreeFixturePath && TraceTreeFixturePage) {
 		return (

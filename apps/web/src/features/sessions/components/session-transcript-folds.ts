@@ -2,6 +2,7 @@ import type { TraceEvent } from "@/components/conversation/conversation-trace";
 
 export type TranscriptSectionFoldMetadata = {
 	events: number;
+	groupId: string;
 	hasError: boolean;
 	hasSubagentSpawn: boolean;
 	hasTerminalMessage: boolean;
@@ -15,10 +16,12 @@ export type TranscriptFoldSummary = {
 
 export function deriveTranscriptSectionFoldMetadata(
 	events: readonly TraceEvent[],
+	groupId: string,
 	terminalMessageId: string | undefined,
 ): TranscriptSectionFoldMetadata {
 	return {
 		events: events.length,
+		groupId,
 		hasError: events.some(
 			(event) =>
 				(event.kind === "tool" && event.result?.isError === true) ||
@@ -46,26 +49,34 @@ export function deriveTranscriptFoldPlan(
 	if (protectedTurn) {
 		return undefined;
 	}
-	const lastToolSectionId = sections
-		.filter((section) => section.fold.toolCalls > 0)
-		.at(-1)?.id;
-	const hiddenSections = sections.filter(
-		(section) =>
-			section.fold.toolCalls > 0 &&
-			section.id !== lastToolSectionId &&
-			!section.fold.hasError &&
-			!section.fold.hasSubagentSpawn &&
-			!section.fold.hasTerminalMessage,
+	const groups = [
+		...new Map(sections.map((section) => [section.fold.groupId, section.fold])),
+	].map(([groupId, fold]) => ({ fold, groupId }));
+	const lastToolGroupId = groups
+		.filter((group) => group.fold.toolCalls > 0)
+		.at(-1)?.groupId;
+	const hiddenGroups = groups.filter(
+		(group) =>
+			group.fold.toolCalls > 0 &&
+			group.groupId !== lastToolGroupId &&
+			!group.fold.hasError &&
+			!group.fold.hasSubagentSpawn &&
+			!group.fold.hasTerminalMessage,
 	);
-	if (hiddenSections.length === 0) {
+	if (hiddenGroups.length === 0) {
 		return undefined;
 	}
+	const hiddenGroupIds = new Set(hiddenGroups.map((group) => group.groupId));
 	return {
-		hiddenSectionIds: new Set(hiddenSections.map((section) => section.id)),
-		summary: hiddenSections.reduce<TranscriptFoldSummary>(
-			(summary, section) => ({
-				events: summary.events + section.fold.events,
-				toolCalls: summary.toolCalls + section.fold.toolCalls,
+		hiddenSectionIds: new Set(
+			sections
+				.filter((section) => hiddenGroupIds.has(section.fold.groupId))
+				.map((section) => section.id),
+		),
+		summary: hiddenGroups.reduce<TranscriptFoldSummary>(
+			(summary, group) => ({
+				events: summary.events + group.fold.events,
+				toolCalls: summary.toolCalls + group.fold.toolCalls,
 			}),
 			{ events: 0, toolCalls: 0 },
 		),

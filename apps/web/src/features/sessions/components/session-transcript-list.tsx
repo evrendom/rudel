@@ -8,6 +8,8 @@ import {
 	startTransition,
 	useCallback,
 	useImperativeHandle,
+	useLayoutEffect,
+	useReducer,
 	useRef,
 } from "react";
 import { useLatestValueRef } from "@/app/hooks/useLatestValueRef";
@@ -75,6 +77,7 @@ export const SessionTranscriptList = forwardRef<
 		onRetryTurn?: (turnId: string) => void;
 		onToggleFold?: (turnId: string) => void;
 		onTurnRender?: ProfilerOnRenderCallback;
+		onVisibleTurnIds?: (turnIds: readonly string[]) => void;
 		pendingCount: number;
 		renderMode?: SessionTranscriptRenderMode;
 		scrollContainerRef: React.RefObject<HTMLDivElement | null>;
@@ -95,6 +98,7 @@ export const SessionTranscriptList = forwardRef<
 		onRetryTurn,
 		onToggleFold,
 		onTurnRender,
+		onVisibleTurnIds,
 		pendingCount,
 		renderMode = "direct-position",
 		scrollContainerRef,
@@ -107,12 +111,22 @@ export const SessionTranscriptList = forwardRef<
 	ref,
 ) {
 	const rowsRef = useRef(model.rows);
+	const committedRowsRef = useRef(model.rows);
+	const [, resetPrependAnchor] = useReducer(
+		(version: number) => version + 1,
+		0,
+	);
+	const anchorsPrepend = shouldAnchorTranscriptPrepend(
+		committedRowsRef.current,
+		model.rows,
+	);
 	rowsRef.current = model.rows;
 	const modelRef = useLatestValueRef(model);
 	const feederInputRef = useLatestValueRef({
 		bodyTurnCount,
 		debugEnabled,
 		onLoadDirection,
+		onVisibleTurnIds,
 		pendingCount,
 		windowsLoaded,
 	});
@@ -142,7 +156,7 @@ export const SessionTranscriptList = forwardRef<
 	);
 	const directDomUpdates = renderMode !== "default";
 	const virtualizer = useVirtualizer<HTMLDivElement, HTMLElement>({
-		anchorTo: "end",
+		anchorTo: anchorsPrepend ? "end" : "start",
 		count: model.rows.length,
 		directDomUpdates,
 		directDomUpdatesMode:
@@ -155,6 +169,12 @@ export const SessionTranscriptList = forwardRef<
 		useFlushSync: renderMode === "default",
 	});
 	const virtualItems = virtualizer.getVirtualItems();
+	useLayoutEffect(() => {
+		committedRowsRef.current = model.rows;
+		if (anchorsPrepend) {
+			resetPrependAnchor();
+		}
+	}, [anchorsPrepend, model.rows]);
 
 	useImperativeHandle(
 		ref,
@@ -170,10 +190,7 @@ export const SessionTranscriptList = forwardRef<
 				if (index === undefined && onLoadAnchor) {
 					const loaded = await onLoadAnchor(turnId);
 					if (loaded) {
-						await new Promise<void>((resolve) =>
-							window.requestAnimationFrame(() => resolve()),
-						);
-						index = modelRef.current.turnFirstRowIndex.get(turnId);
+						index = await waitForTranscriptTurnIndex(modelRef, turnId);
 					}
 				}
 				if (index === undefined) {
@@ -257,6 +274,14 @@ export const SessionTranscriptList = forwardRef<
 					: undefined;
 				return turnIndex === undefined ? [] : [{ item, turnIndex }];
 			});
+			const visibleTurnIds = [
+				...new Set(
+					visibleItems.flatMap((item) => {
+						const row = rows[item.index];
+						return row && "turnId" in row ? [row.turnId] : [];
+					}),
+				),
+			];
 			const viewport = getTranscriptVirtualViewport({
 				clientHeight,
 				scrollHeight: virtualizer.getTotalSize(),
@@ -265,6 +290,7 @@ export const SessionTranscriptList = forwardRef<
 				turnTotal: new Set(indexedModel.rowTurnIndex.values()).size,
 			});
 			if (viewport && scrollModeRef.current.kind === "free-scrolling") {
+				feederInputRef.current.onVisibleTurnIds?.(visibleTurnIds);
 				viewportStore.publishViewport(
 					viewport.activeTurn,
 					viewport.visibleRange,
@@ -405,6 +431,41 @@ export const SessionTranscriptList = forwardRef<
 		</ConversationTraceTreeConnectorStyleProvider>
 	);
 });
+
+async function waitForTranscriptTurnIndex(
+	modelRef: { current: SessionTranscriptRowModel },
+	turnId: string,
+) {
+	const startedAt = performance.now();
+	while (performance.now() - startedAt < 5_000) {
+		const index = modelRef.current.turnFirstRowIndex.get(turnId);
+		if (index !== undefined) {
+			return index;
+		}
+		await new Promise<void>((resolve) =>
+			window.requestAnimationFrame(() => resolve()),
+		);
+	}
+	return undefined;
+}
+
+export function shouldAnchorTranscriptPrepend(
+	previous: readonly SessionTranscriptRow[],
+	next: readonly SessionTranscriptRow[],
+) {
+	if (next.length <= previous.length) {
+		return false;
+	}
+	const previousFirstTurnRowIndex = previous.findIndex(
+		(row) => "turnId" in row,
+	);
+	const previousFirstTurnRow = previous[previousFirstTurnRowIndex];
+	if (!previousFirstTurnRow) {
+		return false;
+	}
+	const nextIndex = next.findIndex((row) => row.id === previousFirstTurnRow.id);
+	return nextIndex > previousFirstTurnRowIndex;
+}
 
 type TranscriptVirtualRowProps = {
 	active: boolean;
@@ -739,7 +800,7 @@ function estimateTranscriptRow(row: SessionTranscriptRow | undefined) {
 	}
 	switch (row.kind) {
 		case "member":
-			return 112;
+			return 196;
 		case "section":
 			return row.section.estimatedHeight;
 		case "section-overflow":

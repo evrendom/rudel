@@ -3,7 +3,10 @@ import {
 	SessionDetailWindowSchema,
 	type SessionDetailWindowTurn,
 } from "@rudel/api-routes";
-import { createSessionTranscriptWindowStore } from "./session-transcript-window-store";
+import {
+	createSessionTranscriptWindowStore,
+	WINDOW_RETENTION_LIMIT,
+} from "./session-transcript-window-store";
 
 const revision = "2026-08-16T08:30:00.123Z";
 
@@ -38,12 +41,13 @@ function window(input: {
 	newerCursor: string | null;
 	olderCursor: string | null;
 	revision?: string;
+	total?: number;
 	turns: SessionDetailWindowTurn[];
 }) {
 	return SessionDetailWindowSchema.parse({
 		...input,
 		revision: input.revision ?? revision,
-		total: 5,
+		total: input.total ?? 5,
 	});
 }
 
@@ -133,5 +137,72 @@ describe("session transcript window store", () => {
 		expect(store.getSnapshot().turns.map((item) => item.turnId)).toContain(
 			"turn-4",
 		);
+	});
+
+	test("retains eight body windows, demotes distant bodies, and rehydrates visibility", async () => {
+		const evictedModes: string[] = [];
+		const store = createSessionTranscriptWindowStore({
+			fetchWindow: async (request) =>
+				window({
+					newerCursor: null,
+					olderCursor: null,
+					total: 10,
+					turns: [
+						turn(
+							request.mode === "anchor"
+								? Number(request.anchorTurnId.split("-").at(-1))
+								: 0,
+						),
+					],
+				}),
+			initialWindow: window({
+				newerCursor: null,
+				olderCursor: null,
+				total: 10,
+				turns: [turn(0)],
+			}),
+			onEvictWindow: (request) => evictedModes.push(request.mode),
+			sessionId: "session-1",
+		});
+
+		for (let index = 1; index < 10; index += 1) {
+			const request = {
+				anchorTurnId: `turn-${index}`,
+				includeBodies: true as const,
+				mode: "anchor" as const,
+				revision,
+				sessionId: "session-1",
+			};
+			store.mergeWindow(
+				window({
+					newerCursor: null,
+					olderCursor: null,
+					total: 10,
+					turns: [turn(index)],
+				}),
+				"anchor",
+				request,
+			);
+			await store.observeVisibleTurnIds([`turn-${index}`]);
+		}
+
+		expect(store.getSnapshot().bodyWindowsRetained).toBe(
+			WINDOW_RETENTION_LIMIT,
+		);
+		expect(
+			store.getSnapshot().turns.find((item) => item.index === 1)?.body,
+		).toBe(null);
+		expect(evictedModes).toContain("anchor");
+
+		await store.observeVisibleTurnIds(["turn-1"]);
+		expect(store.getSnapshot().bodyWindowsRetained).toBe(
+			WINDOW_RETENTION_LIMIT,
+		);
+		expect(
+			store.getSnapshot().turns.find((item) => item.index === 1)?.body,
+		).not.toBeNull();
+		expect(
+			store.getSnapshot().turns.find((item) => item.index === 9)?.body,
+		).toBe(null);
 	});
 });
