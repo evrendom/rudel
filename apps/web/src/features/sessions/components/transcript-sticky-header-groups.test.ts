@@ -1,10 +1,13 @@
 import type { VirtualItem } from "@tanstack/react-virtual";
 import { describe, expect, test } from "vitest";
+import type { TraceEvent } from "@/components/conversation/conversation-trace";
+import { deriveConversationTraceSections } from "@/components/conversation/conversation-trace-sections";
+import { deriveTranscriptSectionFoldMetadata } from "./session-transcript-folds";
 import type { SessionTranscriptRow } from "./session-transcript-sections";
 import {
 	deriveTranscriptStickyHeaderGroups,
-	resolveTranscriptStickyHeaderOverlay,
-} from "./use-transcript-model-header-overlay";
+	placeTranscriptStickyHeaderGroups,
+} from "./use-transcript-sticky-header-wrappers";
 
 function virtualItem(index: number, start: number, end: number): VirtualItem {
 	return {
@@ -31,13 +34,8 @@ function noResponse(turnId: string): SessionTranscriptRow {
 	return { id: `${turnId}:no-response`, kind: "no-response", turnId };
 }
 
-function pending(turnId: string): SessionTranscriptRow {
-	return {
-		id: `${turnId}:pending`,
-		kind: "turn-pending",
-		option: {} as never,
-		turnId,
-	};
+function turnError(turnId: string): SessionTranscriptRow {
+	return { id: `${turnId}:error`, kind: "turn-error", turnId };
 }
 
 function windowEdge(direction: "newer" | "older"): SessionTranscriptRow {
@@ -55,26 +53,69 @@ function section(input: {
 	model?: string;
 	planMode?: boolean;
 	turnId: string;
-}) {
+}): SessionTranscriptRow {
+	const timestamp = "2026-08-17T12:00:00.000Z";
+	const event: TraceEvent = {
+		content: input.id,
+		id: `${input.id}:message`,
+		kind: "message",
+		text: input.id,
+		timestamp,
+	};
+	const derivation = deriveConversationTraceSections({
+		items: [
+			{
+				events: [event],
+				executionMode: input.planMode ? "plan" : "unknown",
+				id: `${input.id}:agent`,
+				kind: "agent",
+				timestamp,
+			},
+		],
+		requestUsage: input.model
+			? [
+					{
+						at: timestamp,
+						cacheCreationInputTokens: 0,
+						cacheReadInputTokens: 0,
+						inputTokens: 1,
+						model: input.model,
+						outputTokens: 1,
+					},
+				]
+			: undefined,
+	});
+	const traceSection = derivation.sections[0];
+	if (!traceSection) {
+		throw new Error("Expected a derived trace section");
+	}
 	return {
 		id: input.id,
 		kind: "section",
 		section: {
+			estimatedHeight: 100,
+			fold: deriveTranscriptSectionFoldMetadata([event], input.id, event.id),
+			id: input.id,
 			payload: {
-				isFirst: input.isFirst,
-				planMode: input.planMode ?? false,
-				traceSection: {
-					kind: "agent",
-					usage: input.model ? { model: input.model } : undefined,
+				allEvents: {
+					eventCount: 1,
+					events: [event],
+					planMode: input.planMode ?? false,
 				},
+				hiddenEventCount: 0,
+				isFirst: input.isFirst,
+				isLast: true,
+				planMode: input.planMode ?? false,
+				traceSection,
 			},
+			turnId: input.turnId,
 		},
 		turnId: input.turnId,
-	} as unknown as SessionTranscriptRow;
+	};
 }
 
 describe("transcript sticky-header groups", () => {
-	test("carries member and per-section model header data across budget chunks", () => {
+	test("carries member and per-section model data across budget chunks", () => {
 		const rows = [
 			member("turn-1"),
 			section({
@@ -144,7 +185,7 @@ describe("transcript sticky-header groups", () => {
 	test("tiles every row exactly once, including no-response turns and kind-less edges", () => {
 		const fixtures: readonly (readonly SessionTranscriptRow[])[] = [
 			[member("no-response"), noResponse("no-response")],
-			[pending("pending")],
+			[turnError("error")],
 			[
 				windowEdge("older"),
 				member("turn-1"),
@@ -190,7 +231,10 @@ describe("transcript sticky-header groups", () => {
 			}
 		}
 
-		const edgeRows = fixtures[2] ?? [];
+		const edgeRows = fixtures[2];
+		if (!edgeRows) {
+			throw new Error("Expected the window-edge fixture");
+		}
 		const edgeGroups = deriveTranscriptStickyHeaderGroups({
 			agentModel: "gpt-5.2",
 			rows: edgeRows,
@@ -207,132 +251,44 @@ describe("transcript sticky-header groups", () => {
 					group.endRowIndex >= middleEdgeIndex,
 			)?.turnId,
 		).toBe("turn-1");
-		const edgeMeasurements = edgeRows.map((_, index) =>
-			virtualItem(index, index * 80, (index + 1) * 80),
-		);
-		for (let scrollTop = 0; scrollTop < edgeRows.length * 80; scrollTop += 1) {
-			expect(
-				resolveTranscriptStickyHeaderOverlay({
-					groups: edgeGroups,
-					headerHeights: { member: 56, model: 32 },
-					measurements: edgeMeasurements,
-					scrollTop,
-				}),
-				`mid-list edge coverage at ${scrollTop}`,
-			).toBeDefined();
-		}
-
-		const noResponseRows = fixtures[0] ?? [];
-		const noResponseGroups = deriveTranscriptStickyHeaderGroups({
-			agentModel: "gpt-5.2",
-			rows: noResponseRows,
-			userImageUrl: undefined,
-			userLabel: "Evren",
-		});
-		const noResponseMeasurements = noResponseRows.map((_, index) =>
-			virtualItem(index, index * 100, (index + 1) * 100),
-		);
-		for (let scrollTop = 0; scrollTop < 200; scrollTop += 1) {
-			expect(
-				resolveTranscriptStickyHeaderOverlay({
-					groups: noResponseGroups,
-					headerHeights: { member: 56 },
-					measurements: noResponseMeasurements,
-					scrollTop,
-				}),
-				`no-response coverage at ${scrollTop}`,
-			).toBeDefined();
-		}
 	});
 
-	test("binary-searches measured ownership and computes push-off", () => {
-		const groups = deriveTranscriptStickyHeaderGroups({
-			agentModel: "gpt-5.2",
-			rows: [
-				member("turn-1"),
-				section({
-					id: "turn-1:s0",
-					isFirst: true,
-					turnId: "turn-1",
-				}),
-				section({
-					id: "turn-1:s0b1",
-					isFirst: false,
-					turnId: "turn-1",
-				}),
-			],
-			userImageUrl: undefined,
-			userLabel: "Evren",
-		});
-		const measurements = [
-			virtualItem(0, 0, 100),
-			virtualItem(1, 100, 600),
-			virtualItem(2, 600, 1_100),
-		];
-
-		expect(
-			resolveTranscriptStickyHeaderOverlay({
-				groups,
-				headerHeights: { member: 56, model: 32 },
-				measurements,
-				scrollTop: 20,
-			}),
-		).toMatchObject({ group: { header: { kind: "member" } } });
-		expect(
-			resolveTranscriptStickyHeaderOverlay({
-				groups,
-				headerHeights: { member: 56, model: 32 },
-				measurements,
-				scrollTop: 1_080,
-			}),
-		).toMatchObject({
-			group: { header: { kind: "model" }, turnId: "turn-1" },
-			translateY: -12,
-		});
-	});
-
-	test("uses outgoing per-kind heights without holes through member/model handovers", () => {
+	test("places only intersecting groups from measured header starts to group ends", () => {
 		const rows = [
 			member("turn-1"),
 			section({ id: "turn-1:s0", isFirst: true, turnId: "turn-1" }),
+			section({ id: "turn-1:s0b1", isFirst: false, turnId: "turn-1" }),
+			section({ id: "turn-1:s0b2", isFirst: false, turnId: "turn-1" }),
 			member("turn-2"),
 			section({ id: "turn-2:s0", isFirst: true, turnId: "turn-2" }),
 		];
 		const groups = deriveTranscriptStickyHeaderGroups({
 			agentModel: "gpt-5.2",
-			headerHeights: { member: 56, model: 32 },
 			rows,
 			userImageUrl: undefined,
 			userLabel: "Evren",
 		});
-		const measurements = rows.map((_, index) =>
-			virtualItem(index, index * 100, (index + 1) * 100),
-		);
-		const samples = Array.from({ length: 400 }, (_, scrollTop) =>
-			resolveTranscriptStickyHeaderOverlay({
+		const measurements = [
+			virtualItem(0, 0, 100),
+			virtualItem(1, 100, 300),
+			virtualItem(2, 300, 500),
+			virtualItem(3, 500, 700),
+			virtualItem(4, 700, 800),
+			virtualItem(5, 800, 1_000),
+		];
+
+		expect(
+			placeTranscriptStickyHeaderGroups({
 				groups,
-				headerHeights: { member: 56, model: 32 },
 				measurements,
-				scrollTop,
+				virtualItems: measurements.slice(1, 4),
 			}),
-		);
-		expect(samples.every(Boolean)).toBe(true);
-		expect(samples[50]?.translateY).toBe(-6);
-		expect(samples[75]?.translateY).toBe(-31);
-		expect(samples[150]?.translateY).toBe(0);
-		expect(samples[175]?.translateY).toBe(-7);
-		for (let index = 1; index < samples.length; index += 1) {
-			const previous = samples[index - 1];
-			const current = samples[index];
-			if (
-				previous &&
-				current &&
-				previous.group.ownerKey === current.group.ownerKey
-			) {
-				expect(
-					Math.abs(current.translateY - previous.translateY),
-				).toBeLessThanOrEqual(1);
-			}
-		}
+		).toMatchObject([
+			{
+				extent: 600,
+				group: { header: { kind: "model" }, turnId: "turn-1" },
+				start: 100,
+			},
+		]);
 	});
 });

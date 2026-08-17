@@ -63,9 +63,9 @@ import {
 	deriveTranscriptStickyHeaderGroups,
 	type TranscriptMemberHeaderData,
 	type TranscriptModelHeaderData,
-	TranscriptStickyHeaderOverlay,
-	useTranscriptModelHeaderOverlay,
-} from "./use-transcript-model-header-overlay";
+	TranscriptStickyHeaderWrappers,
+	useTranscriptStickyHeaderWrappers,
+} from "./use-transcript-sticky-header-wrappers";
 import "./session-transcript-mask.css";
 
 const TRANSCRIPT_OVERSCAN = 8;
@@ -218,22 +218,10 @@ export const SessionTranscriptList = forwardRef<
 			),
 		[stickyHeaderGroups],
 	);
-	const handleOverlayMeasured = useCallback(
-		() => scheduleFeederRef.current(),
-		[],
-	);
-	const {
-		memberMeasureRef: stickyMemberHeaderMeasureRef,
-		memberMeasurementOwner: stickyMemberHeaderMeasurementOwner,
-		modelMeasureRef: stickyModelHeaderMeasureRef,
-		modelMeasurementOwner: stickyModelHeaderMeasurementOwner,
-		overlayRef: stickyHeaderOverlayRef,
-		owner: stickyHeaderOwner,
-		sync: syncStickyHeaderOverlay,
-	} = useTranscriptModelHeaderOverlay({
-		groups: stickyHeaderGroups,
-		onMeasured: handleOverlayMeasured,
-	});
+	const { placements: stickyHeaderPlacements, sync: syncStickyHeaderWrappers } =
+		useTranscriptStickyHeaderWrappers({
+			groups: stickyHeaderGroups,
+		});
 	const feederInputRef = useLatestValueRef({
 		bodyTurnCount,
 		debugPaintEpoch,
@@ -260,9 +248,39 @@ export const SessionTranscriptList = forwardRef<
 		  }
 		| undefined
 	>(undefined);
+	const stickyHeaderRangeRef = useRef<
+		| {
+				endIndex: number;
+				startIndex: number;
+		  }
+		| undefined
+	>(undefined);
 	const handleVirtualizerChange = useCallback(
-		() => scheduleFeederRef.current(),
-		[],
+		(
+			instance: Virtualizer<HTMLDivElement, HTMLElement>,
+			scrollUpdate: boolean,
+		) => {
+			scheduleFeederRef.current();
+			const range = instance.range;
+			const previousRange = stickyHeaderRangeRef.current;
+			const rangeChanged =
+				range?.startIndex !== previousRange?.startIndex ||
+				range?.endIndex !== previousRange?.endIndex;
+			if (range) {
+				stickyHeaderRangeRef.current = {
+					endIndex: range.endIndex,
+					startIndex: range.startIndex,
+				};
+			}
+			if (scrollUpdate && !rangeChanged) {
+				return;
+			}
+			syncStickyHeaderWrappers({
+				measurements: instance.measurementsCache,
+				virtualItems: instance.getVirtualItems(),
+			});
+		},
+		[syncStickyHeaderWrappers],
 	);
 	const getItemKey = useCallback(
 		(index: number) => rowsRef.current[index]?.id ?? `missing-row:${index}`,
@@ -372,6 +390,12 @@ export const SessionTranscriptList = forwardRef<
 		useFlushSync: renderMode === "default",
 	});
 	const virtualItems = virtualizer.getVirtualItems();
+	useLayoutEffect(() => {
+		syncStickyHeaderWrappers({
+			measurements: virtualizer.measurementsCache,
+			virtualItems,
+		});
+	}, [syncStickyHeaderWrappers, virtualItems, virtualizer]);
 	useLayoutEffect(() => {
 		committedRowsRef.current = model.rows;
 		if (anchorsPrepend) {
@@ -554,10 +578,6 @@ export const SessionTranscriptList = forwardRef<
 			const clientHeight = scrollElement.clientHeight;
 			const viewportBottom = scrollTop + clientHeight;
 			const currentVirtualItems = virtualizer.getVirtualItems();
-			syncStickyHeaderOverlay({
-				measurements: virtualizer.measurementsCache,
-				scrollTop,
-			});
 			const visibleItems = currentVirtualItems.filter(
 				(item) => item.start < viewportBottom && item.end > scrollTop,
 			);
@@ -715,14 +735,7 @@ export const SessionTranscriptList = forwardRef<
 							: { height: virtualizer.getTotalSize() }
 					}
 				>
-					<TranscriptStickyHeaderOverlay
-						memberMeasureRef={stickyMemberHeaderMeasureRef}
-						memberMeasurementOwner={stickyMemberHeaderMeasurementOwner}
-						modelMeasureRef={stickyModelHeaderMeasureRef}
-						modelMeasurementOwner={stickyModelHeaderMeasurementOwner}
-						overlayRef={stickyHeaderOverlayRef}
-						owner={stickyHeaderOwner}
-					/>
+					<TranscriptStickyHeaderWrappers placements={stickyHeaderPlacements} />
 					{virtualItems.map((virtualItem) => {
 						const row = model.rows[virtualItem.index];
 						if (!row) {

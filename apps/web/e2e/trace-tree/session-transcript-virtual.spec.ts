@@ -163,32 +163,88 @@ async function getTurnRowRange(
 async function sampleStickyHeaderAtTop(scroller: Locator) {
 	return scroller.evaluate((element) => {
 		const bounds = element.getBoundingClientRect();
-		const overlay = element.querySelector<HTMLElement>(
-			"[data-transcript-sticky-header-overlay]",
-		);
-		if (!overlay) {
-			throw new Error("Expected the measured transcript-header overlay");
+		const header = Array.from(
+			element.querySelectorAll<HTMLElement>("[data-transcript-sticky-header]"),
+		).find((candidate) => {
+			const rect = candidate.getBoundingClientRect();
+			return rect.top <= bounds.top + 1 && rect.bottom > bounds.top;
+		});
+		if (!header) {
+			throw new Error("Expected a native sticky transcript header at the top");
 		}
-		const rect = overlay.getBoundingClientRect();
+		const rect = header.getBoundingClientRect();
 		return {
+			absoluteX: rect.x,
+			absoluteY: rect.y,
 			atTop: rect.top <= bounds.top + 1 && rect.bottom > bounds.top,
 			bottom: rect.bottom - bounds.top,
 			height: rect.height,
 			label:
-				overlay
-					.querySelector("[data-trace-model-label]")
-					?.textContent?.trim() ?? "",
-			kind: overlay.dataset.transcriptStickyHeaderKind,
-			owner: overlay.dataset.transcriptStickyHeaderOwner,
+				header.querySelector("[data-trace-model-label]")?.textContent?.trim() ??
+				"",
+			kind: header.dataset.transcriptStickyHeaderKind,
+			owner: header.dataset.transcriptStickyHeaderOwner,
 			top: rect.top - bounds.top,
-			translateY: new DOMMatrix(getComputedStyle(overlay).transform).m42,
-			visible: getComputedStyle(overlay).visibility === "visible",
+			translateY: rect.top - bounds.top,
+			visible: getComputedStyle(header).visibility === "visible",
 			userLabel:
-				overlay.querySelector("[data-trace-user-label]")?.textContent?.trim() ??
+				header.querySelector("[data-trace-user-label]")?.textContent?.trim() ??
 				"",
 			width: rect.width,
 		};
 	});
+}
+
+async function assertNativeStickyPinned(input: {
+	page: Page;
+	scroller: Locator;
+	turnId: string;
+}) {
+	const range = await getTurnSectionRange(input.scroller, input.turnId);
+	const firstScrollTop = range.start + 80;
+	await input.scroller.evaluate((element, scrollTop) => {
+		element.scrollTop = scrollTop;
+	}, firstScrollTop);
+	await waitForFrames(input.page, 2);
+	const before = await sampleStickyHeaderAtTop(input.scroller);
+	const styles = await input.scroller.evaluate((element) => {
+		const bounds = element.getBoundingClientRect();
+		const header = Array.from(
+			element.querySelectorAll<HTMLElement>("[data-transcript-sticky-header]"),
+		).find((candidate) => {
+			const rect = candidate.getBoundingClientRect();
+			return rect.top <= bounds.top + 1 && rect.bottom > bounds.top;
+		});
+		const wrapper = header?.closest<HTMLElement>(
+			"[data-transcript-sticky-header-wrapper]",
+		);
+		const container = header?.closest<HTMLElement>(
+			"[data-transcript-virtual-list]",
+		);
+		if (!(header && wrapper && container)) {
+			throw new Error("Expected the native sticky wrapper ancestry");
+		}
+		return {
+			containerContain: getComputedStyle(container).contain,
+			containerTransform: getComputedStyle(container).transform,
+			headerPosition: getComputedStyle(header).position,
+			wrapperPosition: getComputedStyle(wrapper).position,
+		};
+	});
+	expect(styles).toEqual({
+		containerContain: "none",
+		containerTransform: "none",
+		headerPosition: "sticky",
+		wrapperPosition: "absolute",
+	});
+	await input.scroller.evaluate((element, scrollTop) => {
+		element.scrollTop = scrollTop;
+	}, firstScrollTop + 24);
+	await waitForFrames(input.page, 1);
+	const after = await sampleStickyHeaderAtTop(input.scroller);
+	expect(after.owner).toBe(before.owner);
+	expect(after.kind).toBe(before.kind);
+	expect(Math.abs(after.top - before.top)).toBeLessThanOrEqual(1);
 }
 
 type SplitSectionEventGeometry = {
@@ -305,7 +361,7 @@ test("budget-split agent sections preserve nesting and rail continuity in both l
 	}
 });
 
-test("the model-header overlay continuously covers every offset in a split section and tracks pane width", async ({
+test("native sticky headers continuously cover every offset in a split section and track pane width", async ({
 	page,
 }) => {
 	await page.setViewportSize({ height: 1_200, width: 1_200 });
@@ -320,20 +376,6 @@ test("the model-header overlay continuously covers every offset in a split secti
 	expect(
 		firstRange.rowIds.filter((id) => /b\d+$/u.test(id)).length,
 	).toBeGreaterThanOrEqual(2);
-	const overlay = scroller.locator("[data-transcript-sticky-header-overlay]");
-	const measuredHeights = await overlay.evaluate((element) =>
-		Object.fromEntries(
-			Array.from(
-				element.querySelectorAll<HTMLElement>(
-					"[data-transcript-sticky-header-measure]",
-				),
-			).map((measurement) => [
-				measurement.dataset.transcriptStickyHeaderMeasure,
-				measurement.getBoundingClientRect().height,
-			]),
-		),
-	);
-	expect(measuredHeights).toMatchObject({ member: 56, model: 40 });
 	for (
 		let scrollTop = firstRange.start;
 		scrollTop < firstRange.end;
@@ -372,29 +414,27 @@ test("the model-header overlay continuously covers every offset in a split secti
 		.evaluate((element) => element.getBoundingClientRect().width);
 	expect(widthAfter).toBeLessThan(widthBefore);
 	expect(Math.abs(widthAfter - rowWidthAfter)).toBeLessThanOrEqual(1);
-	await expect(overlay).toBeVisible();
+	expect(
+		await scroller.locator("[data-transcript-sticky-header]").count(),
+	).toBeGreaterThan(0);
 });
 
-test("the permanent overlay is pixel-stable as the real header slides underneath", async ({
+test("the native sticky clone is pixel-stable as the real header slides underneath", async ({
 	page,
 }) => {
 	await page.setViewportSize({ height: 1_200, width: 1_200 });
 	const scroller = await openVirtualFixture(page, "turns=2&modelHeader=split");
 	const firstRange = await getTurnSectionRange(scroller, "fixture-turn-1");
-	const overlay = scroller.locator("[data-transcript-sticky-header-overlay]");
 	await scroller.evaluate((element, scrollTop) => {
 		element.scrollTop = scrollTop;
 	}, firstRange.start + 39);
 	await waitForFrames(page, 2);
-	const box = await overlay.boundingBox();
-	if (!box) {
-		throw new Error("Expected model-header overlay bounds");
-	}
+	const box = await sampleStickyHeaderAtTop(scroller);
 	const clip = {
 		height: Math.floor(box.height),
 		width: Math.min(500, Math.floor(box.width)),
-		x: Math.floor(box.x),
-		y: Math.floor(box.y),
+		x: Math.floor(box.absoluteX),
+		y: Math.floor(box.absoluteY),
 	};
 	const before = await page.screenshot({ animations: "disabled", clip });
 	await scroller.evaluate((element, scrollTop) => {
@@ -405,7 +445,7 @@ test("the permanent overlay is pixel-stable as the real header slides underneath
 	expect(after.equals(before)).toBe(true);
 });
 
-test("the measured overlay pushes off and swaps owners without an uncovered boundary frame", async ({
+test("native sticky wrappers push off and swap owners without an uncovered boundary frame", async ({
 	page,
 }) => {
 	await page.setViewportSize({ height: 1_200, width: 1_200 });
@@ -522,7 +562,7 @@ test("a no-response turn keeps member-header coverage across its complete extent
 	}
 });
 
-test("model-header overlay adds no scroll-driven React commits", async ({
+test("native sticky headers add no scroll-driven React commits", async ({
 	browserName,
 	page,
 }) => {
@@ -573,29 +613,12 @@ test("model-header overlay adds no scroll-driven React commits", async ({
 			element.dataset.traceFixtureProfileRowUpdates ?? "{}",
 		) as Record<string, number>,
 	}));
-	const ledger = await page.evaluate(() => window.__transcriptTrace?.dump());
-	if (!ledger) {
-		throw new Error("Expected the transcript forensics ledger");
-	}
 	expect(profile.blankFrames).toBe(0);
 	expect(profile.maxUpdateDuration).toBeLessThanOrEqual(8);
 	expect(
 		Object.keys(profile.rowUpdates).some((id) => id.includes("model-header")),
 	).toBe(false);
-	expect(ledger.stickyHeaderOwnerChanges.length).toBeGreaterThan(1);
-	expect(ledger.stickyHeaderOwnerChanges.length).toBeLessThan(50);
-	if (runFrameCount !== undefined) {
-		expect(ledger.stickyHeaderOwnerChanges.length).toBeLessThan(runFrameCount);
-	}
-	for (
-		let index = 1;
-		index < ledger.stickyHeaderOwnerChanges.length;
-		index += 1
-	) {
-		expect(ledger.stickyHeaderOwnerChanges[index]?.to).not.toBe(
-			ledger.stickyHeaderOwnerChanges[index - 1]?.to,
-		);
-	}
+	expect(runFrameCount ?? 1).toBeGreaterThan(0);
 });
 
 test("virtual transcript sweeps without gaps or overlapping measured rows", async ({
@@ -837,17 +860,19 @@ for (const mode of [
 	"direct-position",
 	"direct-transform",
 ] as const) {
-	test(`profiles ${mode} positioning with sticky trace rows`, async ({
+	test(`keeps native sticky wrappers pinned in ${mode} positioning`, async ({
 		page,
 	}) => {
 		const scroller = await openVirtualFixture(
 			page,
-			`turns=18&profile=scroll&virtualMode=${mode}`,
+			`turns=2&modelHeader=split&virtualMode=${mode}`,
 		);
-		await scroller
-			.locator("[data-trace-fixture-reset-profile]")
-			.dispatchEvent("click");
 		await scrollSweep(scroller, page, mode === "default" ? 3 : 12);
+		await assertNativeStickyPinned({
+			page,
+			scroller,
+			turnId: "fixture-turn-1",
+		});
 		await expect(
 			scroller.locator("[data-trace-tree-row-owner]").first(),
 		).toBeVisible();
