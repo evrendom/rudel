@@ -11,11 +11,18 @@ import {
 	getSessionDetailOverview,
 	getSessionDetailSubagent,
 	getSessionDetailTurn,
+	getSessionDetailWindow,
 } from "../../services/session-detail.service.js";
-import { InvalidSessionDetailCursorError } from "../../services/session-detail-derivation.service.js";
+import {
+	InvalidSessionDetailCursorError,
+	InvalidSessionDetailWindowCursorError,
+} from "../../services/session-detail-derivation.service.js";
 import { getSessionOwner } from "../../services/session-ownership.service.js";
 import { requireSessionDetailOwnerAccess } from "./session-detail-access.js";
-import { throwSessionDetailRevisionError } from "./session-detail-errors.js";
+import {
+	throwSessionDetailRevisionError,
+	throwSessionDetailWindowError,
+} from "./session-detail-errors.js";
 
 const sortByMap: Record<string, "date" | "duration" | "interactions"> = {
 	session_date: "date",
@@ -128,6 +135,36 @@ const detailOverview = os.analytics.sessions.detailOverview
 		}
 	});
 
+const detailWindow = os.analytics.sessions.detailWindow
+	.use(orgMiddleware)
+	.handler(async ({ input, context, errors }) => {
+		const ownerId = requireSessionDetailOwnerAccess(
+			await getSessionOwner(context.organizationId, input.sessionId),
+			{
+				isOrgAdmin: context.isOrgAdmin,
+				requesterUserId: context.user.id,
+			},
+		);
+
+		try {
+			const result = await getSessionDetailWindow({
+				organizationId: context.organizationId,
+				ownerId,
+				request: input,
+				sessionId: input.sessionId,
+			});
+			if (!result) {
+				throw new ORPCError("NOT_FOUND");
+			}
+			return result;
+		} catch (error) {
+			if (error instanceof InvalidSessionDetailWindowCursorError) {
+				throw new ORPCError("BAD_REQUEST", { message: error.message });
+			}
+			return throwSessionDetailWindowError(error, errors);
+		}
+	});
+
 const detailTurn = os.analytics.sessions.detailTurn
 	.use(orgMiddleware)
 	.handler(async ({ input, context, errors }) => {
@@ -188,6 +225,7 @@ export const sessionsRouter = os.analytics.sessions.router({
 	detailOverview,
 	detailSubagent,
 	detailTurn,
+	detailWindow,
 	list,
 	summary,
 	summaryComparison,

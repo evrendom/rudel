@@ -1,4 +1,7 @@
-import { SessionDetailOverviewSchema } from "@rudel/api-routes";
+import {
+	SessionDetailOverviewSchema,
+	SessionDetailWindowSchema,
+} from "@rudel/api-routes";
 import { describe, expect, it } from "vitest";
 import {
 	SESSION_DETAIL_BODY_CACHE_TIME_MS,
@@ -6,9 +9,13 @@ import {
 	sessionDetailOverviewPageQueryKey,
 	sessionDetailSubagentQueryKey,
 	sessionDetailTurnQueryKey,
+	sessionDetailWindowQueryKey,
 	shouldRetrySessionDetailFastQuery,
 } from "./session-detail-fast-query";
-import { parseSessionDetailOverviewResponse } from "./session-detail-fast-response";
+import {
+	parseSessionDetailOverviewResponse,
+	parseSessionDetailWindowResponse,
+} from "./session-detail-fast-response";
 
 const revision = "2026-08-16T08:30:00.123Z";
 
@@ -96,8 +103,67 @@ describe("session detail fast-path query boundaries", () => {
 				subagentId: "agent-1",
 			}),
 		).toContain("agent-1");
+		expect(
+			sessionDetailWindowQueryKey(
+				{
+					anchorTurnId: "turn-20",
+					includeBodies: true,
+					mode: "anchor",
+					revision,
+					sessionId: "session-1",
+				},
+				"skeletons:delay:100",
+			),
+		).toEqual([
+			"session-detail-v2",
+			"window",
+			"session-1",
+			"skeletons:delay:100",
+			expect.objectContaining({
+				anchorTurnId: "turn-20",
+				mode: "anchor",
+				revision,
+			}),
+		]);
 		expect(SESSION_DETAIL_OVERVIEW_STALE_TIME_MS).toBe(60_000);
 		expect(SESSION_DETAIL_BODY_CACHE_TIME_MS).toBe(600_000);
+	});
+
+	it("retains valid bodies while recovering drifted window summary fields", () => {
+		const summary = overviewFixture().turnPage.items[0];
+		const fixture = SessionDetailWindowSchema.parse({
+			newerCursor: null,
+			olderCursor: null,
+			revision,
+			total: 1,
+			turns: [
+				{
+					...summary,
+					body: {
+						responseItems: [
+							{
+								id: "summary-1",
+								kind: "summary",
+								text: "Finished",
+							},
+						],
+						userItems: [],
+					},
+					bodyOmitted: null,
+				},
+			],
+		});
+		const parsed = parseSessionDetailWindowResponse({
+			...fixture,
+			turns: [{ ...fixture.turns[0], responsePreview: 42 }],
+		});
+
+		expect(parsed.window.turns[0]?.responsePreview).toBeNull();
+		expect(parsed.window.turns[0]?.body?.responseItems[0]).toMatchObject({
+			kind: "summary",
+			text: "Finished",
+		});
+		expect(parsed.shapeIssueFields).toContain("turns.0.responsePreview");
 	});
 
 	it("recovers safe overview fields without retaining invalid drifted values", () => {

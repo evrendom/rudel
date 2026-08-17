@@ -6,6 +6,7 @@ const gzipAsync = promisify(gzip);
 const GZIP_SESSION_DETAIL_PATHS = new Set([
 	"/rpc/analytics/sessions/detailSubagent",
 	"/rpc/analytics/sessions/detailTurn",
+	"/rpc/analytics/sessions/detailWindow",
 ]);
 
 // Bodies below this size cost more CPU to compress than bytes they save.

@@ -51,6 +51,29 @@ describe("session detail HTTP compression", () => {
 		);
 	});
 
+	test("compresses body windows without changing their raw JSON", async () => {
+		const body = JSON.stringify({
+			json: {
+				newerCursor: null,
+				olderCursor: null,
+				revision: "2026-08-16T08:30:00.123Z",
+				turns: [{ body: "repeated body\n".repeat(10_000) }],
+			},
+		});
+		const response = await maybeCompressSessionDetailRpcResponse({
+			pathname: "/rpc/analytics/sessions/detailWindow",
+			requestHeaders: new Headers({ "Accept-Encoding": "gzip" }),
+			response: new Response(body),
+		});
+		const transferBody = Buffer.from(await response.arrayBuffer());
+
+		expect(response.headers.get("Content-Encoding")).toBe("gzip");
+		expect(transferBody.byteLength).toBeLessThan(
+			Buffer.byteLength(body, "utf8"),
+		);
+		expect(gunzipSync(transferBody).toString("utf8")).toBe(body);
+	});
+
 	test("passes a below-threshold body through uncompressed", async () => {
 		const body = JSON.stringify({ json: { responseItems: [], userItems: [] } });
 		expect(body.length).toBeLessThan(GZIP_MIN_BODY_BYTES);

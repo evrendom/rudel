@@ -2,6 +2,8 @@ import {
 	SESSION_DETAIL_STALE_REVISION_CODE,
 	type SessionDetailSubagent,
 	type SessionDetailTurn,
+	type SessionDetailWindow,
+	type SessionDetailWindowRequest,
 } from "@rudel/api-routes";
 import { orpc } from "@/lib/orpc";
 import {
@@ -11,6 +13,7 @@ import {
 	parseSessionDetailOverviewResponse,
 	parseSessionDetailSubagentResponse,
 	parseSessionDetailTurnResponse,
+	parseSessionDetailWindowResponse,
 	SessionDetailFastResponseError,
 	SessionDetailFastRevisionMismatchError,
 } from "./session-detail-fast-response";
@@ -25,6 +28,7 @@ const SESSION_DETAIL_BODY_GC_TIME_MS = 10 * 60 * 1_000;
 export const SESSION_DETAIL_OVERVIEW_STALE_TIME_MS = 60 * 1_000;
 export const SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS = Number.POSITIVE_INFINITY;
 export const SESSION_DETAIL_BODY_CACHE_TIME_MS = SESSION_DETAIL_BODY_GC_TIME_MS;
+export const SESSION_DETAIL_WINDOW_CACHE_TIME_MS = 10 * 60 * 1_000;
 
 export function sessionDetailFirstOverviewQueryKey(sessionId: string) {
 	return [
@@ -47,6 +51,19 @@ export function sessionDetailOverviewPageQueryKey(input: {
 		input.sessionId,
 		input.revision,
 		input.turnCursor,
+	] as const;
+}
+
+export function sessionDetailWindowQueryKey(
+	input: SessionDetailWindowRequest,
+	debugModeKey: string,
+) {
+	return [
+		SESSION_DETAIL_FAST_QUERY_PREFIX,
+		"window",
+		input.sessionId,
+		debugModeKey,
+		input,
 	] as const;
 }
 
@@ -128,6 +145,41 @@ export async function fetchSessionDetailOverview(
 	return parsed;
 }
 
+export async function fetchSessionDetailWindow(
+	input: SessionDetailWindowRequest,
+	querySignal: AbortSignal,
+): Promise<SessionDetailWindow> {
+	markSessionDetailWindowTiming("start");
+	try {
+		const response = await runSessionDetailRequest(
+			(requestSignal) =>
+				orpc.analytics.sessions.detailWindow.call(input, {
+					signal: requestSignal,
+				}),
+			querySignal,
+		);
+		const parsed = parseSessionDetailWindowResponse(response);
+		const expectedRevision =
+			input.mode === "anchor" ? input.revision : undefined;
+		assertExpectedSessionDetailRevision(
+			expectedRevision,
+			parsed.window.revision,
+		);
+		logRecoveredSessionDetailShape(
+			"window",
+			input.sessionId,
+			parsed.shapeIssueFields,
+		);
+		return parsed.window;
+	} finally {
+		markSessionDetailWindowTiming("end");
+	}
+}
+
+export function isSessionDetailWindowUnsupportedError(value: unknown) {
+	return hasSessionDetailErrorCode(value, "NOT_FOUND");
+}
+
 export async function fetchSessionDetailTurn(
 	input: { revision: string; sessionId: string; turnId: string },
 	querySignal: AbortSignal,
@@ -176,4 +228,19 @@ export function shouldRetrySessionDetailFastQuery(
 		return false;
 	}
 	return shouldRetrySessionDetailQuery(failureCount, error);
+}
+
+function markSessionDetailWindowTiming(phase: "start" | "end") {
+	if (!import.meta.env.DEV || typeof performance === "undefined") {
+		return;
+	}
+	const mark = `transcript:window-fetch:${phase}`;
+	performance.mark(mark);
+	if (phase === "end") {
+		performance.measure(
+			"transcript:window-fetch",
+			"transcript:window-fetch:start",
+			mark,
+		);
+	}
 }

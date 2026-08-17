@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { ORPCError } from "@orpc/server";
-import { throwSessionDetailRevisionError } from "../handlers/analytics/session-detail-errors.js";
+import {
+	throwSessionDetailRevisionError,
+	throwSessionDetailWindowError,
+} from "../handlers/analytics/session-detail-errors.js";
+import { SessionDetailAnchorNotFoundError } from "../services/session-detail-derivation.service.js";
 import { SessionDetailStaleRevisionError } from "../services/session-detail.service.js";
 
 const handlersSource = await Bun.file(
@@ -8,7 +12,7 @@ const handlersSource = await Bun.file(
 ).text();
 
 function handlerSource(
-	name: "detailOverview" | "detailSubagent" | "detailTurn",
+	name: "detailOverview" | "detailSubagent" | "detailTurn" | "detailWindow",
 ) {
 	const start = handlersSource.indexOf(`const ${name} =`);
 	const end = handlersSource.indexOf("\nconst ", start + 1);
@@ -36,6 +40,7 @@ describe("session detail endpoint guardrails", () => {
 		"detailOverview",
 		"detailSubagent",
 		"detailTurn",
+		"detailWindow",
 	] as const) {
 		test(`${name} performs organization membership and session ownership checks`, () => {
 			const source = handlerSource(name);
@@ -52,6 +57,46 @@ describe("session detail endpoint guardrails", () => {
 				"throwSessionDetailRevisionError(error, errors)",
 			);
 		}
+	});
+
+	test("maps a missing window anchor to the contract-defined 404 error", () => {
+		const errors = {
+			ANCHOR_NOT_FOUND: (options: {
+				data: { revision: string; turnId: string };
+			}) =>
+				new ORPCError("ANCHOR_NOT_FOUND", {
+					data: options.data,
+					defined: true,
+					status: 404,
+				}),
+			STALE_REVISION: (options: {
+				data: { currentRevision: string; requestedRevision: string };
+			}) =>
+				new ORPCError("STALE_REVISION", {
+					data: options.data,
+					defined: true,
+					status: 409,
+				}),
+		};
+
+		expect(() =>
+			throwSessionDetailWindowError(
+				new SessionDetailAnchorNotFoundError(
+					"removed-turn",
+					"2026-08-16T08:30:00.123Z",
+				),
+				errors,
+			),
+		).toThrow(
+			expect.objectContaining({
+				code: "ANCHOR_NOT_FOUND",
+				data: {
+					revision: "2026-08-16T08:30:00.123Z",
+					turnId: "removed-turn",
+				},
+				status: 404,
+			}),
+		);
 	});
 
 	test("maps a body revision mismatch to the contract-defined 409 error", () => {

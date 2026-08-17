@@ -1,7 +1,10 @@
 import { getLogger } from "@logtape/logtape";
+import type { SessionDetailWindowRequest } from "@rudel/api-routes";
 import { readPositiveSafeIntegerEnv } from "../lib/env.js";
 import {
 	deriveSessionDetail,
+	assembleSessionDetailWindow,
+	decodeSessionDetailWindowCursor,
 	getSessionDetailSubagent as getCachedSessionDetailSubagent,
 	getSessionDetailTurn as getCachedSessionDetailTurn,
 	getSessionDetailOverviewPage,
@@ -55,7 +58,7 @@ export class SessionDetailStaleRevisionError extends Error {
 }
 
 function logRequestLatency(
-	kind: "overview" | "subagent" | "turn",
+	kind: "overview" | "subagent" | "turn" | "window",
 	startedAt: number,
 ) {
 	const durationMs = Math.round(performance.now() - startedAt);
@@ -221,6 +224,65 @@ export async function getSessionDetailOverview(input: {
 	} finally {
 		logRequestLatency("overview", startedAt);
 	}
+}
+
+export async function getSessionDetailWindow(input: {
+	organizationId: string;
+	ownerId: string;
+	request: SessionDetailWindowRequest;
+	sessionId: string;
+}) {
+	const startedAt = performance.now();
+	try {
+		const derivation = await getWindowDerivation(input);
+		if (!derivation) {
+			return null;
+		}
+		const assemblyStartedAt = performance.now();
+		const assembly = assembleSessionDetailWindow({
+			derivation,
+			request: input.request,
+		});
+		const assemblyDurationMs = Math.round(
+			performance.now() - assemblyStartedAt,
+		);
+		instrumentation.recordWindow({
+			assemblyDurationMs,
+			oversizedTurns: assembly.oversizedTurns,
+			serializedBytes: assembly.serializedBytes,
+			truncatedByBudget: assembly.truncatedByBudget,
+			turnsIncluded: assembly.window.turns.length,
+		});
+		logger.info(
+			"Assembled session detail window ({turnsIncluded} turns, {serializedBytes} bytes, truncated={truncatedByBudget}, oversized={oversizedTurns})",
+			{
+				assemblyDurationMs,
+				oversizedTurns: assembly.oversizedTurns,
+				serializedBytes: assembly.serializedBytes,
+				truncatedByBudget: assembly.truncatedByBudget,
+				turnsIncluded: assembly.window.turns.length,
+			},
+		);
+		return assembly.window;
+	} finally {
+		logRequestLatency("window", startedAt);
+	}
+}
+
+async function getWindowDerivation(input: {
+	organizationId: string;
+	ownerId: string;
+	request: SessionDetailWindowRequest;
+	sessionId: string;
+}) {
+	if (input.request.mode === "initial") {
+		return getCurrentDerivation(input);
+	}
+	const revision =
+		input.request.mode === "anchor"
+			? input.request.revision
+			: decodeSessionDetailWindowCursor(input.request.cursor).revision;
+	return getRequestedDerivation({ ...input, revision });
 }
 
 export async function getSessionDetailTurn(input: {

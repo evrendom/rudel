@@ -11,15 +11,30 @@ const MAX_TRACE_ITEM_COUNT = 100_000;
 const MAX_TRANSCRIPT_CODE_UNITS = 160 * 1024 * 1024;
 
 export const SESSION_DETAIL_TURN_PAGE_LIMIT = 100;
+export const SESSION_DETAIL_WINDOW_INITIAL_TURNS = 20;
+export const SESSION_DETAIL_WINDOW_PAGE_TURNS = 30;
+export const SESSION_DETAIL_WINDOW_MAX_RAW_BYTES = 4 * 1024 * 1024;
+export const SESSION_DETAIL_WINDOW_MAX_TURN_BYTES = 1.5 * 1024 * 1024;
 export const SESSION_DETAIL_ACTIVITY_POINT_LIMIT = 512;
 export const SESSION_DETAIL_PREVIEW_CODE_POINT_LIMIT = 140;
 export const SESSION_DETAIL_STALE_REVISION_CODE = "STALE_REVISION";
 export const SESSION_DETAIL_STALE_REVISION_MESSAGE =
 	"The session changed while its detail was being loaded.";
+export const SESSION_DETAIL_ANCHOR_NOT_FOUND_CODE = "ANCHOR_NOT_FOUND";
+export const SESSION_DETAIL_ANCHOR_NOT_FOUND_MESSAGE =
+	"The requested turn does not exist in this session revision.";
 
 export const SessionDetailRevisionSchema = z
 	.string()
 	.datetime({ offset: true });
+export const SessionDetailWindowCursorSchema = z
+	.string()
+	.min(1)
+	.max(MAX_TURN_CURSOR_LENGTH);
+export const SessionDetailTurnIdSchema = z
+	.string()
+	.min(1)
+	.max(MAX_DETAIL_ITEM_ID_LENGTH);
 
 const SessionDetailRevisionInputSchema = z.object({
 	revision: SessionDetailRevisionSchema,
@@ -39,6 +54,41 @@ export const SessionDetailOverviewInputSchema = z
 	})
 	.strict();
 
+export const SessionDetailWindowRequestSchema = z.discriminatedUnion("mode", [
+	z
+		.object({
+			includeBodies: z.literal(true),
+			mode: z.literal("initial"),
+			sessionId: z.string().max(MAX_SESSION_ID_LENGTH),
+		})
+		.strict(),
+	z
+		.object({
+			anchorTurnId: SessionDetailTurnIdSchema,
+			includeBodies: z.literal(true),
+			mode: z.literal("anchor"),
+			revision: SessionDetailRevisionSchema,
+			sessionId: z.string().max(MAX_SESSION_ID_LENGTH),
+		})
+		.strict(),
+	z
+		.object({
+			cursor: SessionDetailWindowCursorSchema,
+			includeBodies: z.literal(true),
+			mode: z.literal("older"),
+			sessionId: z.string().max(MAX_SESSION_ID_LENGTH),
+		})
+		.strict(),
+	z
+		.object({
+			cursor: SessionDetailWindowCursorSchema,
+			includeBodies: z.literal(true),
+			mode: z.literal("newer"),
+			sessionId: z.string().max(MAX_SESSION_ID_LENGTH),
+		})
+		.strict(),
+]);
+
 export const SessionDetailTurnInputSchema =
 	SessionDetailRevisionInputSchema.extend({
 		turnId: z.string().min(1).max(MAX_DETAIL_ITEM_ID_LENGTH),
@@ -56,11 +106,27 @@ export const SessionDetailStaleRevisionDataSchema = z
 	})
 	.strict();
 
+export const SessionDetailAnchorNotFoundDataSchema = z
+	.object({
+		revision: SessionDetailRevisionSchema,
+		turnId: SessionDetailTurnIdSchema,
+	})
+	.strict();
+
 export const SESSION_DETAIL_REVISION_ERRORS = {
 	[SESSION_DETAIL_STALE_REVISION_CODE]: {
 		data: SessionDetailStaleRevisionDataSchema,
 		message: SESSION_DETAIL_STALE_REVISION_MESSAGE,
 		status: 409,
+	},
+} satisfies ErrorMap;
+
+export const SESSION_DETAIL_WINDOW_ERRORS = {
+	...SESSION_DETAIL_REVISION_ERRORS,
+	[SESSION_DETAIL_ANCHOR_NOT_FOUND_CODE]: {
+		data: SessionDetailAnchorNotFoundDataSchema,
+		message: SESSION_DETAIL_ANCHOR_NOT_FOUND_MESSAGE,
+		status: 404,
 	},
 } satisfies ErrorMap;
 
@@ -97,7 +163,7 @@ const SessionDetailUsageCallSchema = z
 	})
 	.strict();
 
-const SessionDetailTurnSummarySchema = z
+export const SessionDetailTurnSummarySchema = z
 	.object({
 		activityResolution: z.enum(["exact", "bucketed"]),
 		durationSeconds: z.number().nonnegative().nullable(),
@@ -357,6 +423,33 @@ export const SessionDetailTurnSchema = z
 	})
 	.strict();
 
+export const SessionDetailTurnBodySchema = z
+	.object({
+		responseItems: z
+			.array(SessionDetailTraceItemSchema)
+			.max(MAX_TRACE_ITEM_COUNT),
+		userItems: z.array(SessionDetailTraceItemSchema).max(MAX_TRACE_ITEM_COUNT),
+	})
+	.strict();
+
+export const SessionDetailWindowTurnSchema =
+	SessionDetailTurnSummarySchema.extend({
+		body: SessionDetailTurnBodySchema.nullable(),
+		bodyOmitted: z.enum(["oversized"]).nullable(),
+	}).strict();
+
+export const SessionDetailWindowSchema = z
+	.object({
+		newerCursor: SessionDetailWindowCursorSchema.nullable(),
+		olderCursor: SessionDetailWindowCursorSchema.nullable(),
+		revision: SessionDetailRevisionSchema,
+		total: z.number().int().nonnegative(),
+		turns: z
+			.array(SessionDetailWindowTurnSchema)
+			.max(SESSION_DETAIL_WINDOW_PAGE_TURNS),
+	})
+	.strict();
+
 export const SessionDetailSubagentSchema = z
 	.object({
 		content: z.string().max(MAX_TRANSCRIPT_CODE_UNITS),
@@ -367,6 +460,20 @@ export const SessionDetailSubagentSchema = z
 
 export type SessionDetailOverviewInput = z.infer<
 	typeof SessionDetailOverviewInputSchema
+>;
+export type SessionDetailWindowRequest = z.infer<
+	typeof SessionDetailWindowRequestSchema
+>;
+export type SessionDetailWindow = z.infer<typeof SessionDetailWindowSchema>;
+export type SessionDetailTurnSummary = z.infer<
+	typeof SessionDetailTurnSummarySchema
+>;
+export type SessionDetailWindowTurn = z.infer<
+	typeof SessionDetailWindowTurnSchema
+>;
+export type SessionDetailTurnBody = z.infer<typeof SessionDetailTurnBodySchema>;
+export type SessionDetailAnchorNotFoundData = z.infer<
+	typeof SessionDetailAnchorNotFoundDataSchema
 >;
 export type SessionDetailTurnInput = z.infer<
 	typeof SessionDetailTurnInputSchema

@@ -25,6 +25,13 @@ describe("session detail instrumentation", () => {
 			heapGrowthBytes: 60,
 			rawBytes: 700,
 		});
+		instrumentation.recordWindow({
+			assemblyDurationMs: 7,
+			oversizedTurns: 1,
+			serializedBytes: 4_096,
+			truncatedByBudget: true,
+			turnsIncluded: 6,
+		});
 		memory = {
 			arrayBuffers: 110,
 			external: 220,
@@ -79,6 +86,12 @@ describe("session detail instrumentation", () => {
 			heapUsed: 40,
 			rss: 50,
 		});
+		expect(stats.windows).toMatchObject({
+			sampleCount: 1,
+			truncatedByBudgetCount: 1,
+		});
+		expect(stats.windows.serializedBytes.maximum).toBe(4_096);
+		expect(stats.windows.turnsIncluded.maximum).toBe(6);
 	});
 
 	test("reports empty summaries before requests", () => {

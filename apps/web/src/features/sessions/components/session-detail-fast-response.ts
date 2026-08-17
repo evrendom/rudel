@@ -7,6 +7,8 @@ import {
 	SessionDetailTraceItemSchema,
 	type SessionDetailTurn,
 	SessionDetailTurnSchema,
+	type SessionDetailWindow,
+	SessionDetailWindowSchema,
 } from "@rudel/api-routes";
 import { z } from "zod";
 
@@ -16,10 +18,17 @@ const overviewTurnPageShape = SessionDetailOverviewSchema.shape.turnPage.shape;
 const overviewTurnShape = overviewTurnPageShape.items.element.shape;
 const overviewSubagentShape =
 	SessionDetailOverviewSchema.shape.subagents.element.shape;
+const windowShape = SessionDetailWindowSchema.shape;
+const windowTurnShape = SessionDetailWindowSchema.shape.turns.element.shape;
 
 export type ParsedSessionDetailOverview = {
 	overview: SessionDetailOverview;
 	shapeIssueFields: readonly string[];
+};
+
+export type ParsedSessionDetailWindow = {
+	shapeIssueFields: readonly string[];
+	window: SessionDetailWindow;
 };
 
 export class SessionDetailFastResponseError extends Error {
@@ -82,6 +91,42 @@ export function parseSessionDetailOverviewResponse(
 		turnPage,
 	});
 	return { overview, shapeIssueFields: issueFields };
+}
+
+export function parseSessionDetailWindowResponse(
+	value: unknown,
+): ParsedSessionDetailWindow {
+	const contractResult = SessionDetailWindowSchema.safeParse(value);
+	if (contractResult.success) {
+		return { shapeIssueFields: [], window: contractResult.data };
+	}
+	const rawResult = unknownObjectSchema.safeParse(value);
+	if (!rawResult.success) {
+		throw responseError("window", contractResult.error.issues);
+	}
+	const raw = rawResult.data;
+	const revision = requiredField(
+		SessionDetailRevisionSchema,
+		raw.revision,
+		"revision",
+	);
+	const turns = Array.isArray(raw.turns)
+		? raw.turns.flatMap((turn) => {
+				const normalized = normalizeWindowTurn(unknownObject(turn));
+				return normalized ? [normalized] : [];
+			})
+		: [];
+	const window = SessionDetailWindowSchema.parse({
+		newerCursor: optionalField(windowShape.newerCursor, raw.newerCursor, null),
+		olderCursor: optionalField(windowShape.olderCursor, raw.olderCursor, null),
+		revision,
+		total: optionalField(windowShape.total, raw.total, turns.length),
+		turns,
+	});
+	return {
+		shapeIssueFields: getShapeIssueFields(contractResult.error.issues),
+		window,
+	};
 }
 
 export function parseSessionDetailTurnResponse(
@@ -350,6 +395,32 @@ function normalizeOverviewTurn(raw: Record<string, unknown>) {
 		userPreview: optionalField(
 			overviewTurnShape.userPreview,
 			raw.userPreview,
+			null,
+		),
+	};
+}
+
+function normalizeWindowTurn(raw: Record<string, unknown>) {
+	const summary = normalizeOverviewTurn(raw);
+	if (!summary) {
+		return undefined;
+	}
+	const rawBody = unknownObject(raw.body);
+	const hasBodyObject =
+		typeof raw.body === "object" &&
+		raw.body !== null &&
+		!Array.isArray(raw.body);
+	return {
+		...summary,
+		body: hasBodyObject
+			? {
+					responseItems: normalizeTraceItems(rawBody.responseItems),
+					userItems: normalizeTraceItems(rawBody.userItems),
+				}
+			: null,
+		bodyOmitted: optionalField(
+			windowTurnShape.bodyOmitted,
+			raw.bodyOmitted,
 			null,
 		),
 	};

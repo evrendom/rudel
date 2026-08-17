@@ -1,12 +1,22 @@
 import { describe, expect, test } from "bun:test";
-import { SessionDetailOverviewSchema } from "@rudel/api-routes";
 import {
+	SESSION_DETAIL_WINDOW_INITIAL_TURNS,
+	SESSION_DETAIL_WINDOW_MAX_RAW_BYTES,
+	SESSION_DETAIL_WINDOW_MAX_TURN_BYTES,
+	SESSION_DETAIL_WINDOW_PAGE_TURNS,
+	SessionDetailOverviewSchema,
+	SessionDetailWindowSchema,
+} from "@rudel/api-routes";
+import {
+	assembleSessionDetailWindow,
 	bucketSessionDetailUsageCalls,
+	decodeSessionDetailWindowCursor,
 	deriveSessionDetail,
 	getSessionDetailOverviewPage,
 	getSessionDetailSubagent,
 	getSessionDetailTurn,
 	SESSION_DETAIL_OVERVIEW_MAX_BYTES,
+	SessionDetailAnchorNotFoundError,
 	type SessionDetailRawSnapshot,
 	StaleSessionDetailCursorError,
 	truncateSessionDetailPreview,
@@ -212,6 +222,162 @@ describe("session detail derivation", () => {
 				limit: 100,
 			}),
 		).toThrow(StaleSessionDetailCursorError);
+	});
+
+	test("assembles bounded, revision-bound body windows in both directions", () => {
+		const derivation = deriveSessionDetail(snapshot(createTranscript(75)));
+		const initial = assembleSessionDetailWindow({
+			derivation,
+			request: {
+				includeBodies: true,
+				mode: "initial",
+				sessionId: "session-1",
+			},
+		});
+		expect(SessionDetailWindowSchema.parse(initial.window)).toEqual(
+			initial.window,
+		);
+		expect(initial.window.turns).toHaveLength(
+			SESSION_DETAIL_WINDOW_INITIAL_TURNS,
+		);
+		expect(initial.window.olderCursor).toBeNull();
+		expect(initial.window.newerCursor).not.toBeNull();
+		expect(initial.serializedBytes).toBeLessThanOrEqual(
+			SESSION_DETAIL_WINDOW_MAX_RAW_BYTES,
+		);
+
+		const newer = assembleSessionDetailWindow({
+			derivation,
+			request: {
+				cursor: initial.window.newerCursor ?? "",
+				includeBodies: true,
+				mode: "newer",
+				sessionId: "session-1",
+			},
+		});
+		expect(newer.window.turns).toHaveLength(SESSION_DETAIL_WINDOW_PAGE_TURNS);
+		expect(newer.window.turns[0]?.index).toBe(
+			SESSION_DETAIL_WINDOW_INITIAL_TURNS,
+		);
+		expect(newer.window.olderCursor).not.toBeNull();
+		const olderCursor = decodeSessionDetailWindowCursor(
+			newer.window.olderCursor ?? "",
+		);
+		expect(olderCursor).toMatchObject({
+			direction: "older",
+			revision: derivation.revision,
+		});
+
+		const older = assembleSessionDetailWindow({
+			derivation,
+			request: {
+				cursor: newer.window.olderCursor ?? "",
+				includeBodies: true,
+				mode: "older",
+				sessionId: "session-1",
+			},
+		});
+		expect(older.window.turns.at(-1)?.index).toBe(
+			SESSION_DETAIL_WINDOW_INITIAL_TURNS - 1,
+		);
+	});
+
+	test("centers anchor windows and reports stale or missing anchors explicitly", () => {
+		const derivation = deriveSessionDetail(snapshot(createTranscript(75)));
+		const anchorTurnId = derivation.turnSummaries[40]?.turnId ?? "";
+		const anchored = assembleSessionDetailWindow({
+			derivation,
+			request: {
+				anchorTurnId,
+				includeBodies: true,
+				mode: "anchor",
+				revision: derivation.revision,
+				sessionId: "session-1",
+			},
+		});
+		expect(anchored.window.turns.map((turn) => turn.turnId)).toContain(
+			anchorTurnId,
+		);
+		expect(anchored.window.olderCursor).not.toBeNull();
+		expect(anchored.window.newerCursor).not.toBeNull();
+
+		expect(() =>
+			assembleSessionDetailWindow({
+				derivation,
+				request: {
+					anchorTurnId: "removed-turn",
+					includeBodies: true,
+					mode: "anchor",
+					revision: derivation.revision,
+					sessionId: "session-1",
+				},
+			}),
+		).toThrow(SessionDetailAnchorNotFoundError);
+		expect(() =>
+			assembleSessionDetailWindow({
+				derivation,
+				request: {
+					anchorTurnId,
+					includeBodies: true,
+					mode: "anchor",
+					revision: "2026-08-16T08:31:00.456Z",
+					sessionId: "session-1",
+				},
+			}),
+		).toThrow(StaleSessionDetailCursorError);
+	});
+
+	test("omits single oversized bodies and truncates the response before 4 MiB", () => {
+		const derivation = deriveSessionDetail(snapshot(createTranscript(8)));
+		const turnBodies = new Map(derivation.turnBodies);
+		for (const [turnId, turn] of turnBodies) {
+			turnBodies.set(turnId, {
+				...turn,
+				responseItems: [
+					{
+						id: `summary-${turnId}`,
+						kind: "summary",
+						text: "x".repeat(700_000),
+					},
+				],
+			});
+		}
+		const firstTurnId = derivation.turnSummaries[0]?.turnId ?? "";
+		const firstTurn = turnBodies.get(firstTurnId);
+		if (!firstTurn) {
+			throw new Error("Expected the synthetic first turn body");
+		}
+		turnBodies.set(firstTurnId, {
+			...firstTurn,
+			responseItems: [
+				{
+					id: "oversized-summary",
+					kind: "summary",
+					text: "x".repeat(SESSION_DETAIL_WINDOW_MAX_TURN_BYTES + 1_024),
+				},
+			],
+		});
+
+		const assembly = assembleSessionDetailWindow({
+			derivation: { ...derivation, turnBodies },
+			request: {
+				includeBodies: true,
+				mode: "initial",
+				sessionId: "session-1",
+			},
+		});
+		expect(assembly.window.turns[0]).toMatchObject({
+			body: null,
+			bodyOmitted: "oversized",
+			turnId: firstTurnId,
+		});
+		expect(assembly.oversizedTurns).toBe(1);
+		expect(assembly.truncatedByBudget).toBe(true);
+		expect(assembly.window.turns.length).toBeLessThan(8);
+		expect(assembly.window.newerCursor).not.toBeNull();
+		expect(assembly.serializedBytes).toBeLessThanOrEqual(
+			SESSION_DETAIL_WINDOW_MAX_RAW_BYTES,
+		);
 	});
 
 	test("buckets an event-dense turn without changing token sums", () => {

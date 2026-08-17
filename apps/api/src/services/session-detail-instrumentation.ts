@@ -1,4 +1,8 @@
-export type SessionDetailRequestKind = "overview" | "subagent" | "turn";
+export type SessionDetailRequestKind =
+	| "overview"
+	| "subagent"
+	| "turn"
+	| "window";
 
 export interface SessionDetailDerivationSample {
 	cachedBytes: number;
@@ -15,6 +19,14 @@ export interface SessionDetailNumericSummary {
 	sampleCount: number;
 }
 
+export interface SessionDetailWindowSample {
+	assemblyDurationMs: number;
+	oversizedTurns: number;
+	serializedBytes: number;
+	truncatedByBudget: boolean;
+	turnsIncluded: number;
+}
+
 interface SessionDetailInstrumentationOptions {
 	maxSamples: number;
 	readMemoryUsage: () => ReturnType<typeof process.memoryUsage>;
@@ -28,8 +40,10 @@ export function createSessionDetailInstrumentation(
 		overview: [],
 		subagent: [],
 		turn: [],
+		window: [],
 	};
 	const derivationSamples: SessionDetailDerivationSample[] = [];
+	const windowSamples: SessionDetailWindowSample[] = [];
 	const baselineMemory = options.readMemoryUsage();
 
 	function recordRequestLatency(
@@ -44,6 +58,13 @@ export function createSessionDetailInstrumentation(
 		derivationSamples.push(sample);
 		if (derivationSamples.length > options.maxSamples) {
 			derivationSamples.shift();
+		}
+	}
+
+	function recordWindow(sample: SessionDetailWindowSample) {
+		windowSamples.push(sample);
+		if (windowSamples.length > options.maxSamples) {
+			windowSamples.shift();
 		}
 	}
 
@@ -74,8 +95,27 @@ export function createSessionDetailInstrumentation(
 				overview: summarizeNumericSamples(requestSamples.overview),
 				subagent: summarizeNumericSamples(requestSamples.subagent),
 				turn: summarizeNumericSamples(requestSamples.turn),
+				window: summarizeNumericSamples(requestSamples.window),
 			},
 			startedAt: options.startedAt,
+			windows: {
+				assemblyDurationMs: summarizeNumericSamples(
+					windowSamples.map((sample) => sample.assemblyDurationMs),
+				),
+				oversizedTurns: summarizeNumericSamples(
+					windowSamples.map((sample) => sample.oversizedTurns),
+				),
+				sampleCount: windowSamples.length,
+				serializedBytes: summarizeNumericSamples(
+					windowSamples.map((sample) => sample.serializedBytes),
+				),
+				truncatedByBudgetCount: windowSamples.filter(
+					(sample) => sample.truncatedByBudget,
+				).length,
+				turnsIncluded: summarizeNumericSamples(
+					windowSamples.map((sample) => sample.turnsIncluded),
+				),
+			},
 		};
 	}
 
@@ -83,6 +123,7 @@ export function createSessionDetailInstrumentation(
 		getStats,
 		recordDerivation,
 		recordRequestLatency,
+		recordWindow,
 	};
 }
 

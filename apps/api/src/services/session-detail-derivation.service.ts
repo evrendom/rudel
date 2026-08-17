@@ -13,9 +13,17 @@ import {
 	resolveRepoIdentity,
 	SESSION_DETAIL_ACTIVITY_POINT_LIMIT,
 	SESSION_DETAIL_PREVIEW_CODE_POINT_LIMIT,
+	SESSION_DETAIL_WINDOW_INITIAL_TURNS,
+	SESSION_DETAIL_WINDOW_MAX_RAW_BYTES,
+	SESSION_DETAIL_WINDOW_MAX_TURN_BYTES,
+	SESSION_DETAIL_WINDOW_PAGE_TURNS,
 	type SessionDetailOverview,
 	type SessionDetailSubagent,
 	type SessionDetailTurn,
+	type SessionDetailTurnBody,
+	type SessionDetailWindow,
+	type SessionDetailWindowRequest,
+	type SessionDetailWindowTurn,
 	SessionDetailTurnSchema,
 	type SessionRequestCostEntry,
 	type SessionTurn,
@@ -29,6 +37,7 @@ import {
 export const SESSION_DETAIL_OVERVIEW_MAX_BYTES = 250 * 1024;
 const SESSION_DETAIL_OVERVIEW_TARGET_BYTES = 248 * 1024;
 const CURSOR_VERSION = 1;
+const WINDOW_CURSOR_VERSION = 1;
 
 export interface SessionDetailRawSnapshot {
 	content: string;
@@ -72,6 +81,20 @@ type TurnCursor = {
 	version: typeof CURSOR_VERSION;
 };
 
+interface SessionDetailWindowCursor {
+	direction: "older" | "newer";
+	revision: string;
+	turnId: string;
+	version: typeof WINDOW_CURSOR_VERSION;
+}
+
+export interface SessionDetailWindowAssembly {
+	oversizedTurns: number;
+	serializedBytes: number;
+	truncatedByBudget: boolean;
+	window: SessionDetailWindow;
+}
+
 export class InvalidSessionDetailCursorError extends Error {
 	constructor() {
 		super("The session detail turn cursor is invalid");
@@ -86,6 +109,23 @@ export class StaleSessionDetailCursorError extends Error {
 	) {
 		super("The session detail turn cursor belongs to another revision");
 		this.name = "StaleSessionDetailCursorError";
+	}
+}
+
+export class InvalidSessionDetailWindowCursorError extends Error {
+	constructor() {
+		super("The session detail window cursor is invalid");
+		this.name = "InvalidSessionDetailWindowCursorError";
+	}
+}
+
+export class SessionDetailAnchorNotFoundError extends Error {
+	constructor(
+		readonly turnId: string,
+		readonly revision: string,
+	) {
+		super("The requested session detail turn does not exist");
+		this.name = "SessionDetailAnchorNotFoundError";
 	}
 }
 
@@ -534,6 +574,237 @@ export function getSessionDetailOverviewPage(input: {
 		);
 	}
 	return response;
+}
+
+export function assembleSessionDetailWindow(input: {
+	derivation: SessionDetailDerivation;
+	request: SessionDetailWindowRequest;
+}): SessionDetailWindowAssembly {
+	const { derivation, request } = input;
+	const candidateIndices = getWindowCandidateIndices(derivation, request);
+	const selectedTurns = new Map<number, SessionDetailWindowTurn>();
+	let oversizedTurns = 0;
+	let truncatedByBudget = false;
+
+	for (const index of candidateIndices) {
+		const turn = createSessionDetailWindowTurn(derivation, index);
+		if (!turn) {
+			continue;
+		}
+		const nextTurns = new Map(selectedTurns);
+		nextTurns.set(index, turn.value);
+		const nextWindow = createSessionDetailWindowResponse(derivation, [
+			...nextTurns.entries(),
+		]);
+		if (serializedBytes(nextWindow) > SESSION_DETAIL_WINDOW_MAX_RAW_BYTES) {
+			truncatedByBudget = true;
+			break;
+		}
+		selectedTurns.set(index, turn.value);
+		if (turn.oversized) {
+			oversizedTurns += 1;
+		}
+	}
+
+	const window = createSessionDetailWindowResponse(derivation, [
+		...selectedTurns.entries(),
+	]);
+	return {
+		oversizedTurns,
+		serializedBytes: serializedBytes(window),
+		truncatedByBudget,
+		window,
+	};
+}
+
+export function decodeSessionDetailWindowCursor(
+	cursor: string,
+): SessionDetailWindowCursor {
+	try {
+		const parsed: unknown = JSON.parse(
+			Buffer.from(cursor, "base64url").toString("utf8"),
+		);
+		if (!isSessionDetailWindowCursor(parsed)) {
+			throw new InvalidSessionDetailWindowCursorError();
+		}
+		return parsed;
+	} catch (error) {
+		if (error instanceof InvalidSessionDetailWindowCursorError) {
+			throw error;
+		}
+		throw new InvalidSessionDetailWindowCursorError();
+	}
+}
+
+function getWindowCandidateIndices(
+	derivation: SessionDetailDerivation,
+	request: SessionDetailWindowRequest,
+) {
+	const total = derivation.turnSummaries.length;
+	if (request.mode === "initial") {
+		return Array.from(
+			{ length: Math.min(total, SESSION_DETAIL_WINDOW_INITIAL_TURNS) },
+			(_, index) => index,
+		);
+	}
+	if (request.mode === "anchor") {
+		if (request.revision !== derivation.revision) {
+			throw new StaleSessionDetailCursorError(
+				request.revision,
+				derivation.revision,
+			);
+		}
+		const anchorIndex = derivation.turnSummaries.findIndex(
+			(turn) => turn.turnId === request.anchorTurnId,
+		);
+		if (anchorIndex < 0) {
+			throw new SessionDetailAnchorNotFoundError(
+				request.anchorTurnId,
+				derivation.revision,
+			);
+		}
+		return centeredWindowIndices(
+			anchorIndex,
+			total,
+			SESSION_DETAIL_WINDOW_INITIAL_TURNS,
+		);
+	}
+
+	const cursor = decodeSessionDetailWindowCursor(request.cursor);
+	if (
+		cursor.direction !== request.mode ||
+		cursor.revision !== derivation.revision
+	) {
+		if (cursor.revision !== derivation.revision) {
+			throw new StaleSessionDetailCursorError(
+				cursor.revision,
+				derivation.revision,
+			);
+		}
+		throw new InvalidSessionDetailWindowCursorError();
+	}
+	const cursorIndex = derivation.turnSummaries.findIndex(
+		(turn) => turn.turnId === cursor.turnId,
+	);
+	if (cursorIndex < 0) {
+		throw new InvalidSessionDetailWindowCursorError();
+	}
+	if (request.mode === "older") {
+		const count = Math.min(cursorIndex, SESSION_DETAIL_WINDOW_PAGE_TURNS);
+		return Array.from(
+			{ length: count },
+			(_, offset) => cursorIndex - offset - 1,
+		);
+	}
+	const count = Math.min(
+		total - cursorIndex - 1,
+		SESSION_DETAIL_WINDOW_PAGE_TURNS,
+	);
+	return Array.from({ length: count }, (_, offset) => cursorIndex + offset + 1);
+}
+
+function centeredWindowIndices(
+	anchorIndex: number,
+	total: number,
+	limit: number,
+) {
+	const indices = [anchorIndex];
+	for (let distance = 1; indices.length < limit; distance += 1) {
+		const before = anchorIndex - distance;
+		const after = anchorIndex + distance;
+		if (before >= 0) {
+			indices.push(before);
+		}
+		if (indices.length < limit && after < total) {
+			indices.push(after);
+		}
+		if (before < 0 && after >= total) {
+			break;
+		}
+	}
+	return indices;
+}
+
+function createSessionDetailWindowTurn(
+	derivation: SessionDetailDerivation,
+	index: number,
+) {
+	const summary = derivation.turnSummaries[index];
+	if (!summary) {
+		return undefined;
+	}
+	const cachedTurn = derivation.turnBodies.get(summary.turnId);
+	const body: SessionDetailTurnBody | null = cachedTurn
+		? {
+				responseItems: cachedTurn.responseItems,
+				userItems: cachedTurn.userItems,
+			}
+		: null;
+	const oversized =
+		body !== null &&
+		serializedBytes(body) > SESSION_DETAIL_WINDOW_MAX_TURN_BYTES;
+	return {
+		oversized,
+		value: {
+			...summary,
+			body: oversized ? null : body,
+			bodyOmitted: oversized ? "oversized" : null,
+		} satisfies SessionDetailWindowTurn,
+	};
+}
+
+function createSessionDetailWindowResponse(
+	derivation: SessionDetailDerivation,
+	entries: readonly (readonly [number, SessionDetailWindowTurn])[],
+): SessionDetailWindow {
+	const sorted = [...entries].sort(([left], [right]) => left - right);
+	const first = sorted[0];
+	const last = sorted.at(-1);
+	return {
+		newerCursor:
+			last && last[0] < derivation.turnSummaries.length - 1
+				? encodeSessionDetailWindowCursor({
+						direction: "newer",
+						revision: derivation.revision,
+						turnId: last[1].turnId,
+						version: WINDOW_CURSOR_VERSION,
+					})
+				: null,
+		olderCursor:
+			first && first[0] > 0
+				? encodeSessionDetailWindowCursor({
+						direction: "older",
+						revision: derivation.revision,
+						turnId: first[1].turnId,
+						version: WINDOW_CURSOR_VERSION,
+					})
+				: null,
+		revision: derivation.revision,
+		total: derivation.turnSummaries.length,
+		turns: sorted.map(([, turn]) => turn),
+	};
+}
+
+function encodeSessionDetailWindowCursor(cursor: SessionDetailWindowCursor) {
+	return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
+}
+
+function isSessionDetailWindowCursor(
+	value: unknown,
+): value is SessionDetailWindowCursor {
+	if (typeof value !== "object" || value === null) {
+		return false;
+	}
+	return (
+		"direction" in value &&
+		(value.direction === "older" || value.direction === "newer") &&
+		"revision" in value &&
+		typeof value.revision === "string" &&
+		"turnId" in value &&
+		typeof value.turnId === "string" &&
+		"version" in value &&
+		value.version === WINDOW_CURSOR_VERSION
+	);
 }
 
 export function getSessionDetailTurn(

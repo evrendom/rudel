@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	contract,
 	SESSION_DETAIL_REVISION_ERRORS,
+	SESSION_DETAIL_WINDOW_ERRORS,
 	SessionDetailOverviewInputSchema,
 	SessionDetailOverviewSchema,
 	SessionDetailStaleRevisionDataSchema,
@@ -9,6 +10,8 @@ import {
 	SessionDetailSubagentSchema,
 	SessionDetailTurnInputSchema,
 	SessionDetailTurnSchema,
+	SessionDetailWindowRequestSchema,
+	SessionDetailWindowSchema,
 	sessionDetailProcedureContracts,
 } from "../index.js";
 
@@ -87,6 +90,51 @@ describe("session detail payload contracts", () => {
 		);
 		expect(contract.analytics.sessions.detailTurn).toBe(
 			sessionDetailProcedureContracts.detailTurn,
+		);
+	});
+
+	test("accepts only the strict session detail window request variants", () => {
+		const base = { includeBodies: true as const, sessionId: "session-1" };
+		const revision = "2026-08-16T08:30:00.123Z";
+		const requests = [
+			{ ...base, mode: "initial" as const },
+			{
+				...base,
+				anchorTurnId: "turn-20",
+				mode: "anchor" as const,
+				revision,
+			},
+			{ ...base, cursor: "opaque-older", mode: "older" as const },
+			{ ...base, cursor: "opaque-newer", mode: "newer" as const },
+		];
+
+		for (const request of requests) {
+			expect(SessionDetailWindowRequestSchema.parse(request)).toEqual(request);
+		}
+		expect(
+			SessionDetailWindowRequestSchema.safeParse({
+				...base,
+				cursor: "not-allowed",
+				mode: "initial",
+			}).success,
+		).toBe(false);
+		expect(
+			SessionDetailWindowRequestSchema.safeParse({
+				mode: "initial",
+				sessionId: "session-1",
+			}).success,
+		).toBe(false);
+		expect(
+			SessionDetailWindowRequestSchema.safeParse({
+				...base,
+				anchorTurnId: "turn-20",
+				mode: "anchor",
+			}).success,
+		).toBe(false);
+		expect(SESSION_DETAIL_WINDOW_ERRORS.STALE_REVISION.status).toBe(409);
+		expect(SESSION_DETAIL_WINDOW_ERRORS.ANCHOR_NOT_FOUND.status).toBe(404);
+		expect(contract.analytics.sessions.detailWindow).toBe(
+			sessionDetailProcedureContracts.detailWindow,
 		);
 	});
 
@@ -251,5 +299,63 @@ describe("session detail payload contracts", () => {
 			revision,
 			subagentId: "agent-1",
 		});
+	});
+
+	test("validates window summaries with complete, pending, and oversized bodies", () => {
+		const summary = {
+			activityResolution: "exact" as const,
+			durationSeconds: 60,
+			editedFiles: ["src/a.ts"],
+			endedAt: "2026-08-16T08:31:00.123Z",
+			errorCount: 0,
+			errorEvents: [],
+			estimatedCost: 0.42,
+			hasBody: true,
+			index: 0,
+			inputTokens: 120,
+			outputTokens: 30,
+			responsePreview: "Done",
+			skills: [],
+			skillEvents: [],
+			slashCommands: [],
+			startedAt: "2026-08-16T08:30:00.123Z",
+			toolCallCount: 1,
+			turnId: "turn-1",
+			usageCalls: [],
+			userPreview: "Please change it",
+		};
+		const parsed = SessionDetailWindowSchema.parse({
+			newerCursor: "next",
+			olderCursor: null,
+			revision: "2026-08-16T08:30:00.123Z",
+			total: 3,
+			turns: [
+				{
+					...summary,
+					body: { responseItems: [], userItems: [] },
+					bodyOmitted: null,
+				},
+				{
+					...summary,
+					body: null,
+					bodyOmitted: null,
+					index: 1,
+					turnId: "turn-2",
+				},
+				{
+					...summary,
+					body: null,
+					bodyOmitted: "oversized",
+					index: 2,
+					turnId: "turn-3",
+				},
+			],
+		});
+
+		expect(parsed.turns[0]?.body).toEqual({
+			responseItems: [],
+			userItems: [],
+		});
+		expect(parsed.turns[2]?.bodyOmitted).toBe("oversized");
 	});
 });
