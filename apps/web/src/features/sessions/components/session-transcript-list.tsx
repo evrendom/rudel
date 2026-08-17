@@ -51,6 +51,7 @@ import {
 	recordTranscriptReactCommit,
 	recordTranscriptRowLifecycle,
 	recordTranscriptRowMount,
+	recordTranscriptViewportGeometry,
 	type TranscriptForensicsContentFlags,
 	type TranscriptForensicsReactCommitReason,
 } from "./transcript-forensics";
@@ -164,6 +165,7 @@ export const SessionTranscriptList = forwardRef<
 	const modelRef = useLatestValueRef(model);
 	const feederInputRef = useLatestValueRef({
 		bodyTurnCount,
+		debugPaintEpoch,
 		debugEnabled,
 		onLoadDirection,
 		onVisibleTurnIds,
@@ -480,9 +482,29 @@ export const SessionTranscriptList = forwardRef<
 			const scrollTop = scrollElement.scrollTop;
 			const clientHeight = scrollElement.clientHeight;
 			const viewportBottom = scrollTop + clientHeight;
-			const visibleItems = virtualizer
-				.getVirtualItems()
-				.filter((item) => item.start < viewportBottom && item.end > scrollTop);
+			const currentVirtualItems = virtualizer.getVirtualItems();
+			const visibleItems = currentVirtualItems.filter(
+				(item) => item.start < viewportBottom && item.end > scrollTop,
+			);
+			if (feederInputRef.current.debugEnabled) {
+				recordTranscriptViewportGeometry({
+					clientHeight,
+					rows: currentVirtualItems.flatMap((item) => {
+						const row = rows[item.index];
+						return row
+							? [
+									{
+										contentVersion: `${getTranscriptRowContentVersion(row)}:epoch:${feederInputRef.current.debugPaintEpoch}`,
+										end: item.end,
+										rowId: row.id,
+										start: item.start,
+									},
+								]
+							: [];
+					}),
+					scrollTop,
+				});
+			}
 			const turnItems = visibleItems.flatMap((item) => {
 				const row = rows[item.index];
 				const turnIndex = row

@@ -40,8 +40,7 @@ export function publishTranscriptDebugSnapshot(
 			`${snapshot.blankFrames} blank`,
 		].join(" · ");
 		element.dataset.transcriptDebugBaseHud = baseHud;
-		hud.textContent = baseHud;
-		publishTranscriptForensicsHud(element);
+		publishTranscriptForensicsHud();
 	}
 }
 

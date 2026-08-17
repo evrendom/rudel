@@ -5,6 +5,7 @@ const ACTIVE_INPUT_WINDOW_MS = 32;
 const EXPENSIVE_MOUNT_WINDOW_MS = 10_000;
 const FLAGGED_FRAME_MS = 32;
 const HEARTBEAT_BLIND_WINDOW_MS = 48;
+const HUD_UPDATE_INTERVAL_MS = 250;
 
 export type TranscriptProgrammaticWriteCause =
 	| "prepend-anchor"
@@ -322,6 +323,16 @@ type TranscriptForensicsRowLifecycle = TranscriptForensicsViewportRow & {
 type HeartbeatWitness = {
 	at: number;
 	scrollTop: number;
+	viewportRows: readonly TranscriptForensicsViewportRow[];
+};
+
+type TranscriptForensicsViewportGeometry = {
+	clientHeight: number;
+	rows: readonly (TranscriptForensicsViewportRow & {
+		end: number;
+		start: number;
+	})[];
+	scrollTop: number;
 };
 
 type RuntimeState = {
@@ -337,9 +348,11 @@ type RuntimeState = {
 	frames: TranscriptForensicsFrame[];
 	heartbeatEntryWitnesses: Map<number, HeartbeatWitness | undefined>;
 	heartbeatWorker: Worker | undefined;
+	hudUpdateRequested: boolean;
 	lastFrameAt: number;
 	lastFlaggedCause: string | undefined;
 	lastHeartbeatWitness: HeartbeatWitness | undefined;
+	lastHudAt: number;
 	lastScrollTop: number;
 	lifecycles: TranscriptForensicsLifecycle[];
 	longAnimationFrameObserver: PerformanceObserver | undefined;
@@ -348,6 +361,7 @@ type RuntimeState = {
 	measurements: TranscriptForensicsMeasure[];
 	mounts: TranscriptForensicsMount[];
 	longTaskObserver: PerformanceObserver | undefined;
+	observedScrollTop: number;
 	pendingMounted: string[];
 	pendingUnmounted: string[];
 	pendingUserDelta: number;
@@ -359,7 +373,9 @@ type RuntimeState = {
 	rowLifecycles: TranscriptForensicsRowLifecycle[];
 	runs: TranscriptForensicsRun[];
 	scrollElement: HTMLElement | undefined;
+	scrollListener: ((event: Event) => void) | undefined;
 	suspectMeasures: TranscriptForensicsSuspectMeasure[];
+	viewportGeometry: TranscriptForensicsViewportGeometry | undefined;
 	wheelEventTimings: TranscriptForensicsWheelEventTiming[];
 	wheelListener: ((event: WheelEvent) => void) | undefined;
 };
@@ -399,6 +415,13 @@ export function attachTranscriptTraceScroller(element: HTMLElement) {
 	trace.scrollElement = element;
 	trace.lastFrameAt = performance.now();
 	trace.lastScrollTop = element.scrollTop;
+	trace.observedScrollTop = element.scrollTop;
+	trace.scrollListener = (event) => {
+		if (event.currentTarget instanceof HTMLElement) {
+			trace.observedScrollTop = event.currentTarget.scrollTop;
+		}
+	};
+	element.addEventListener("scroll", trace.scrollListener, { passive: true });
 	trace.wheelListener = (event) => {
 		const processingStart = performance.now();
 		const eventAt =
@@ -478,6 +501,26 @@ export function recordTranscriptRowLifecycle(
 	const target =
 		phase === "mount" ? runtime.pendingMounted : runtime.pendingUnmounted;
 	pushBounded(target, rowId, TRACE_EVENT_LIMIT);
+	if (phase === "mount" && runtime.viewportGeometry) {
+		runtime.viewportGeometry = {
+			...runtime.viewportGeometry,
+			rows: runtime.viewportGeometry.rows.map((row) =>
+				row.rowId === rowId ? { ...row, contentVersion } : row,
+			),
+		};
+	}
+}
+
+export function recordTranscriptViewportGeometry(
+	geometry: TranscriptForensicsViewportGeometry,
+) {
+	if (!runtime) {
+		return;
+	}
+	runtime.viewportGeometry = {
+		...geometry,
+		rows: geometry.rows.map((row) => ({ ...row })),
+	};
 }
 
 export function recordTranscriptReactCommit(
@@ -621,18 +664,25 @@ export function measureTranscriptSuspect<TValue>(
 	}
 }
 
-export function publishTranscriptForensicsHud(element: HTMLElement) {
+export function publishTranscriptForensicsHud() {
 	if (!runtime) {
 		return;
 	}
+	runtime.hudUpdateRequested = true;
+}
+
+function renderTranscriptForensicsHud(
+	element: HTMLElement,
+	trace: RuntimeState,
+) {
 	const hud = element.querySelector<HTMLOutputElement>(
 		"[data-transcript-debug-hud]",
 	);
 	if (!hud) {
 		return;
 	}
-	const score = getCurrentFeelScore(runtime);
-	const recentMounts = runtime.mounts
+	const score = getCurrentFeelScore(trace);
+	const recentMounts = trace.mounts
 		.filter(
 			(mount) => performance.now() - mount.at <= EXPENSIVE_MOUNT_WINDOW_MS,
 		)
@@ -643,11 +693,11 @@ export function publishTranscriptForensicsHud(element: HTMLElement) {
 				`${mount.rowKind}:${mount.rowId} ${mount.duration.toFixed(1)}ms`,
 		);
 	const base = element.dataset.transcriptDebugBaseHud;
-	hud.textContent = [
+	const content = [
 		base,
 		`feel latency ${formatMetric(score.inputLatencyMs)} · wheel q p95 ${formatMetric(score.p95WheelQueueingDelayMs)} max ${formatMetric(score.maxWheelQueueingDelayMs)} · gap ${score.maxFrameGapMs.toFixed(1)}ms · blank ${score.blankMs.toFixed(1)}ms · lumps ${score.lumpCount} · reversals ${score.reversalCount} · kills ${score.momentumKills}`,
-		runtime.lastFlaggedCause
-			? `last flagged ${runtime.lastFlaggedCause}`
+		trace.lastFlaggedCause
+			? `last flagged ${trace.lastFlaggedCause}`
 			: undefined,
 		recentMounts.length > 0
 			? `mount top5 ${recentMounts.join(" | ")}`
@@ -655,6 +705,9 @@ export function publishTranscriptForensicsHud(element: HTMLElement) {
 	]
 		.filter((part) => part !== undefined && part.length > 0)
 		.join("\n");
+	if (hud.textContent !== content) {
+		hud.textContent = content;
+	}
 }
 
 function createRuntime(): RuntimeState {
@@ -698,9 +751,11 @@ function createRuntime(): RuntimeState {
 		frames: [],
 		heartbeatEntryWitnesses: new Map(),
 		heartbeatWorker: undefined,
+		hudUpdateRequested: true,
 		lastFrameAt: performance.now(),
 		lastFlaggedCause: undefined,
 		lastHeartbeatWitness: undefined,
+		lastHudAt: 0,
 		lastScrollTop: 0,
 		lifecycles: [],
 		longAnimationFrameObserver: undefined,
@@ -709,6 +764,7 @@ function createRuntime(): RuntimeState {
 		measurements: [],
 		mounts: [],
 		longTaskObserver: undefined,
+		observedScrollTop: 0,
 		pendingMounted: [],
 		pendingUnmounted: [],
 		pendingUserDelta: 0,
@@ -720,7 +776,9 @@ function createRuntime(): RuntimeState {
 		rowLifecycles: [],
 		runs: [],
 		scrollElement: undefined,
+		scrollListener: undefined,
 		suspectMeasures: [],
+		viewportGeometry: undefined,
 		wheelEventTimings: [],
 		wheelListener: undefined,
 	};
@@ -1045,7 +1103,8 @@ function installHeartbeatWorker(trace: RuntimeState) {
 			if (element) {
 				trace.lastHeartbeatWitness = {
 					at: performance.now(),
-					scrollTop: element.scrollTop,
+					scrollTop: trace.lastScrollTop,
+					viewportRows: getVisibleTranscriptRows(trace, trace.lastScrollTop),
 				};
 			}
 			return;
@@ -1081,9 +1140,12 @@ function installHeartbeatWorker(trace: RuntimeState) {
 			durationMs: message.durationMs,
 			endedAt,
 			entryScrollTop: entryWitness.scrollTop,
-			exitScrollTop: element.scrollTop,
+			exitScrollTop: trace.lastScrollTop,
 			startedAt,
-			viewportRows: getVisibleTranscriptRows(element),
+			viewportRows: mergeViewportRows(
+				entryWitness.viewportRows,
+				getVisibleTranscriptRows(trace, trace.lastScrollTop),
+			),
 		};
 		pushBounded(trace.blindWindows, blindWindow, TRACE_EVENT_LIMIT);
 		trace.lastFlaggedCause = `heartbeat blind ${message.durationMs.toFixed(1)}ms`;
@@ -1098,28 +1160,25 @@ function installHeartbeatWorker(trace: RuntimeState) {
 			}
 			trace.blindWindows[index] = {
 				...blindWindow,
-				exitScrollTop: currentElement.scrollTop,
+				exitScrollTop: trace.lastScrollTop,
 				viewportRows: mergeViewportRows(
 					blindWindow.viewportRows,
-					getVisibleTranscriptRows(currentElement),
+					getVisibleTranscriptRows(trace, trace.lastScrollTop),
 				),
 			};
 		});
 	});
 }
 
-function getVisibleTranscriptRows(element: HTMLElement) {
-	const bounds = element.getBoundingClientRect();
-	return getMountedTranscriptRows(element).filter((row) => {
-		const candidate = element.querySelector<HTMLElement>(
-			`[data-transcript-content-version="${CSS.escape(row.contentVersion)}"]`,
-		);
-		if (!candidate) {
-			return false;
-		}
-		const rect = candidate.getBoundingClientRect();
-		return rect.bottom > bounds.top && rect.top < bounds.bottom;
-	});
+function getVisibleTranscriptRows(trace: RuntimeState, scrollTop: number) {
+	const geometry = trace.viewportGeometry;
+	if (!geometry) {
+		return [];
+	}
+	const viewportBottom = scrollTop + geometry.clientHeight;
+	return geometry.rows
+		.filter((row) => row.end > scrollTop && row.start < viewportBottom)
+		.map(({ contentVersion, rowId }) => ({ contentVersion, rowId }));
 }
 
 function getMountedTranscriptRows(element: HTMLElement) {
@@ -1153,14 +1212,13 @@ function startFrameLoop(trace: RuntimeState) {
 			return;
 		}
 		const previousFrameAt = trace.lastFrameAt;
-		const scrollTop = element.scrollTop;
+		const scrollTop = trace.observedScrollTop;
 		const moved = scrollTop - trace.lastScrollTop;
 		const userDelta = trace.pendingUserDelta;
 		const progWrites = trace.pendingWrites.splice(0);
 		const mounted = trace.pendingMounted.splice(0);
 		const unmounted = trace.pendingUnmounted.splice(0);
 		trace.pendingUserDelta = 0;
-		const { blankRowIds, blankSamples } = sampleBlankPoints(element, trace);
 		const longTaskMs = trace.longTasks.reduce(
 			(total, task) =>
 				total +
@@ -1188,41 +1246,68 @@ function startFrameLoop(trace: RuntimeState) {
 					? "coast"
 					: "idle"
 			: "idle";
-		pushBounded(
-			trace.frames,
-			{
-				anatomy: emptyFrameAnatomy(),
-				at,
+		const frame: TranscriptForensicsFrame = {
+			anatomy: emptyFrameAnatomy(),
+			at,
+			blankPts: 0,
+			blankRowIds: [null, null, null, null, null],
+			blankSamples: [false, false, false, false, false],
+			frameMs: at - previousFrameAt,
+			longTaskMs,
+			mounted,
+			moved,
+			phase,
+			progWrites,
+			scrollTop,
+			suspectMarks,
+			unmounted,
+			userDelta,
+			wheelEventCount: 0,
+			worstWheelQueueingDelayMs: null,
+		};
+		pushBounded(trace.frames, frame, TRACE_FRAME_LIMIT);
+		window.setTimeout(() => {
+			if (trace.scrollElement !== element) {
+				return;
+			}
+			const frameIndex = trace.frames.indexOf(frame);
+			if (frameIndex < 0) {
+				return;
+			}
+			const { blankRowIds, blankSamples } = sampleBlankPoints(
+				trace,
+				frame.scrollTop,
+			);
+			trace.frames[frameIndex] = {
+				...frame,
 				blankPts: blankSamples.filter(Boolean).length,
 				blankRowIds,
 				blankSamples,
-				frameMs: at - previousFrameAt,
-				longTaskMs,
-				mounted,
-				moved,
-				phase,
-				progWrites,
-				scrollTop,
-				suspectMarks,
-				unmounted,
-				userDelta,
-				wheelEventCount: 0,
-				worstWheelQueueingDelayMs: null,
-			},
-			TRACE_FRAME_LIMIT,
-		);
+			};
+			const unpaintedRowId = blankRowIds.find((rowId) => rowId);
+			if (unpaintedRowId) {
+				trace.lastFlaggedCause = `unpainted row ${unpaintedRowId}`;
+			}
+			const hudAt = performance.now();
+			if (
+				trace.hudUpdateRequested &&
+				hudAt - trace.lastHudAt >= HUD_UPDATE_INTERVAL_MS
+			) {
+				trace.hudUpdateRequested = false;
+				trace.lastHudAt = hudAt;
+				renderTranscriptForensicsHud(element, trace);
+			}
+		}, 0);
 		if (at - previousFrameAt > FLAGGED_FRAME_MS) {
 			trace.lastFlaggedCause =
 				suspectMarks[0] ??
 				(longTaskMs > 0
 					? `long task ${longTaskMs.toFixed(1)}ms`
-					: blankSamples.some(Boolean)
-						? `unpainted row ${blankRowIds.find((rowId) => rowId) ?? "unknown"}`
-						: `unattributed ${String((at - previousFrameAt).toFixed(1))}ms frame`);
+					: `unattributed ${String((at - previousFrameAt).toFixed(1))}ms frame`);
 		}
 		trace.lastFrameAt = at;
 		trace.lastScrollTop = scrollTop;
-		publishTranscriptForensicsHud(element);
+		publishTranscriptForensicsHud();
 		trace.frameHandle = window.requestAnimationFrame(tick);
 	};
 	trace.frameHandle = window.requestAnimationFrame(tick);
@@ -1232,11 +1317,15 @@ function detachRuntimeScroller(trace: RuntimeState) {
 	if (trace.scrollElement && trace.wheelListener) {
 		trace.scrollElement.removeEventListener("wheel", trace.wheelListener);
 	}
+	if (trace.scrollElement && trace.scrollListener) {
+		trace.scrollElement.removeEventListener("scroll", trace.scrollListener);
+	}
 	if (trace.frameHandle !== undefined) {
 		window.cancelAnimationFrame(trace.frameHandle);
 	}
 	trace.frameHandle = undefined;
 	trace.scrollElement = undefined;
+	trace.scrollListener = undefined;
 	trace.wheelListener = undefined;
 }
 
@@ -1384,18 +1473,15 @@ function computeFeelScore(
 	};
 }
 
-function sampleBlankPoints(element: HTMLElement, trace: RuntimeState) {
-	const bounds = element.getBoundingClientRect();
-	const x = bounds.left + bounds.width / 2;
+function sampleBlankPoints(trace: RuntimeState, scrollTop: number) {
+	const geometry = trace.viewportGeometry;
 	const samples = [0.1, 0.3, 0.5, 0.7, 0.9].map((ratio) => {
-		const y = bounds.top + bounds.height * ratio;
-		const target = document.elementFromPoint(x, y);
-		const row =
-			target instanceof Element && element.contains(target)
-				? target.closest<HTMLElement>("[data-transcript-row-id]")
-				: null;
-		const rowId = row?.dataset.rowId ?? null;
-		const contentVersion = row?.dataset.transcriptContentVersion;
+		const offset = scrollTop + (geometry?.clientHeight ?? 0) * ratio;
+		const row = geometry?.rows.find(
+			(candidate) => candidate.start <= offset && candidate.end > offset,
+		);
+		const rowId = row?.rowId ?? null;
+		const contentVersion = row?.contentVersion;
 		const painted =
 			rowId !== null &&
 			contentVersion !== undefined &&
@@ -1474,7 +1560,9 @@ function resetRuntime(trace: RuntimeState) {
 	trace.heartbeatEntryWitnesses.clear();
 	trace.lastFlaggedCause = undefined;
 	trace.lastFrameAt = resetAt;
-	trace.lastScrollTop = trace.scrollElement?.scrollTop ?? 0;
+	trace.lastScrollTop = trace.observedScrollTop;
+	trace.hudUpdateRequested = true;
+	trace.lastHudAt = resetAt - HUD_UPDATE_INTERVAL_MS;
 	trace.longTasks.length = 0;
 	trace.longAnimationFrames.length = 0;
 	trace.measurements.length = 0;
