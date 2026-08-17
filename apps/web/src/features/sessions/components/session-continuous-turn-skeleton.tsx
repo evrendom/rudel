@@ -14,12 +14,10 @@ type SkeletonTraceRow = {
 
 export function SessionContinuousTurnSkeleton({
 	continuesThread,
-	estimatedSize,
 	option,
 	userLabel,
 }: {
 	continuesThread: boolean;
-	estimatedSize: number;
 	option: SessionTurnTablePaneOption;
 	userLabel: string;
 }) {
@@ -30,12 +28,7 @@ export function SessionContinuousTurnSkeleton({
 	const rows = buildSkeletonTraceRows(option);
 
 	return (
-		<div
-			aria-busy="true"
-			className="min-w-0 overflow-hidden"
-			data-session-turn-skeleton
-			style={{ height: estimatedSize }}
-		>
+		<div aria-busy="true" className="min-w-0" data-session-turn-skeleton>
 			<output className="sr-only">Loading turn</output>
 			{hasMemberMessage ? (
 				<>

@@ -67,6 +67,10 @@ export function sessionDetailWindowQueryKey(
 	] as const;
 }
 
+export function sessionDetailWindowQueryPrefix(sessionId: string) {
+	return [SESSION_DETAIL_FAST_QUERY_PREFIX, "window", sessionId] as const;
+}
+
 export function sessionDetailTurnQueryKey(input: {
 	revision: string;
 	sessionId: string;

@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
 	getTranscriptVirtualViewport,
 	getVisibleBlankGap,
+	isTranscriptAnchorCancelKey,
 } from "./session-transcript-list";
 
 function virtualItem(index: number, start: number, end: number): VirtualItem {
@@ -78,5 +79,21 @@ describe("virtual transcript blank-frame detector", () => {
 				300,
 			),
 		).toBe(60);
+	});
+});
+
+describe("virtual transcript scroll ownership", () => {
+	test("cancels anchor mode for every navigation key in the contract", () => {
+		for (const key of [
+			"ArrowDown",
+			"ArrowUp",
+			"End",
+			"Home",
+			"PageDown",
+			"PageUp",
+		]) {
+			expect(isTranscriptAnchorCancelKey(key)).toBe(true);
+		}
+		expect(isTranscriptAnchorCancelKey("Enter")).toBe(false);
 	});
 });

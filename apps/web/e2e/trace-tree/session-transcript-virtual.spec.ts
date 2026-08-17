@@ -208,6 +208,11 @@ test("jump settling, level remeasurement, and viewport resize remain covered", a
 		"data-trace-fixture-active-turn",
 		"18",
 	);
+	const target = scroller
+		.locator('[data-transcript-turn-id="fixture-turn-2:streamed:17"]')
+		.first();
+	await expect(target).toHaveAttribute("aria-current", "true");
+	await expect(target).toBeFocused();
 	await scroller
 		.locator("[data-trace-fixture-toggle-level]")
 		.dispatchEvent("click");
@@ -215,6 +220,26 @@ test("jump settling, level remeasurement, and viewport resize remain covered", a
 	await page.setViewportSize({ height: 640, width: 900 });
 	await waitForFrames(page, 5);
 	await expect(scroller).toHaveAttribute("data-transcript-blank-frames", "0");
+});
+
+test("wheel input cancels an in-flight programmatic anchor", async ({
+	page,
+}) => {
+	const scroller = await openVirtualFixture(page, "turns=18&profile=scroll");
+	await scroller.evaluate((element) => {
+		if (!(element instanceof HTMLElement)) {
+			throw new Error("Transcript fixture scroller must be an HTMLElement");
+		}
+		const button = element.querySelector<HTMLButtonElement>(
+			"[data-trace-fixture-jump-last]",
+		);
+		button?.click();
+		element.dispatchEvent(new WheelEvent("wheel", { deltaY: -120 }));
+	});
+	await expect(scroller).toHaveAttribute(
+		"data-transcript-scroll-mode",
+		"free-scrolling",
+	);
 });
 
 test("pending rows and incremental body replacement never expose a blank frame", async ({

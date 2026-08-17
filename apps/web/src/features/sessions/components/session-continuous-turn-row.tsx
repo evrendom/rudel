@@ -70,6 +70,7 @@ export const SessionContinuousTurnSection = memo(
 				debugMode={debugMode}
 				debugState={debugState}
 				estimatedSize={estimatedSize}
+				hydrated={Boolean(option.turn)}
 				index={index}
 				sectionLabel={sectionLabel}
 				viewportStore={viewportStore}
@@ -77,7 +78,6 @@ export const SessionContinuousTurnSection = memo(
 				<ContinuousTurnStaticBody
 					bodyState={bodyState}
 					continuesThread={continuesThread}
-					estimatedSize={estimatedSize}
 					forceSkeleton={forceSkeleton}
 					index={index}
 					onRetryTurnBody={onRetryTurnBody}
@@ -99,6 +99,7 @@ const ContinuousTurnActivityFrame = memo(function ContinuousTurnActivityFrame({
 	debugMode,
 	debugState,
 	estimatedSize,
+	hydrated,
 	index,
 	sectionLabel,
 	viewportStore,
@@ -109,6 +110,7 @@ const ContinuousTurnActivityFrame = memo(function ContinuousTurnActivityFrame({
 	debugMode: SessionDetailSkeletonDebugMode;
 	debugState: "full" | "hydrating" | "skeleton";
 	estimatedSize: number;
+	hydrated: boolean;
 	index: number;
 	sectionLabel: string;
 	viewportStore: SessionContinuousTurnViewportStore;
@@ -136,10 +138,17 @@ const ContinuousTurnActivityFrame = memo(function ContinuousTurnActivityFrame({
 			data-active-rail-position={activeModelPosition}
 			data-active-speaker={activeSpeaker}
 			data-continuous-turn-index={index}
-			style={{
-				containIntrinsicSize: `auto ${estimatedSize}px`,
-				contentVisibility: "auto",
-			}}
+			// Skeleton sections stay in normal rendering so their placeholder
+			// always paints; only hydrated turns are heavy enough to skip
+			// offscreen, and `auto` keeps their real measured size once painted.
+			style={
+				hydrated
+					? {
+							containIntrinsicSize: `auto ${estimatedSize}px`,
+							contentVisibility: "auto",
+						}
+					: undefined
+			}
 		>
 			{children}
 			{debugMode.kind === "off" ? null : (
@@ -194,7 +203,6 @@ const ContinuousTurnStaticBody = memo(function ContinuousTurnStaticBody({
 	bodyState,
 	className,
 	continuesThread,
-	estimatedSize,
 	forceSkeleton,
 	index,
 	onRetryTurnBody,
@@ -207,7 +215,6 @@ const ContinuousTurnStaticBody = memo(function ContinuousTurnStaticBody({
 	bodyState: SessionContinuousTurnBodyState | undefined;
 	className?: string;
 	continuesThread: boolean;
-	estimatedSize: number;
 	forceSkeleton: boolean;
 	index: number;
 	onRetryTurnBody: ((index: number) => void) | undefined;
@@ -254,7 +261,6 @@ const ContinuousTurnStaticBody = memo(function ContinuousTurnStaticBody({
 				) : forceSkeleton ? (
 					<SessionContinuousTurnSkeleton
 						continuesThread={continuesThread}
-						estimatedSize={estimatedSize}
 						option={option}
 						userLabel={viewModel.safeUserDisplayName}
 					/>
@@ -279,7 +285,6 @@ const ContinuousTurnStaticBody = memo(function ContinuousTurnStaticBody({
 				) : (
 					<SessionContinuousTurnSkeleton
 						continuesThread={continuesThread}
-						estimatedSize={estimatedSize}
 						option={option}
 						userLabel={viewModel.safeUserDisplayName}
 					/>

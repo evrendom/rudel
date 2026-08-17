@@ -223,6 +223,9 @@ export function SessionContinuousTraceFixturePage() {
 					})
 				: fixtureOptions,
 	);
+	const [selectedVirtualTurnId, setSelectedVirtualTurnId] = useState(
+		() => fixtureOptions[0]?.turnId,
+	);
 	const [mountsThread, setMountsThread] = useState(false);
 	const [viewportStore] = useState(createSessionContinuousTurnViewportStore);
 	// ?display=normal mirrors the session detail default (flat request rows)
@@ -464,6 +467,7 @@ export function SessionContinuousTraceFixturePage() {
 					pendingCount={options.filter((option) => !option.turn).length}
 					renderMode={virtualRenderMode}
 					scrollContainerRef={scrollContainerRef}
+					selectedTurnId={selectedVirtualTurnId}
 					userImageUrl={undefined}
 					viewModel={CONTINUOUS_FIXTURE_VIEW_MODEL}
 					viewportStore={viewportStore}
@@ -521,6 +525,7 @@ export function SessionContinuousTraceFixturePage() {
 						onClick={() => {
 							const turnId = options.at(-1)?.turnId;
 							if (turnId) {
+								setSelectedVirtualTurnId(turnId);
 								void virtualListRef.current?.scrollToTurn(turnId);
 							}
 						}}

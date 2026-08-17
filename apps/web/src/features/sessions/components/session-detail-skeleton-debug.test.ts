@@ -79,12 +79,11 @@ describe("session detail skeleton debug mode", () => {
 		expect(neighboring).not.toBe(first);
 	});
 
-	it("renders the overview shape inside the exact estimated-height budget", () => {
+	it("renders the overview shape at its natural height", () => {
 		const option = createSkeletonOption();
 		const view = render(
 			createElement(SessionContinuousTurnSkeleton, {
 				continuesThread: true,
-				estimatedSize: 640,
 				option,
 				userLabel: "Evren",
 			}),
@@ -93,7 +92,10 @@ describe("session detail skeleton debug mode", () => {
 			"[data-session-turn-skeleton]",
 		);
 
-		expect(skeleton?.style.height).toBe("640px");
+		// No fixed-height clamp: the skeleton flows at its natural height so
+		// hydration swaps shift layout as little as its estimate error, not by
+		// an arbitrary clipped box.
+		expect(skeleton?.style.height).toBe("");
 		expect(view.getAllByText(option.memberPreview)).toHaveLength(2);
 		expect(
 			view.container.querySelectorAll(
@@ -130,7 +132,6 @@ describe("session detail skeleton debug mode", () => {
 		view.rerender(
 			createElement(SessionContinuousTurnSkeleton, {
 				continuesThread: true,
-				estimatedSize: 640,
 				option,
 				userLabel: "Evren",
 			}),

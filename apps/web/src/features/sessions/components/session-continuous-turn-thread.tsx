@@ -73,39 +73,54 @@ export const SessionContinuousTurnThread = memo(
 			}
 
 			let animationFrame: number | undefined;
-			const syncViewport = () => {
-				animationFrame = undefined;
+			let measurementsDirty = true;
+			let sectionTops: number[] = [];
+			let sectionIndices: number[] = [];
+
+			// Section offsets are cached in scroll-content coordinates and only
+			// re-read when geometry changes; scroll frames must stay free of
+			// per-section layout reads.
+			const measureSections = () => {
+				measurementsDirty = false;
 				const turnElements = threadElement.querySelectorAll<HTMLElement>(
 					"[data-continuous-turn-index]",
 				);
-				if (turnElements.length === 0) {
+				const contentOrigin =
+					scrollContainer.getBoundingClientRect().top -
+					scrollContainer.scrollTop;
+				sectionTops = Array.from(
+					turnElements,
+					(element) => element.getBoundingClientRect().top - contentOrigin,
+				);
+				sectionIndices = Array.from(turnElements, (element) =>
+					Number(element.dataset.continuousTurnIndex),
+				);
+			};
+
+			const syncViewport = () => {
+				animationFrame = undefined;
+				if (measurementsDirty) {
+					measureSections();
+				}
+				if (sectionTops.length === 0) {
 					return;
 				}
 
-				const containerBounds = scrollContainer.getBoundingClientRect();
+				const scrollTop = scrollContainer.scrollTop;
+				const clientHeight = scrollContainer.clientHeight;
 				const focusOffset = Math.min(
-					scrollContainer.clientHeight * ACTIVE_TURN_FOCUS_RATIO,
+					clientHeight * ACTIVE_TURN_FOCUS_RATIO,
 					ACTIVE_TURN_MAX_FOCUS_OFFSET_PX,
 				);
-				const sectionTops = Array.from(
-					turnElements,
-					(element) => element.getBoundingClientRect().top,
-				);
-				const sectionIndices = Array.from(turnElements, (element) =>
-					Number(element.dataset.continuousTurnIndex),
-				);
 				const viewport = getContinuousTurnViewport({
-					focusLine: containerBounds.top + focusOffset,
+					focusLine: scrollTop + focusOffset,
 					isAtScrollEnd:
-						scrollContainer.scrollHeight -
-							scrollContainer.clientHeight -
-							scrollContainer.scrollTop <=
-						2,
-					isAtScrollStart: scrollContainer.scrollTop <= 2,
+						scrollContainer.scrollHeight - clientHeight - scrollTop <= 2,
+					isAtScrollStart: scrollTop <= 2,
 					sectionIndices,
 					sectionTops,
-					viewportBottom: containerBounds.bottom,
-					viewportTop: containerBounds.top,
+					viewportBottom: scrollTop + clientHeight,
+					viewportTop: scrollTop,
 				});
 				const viewportKey = `${viewport.activeIndex}:${viewport.visibleRange[0]}:${viewport.visibleRange[1]}`;
 				if (viewportKey !== lastViewportKeyRef.current) {
@@ -134,17 +149,21 @@ export const SessionContinuousTurnThread = memo(
 				}
 				animationFrame = window.requestAnimationFrame(syncViewport);
 			};
+			const invalidateMeasurements = () => {
+				measurementsDirty = true;
+				scheduleViewportSync();
+			};
 
 			scrollContainer.addEventListener("scroll", scheduleViewportSync, {
 				passive: true,
 			});
 			const resizeObserver =
 				typeof ResizeObserver === "function"
-					? new ResizeObserver(scheduleViewportSync)
+					? new ResizeObserver(invalidateMeasurements)
 					: undefined;
 			resizeObserver?.observe(scrollContainer);
 			resizeObserver?.observe(threadElement);
-			scheduleViewportSync();
+			invalidateMeasurements();
 
 			return () => {
 				scrollContainer.removeEventListener("scroll", scheduleViewportSync);
@@ -155,22 +174,23 @@ export const SessionContinuousTurnThread = memo(
 			};
 		});
 
-		if (options.length === 0) {
-			return (
-				<div className="flex min-h-60 items-center justify-center border-b border-(--session-overview-border) p-8 text-center text-sm text-(--session-overview-muted)">
-					No conversation data available
-				</div>
-			);
-		}
 		const firstMemberIndex = options.findIndex(
 			(option) =>
 				option.turn?.userItems.some((item) => item.kind === "user") ??
 				option.memberPreview !== "No member message",
 		);
 
+		// The empty state renders inside the same ref'd wrapper as the turns so
+		// the mount-once viewport effect keeps its listeners on a live element
+		// and picks sections up when they arrive.
 		return (
 			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
 				<div ref={threadElementRef} className="min-w-0">
+					{options.length === 0 ? (
+						<div className="flex min-h-60 items-center justify-center border-b border-(--session-overview-border) p-8 text-center text-sm text-(--session-overview-muted)">
+							No conversation data available
+						</div>
+					) : null}
 					{options.map((option, index) => {
 						const section = (
 							<SessionContinuousTurnSection

@@ -10,6 +10,7 @@ import {
 	sessionDetailSubagentQueryKey,
 	sessionDetailTurnQueryKey,
 	sessionDetailWindowQueryKey,
+	sessionDetailWindowQueryPrefix,
 	shouldRetrySessionDetailFastQuery,
 } from "./session-detail-fast-query";
 import {
@@ -127,6 +128,11 @@ describe("session detail fast-path query boundaries", () => {
 		]);
 		expect(SESSION_DETAIL_OVERVIEW_STALE_TIME_MS).toBe(60_000);
 		expect(SESSION_DETAIL_BODY_CACHE_TIME_MS).toBe(600_000);
+		expect(sessionDetailWindowQueryPrefix("session-1")).toEqual([
+			"session-detail-v2",
+			"window",
+			"session-1",
+		]);
 	});
 
 	it("retains valid bodies while recovering drifted window summary fields", () => {

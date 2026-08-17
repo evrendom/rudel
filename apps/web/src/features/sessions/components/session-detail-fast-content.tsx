@@ -49,7 +49,8 @@ export function SessionDetailFastContent({
 	userMap: Record<string, string>;
 }) {
 	const queryClient = useQueryClient();
-	const [searchParams] = useSearchParams();
+	const [searchParams, setSearchParams] = useSearchParams();
+	const requestedTurnId = searchParams.get("turn") ?? undefined;
 	const skeletonDebugMode = import.meta.env.DEV
 		? resolveSessionDetailSkeletonDebugMode(searchParams.get("skeletons"), true)
 		: ({ kind: "off" } as const);
@@ -61,7 +62,7 @@ export function SessionDetailFastContent({
 	const [selection, setSelection] = useState<SessionTurnSelection>(() => ({
 		index: Math.max(
 			firstOverview.turnPage.items.findIndex(
-				(item) => item.turnId === initialSelectedTurnId,
+				(item) => item.turnId === (requestedTurnId ?? initialSelectedTurnId),
 			),
 			0,
 		),
@@ -89,8 +90,9 @@ export function SessionDetailFastContent({
 	const latestPage = pages.at(-1) ?? firstOverview;
 	const nextCursor = latestPage.turnPage.nextCursor;
 	const selectedOption = options[selection.index];
+	const selectedTurnId = requestedTurnId ?? selectedOption?.turnId;
 	const handleStaleRevision = (error: unknown) =>
-		onStaleRevision(error, selectedOption?.turnId);
+		onStaleRevision(error, selectedTurnId);
 	const hasBucketedActivity = options.some(
 		(option) =>
 			items.find((item) => item.turnId === option.turnId)
@@ -109,6 +111,17 @@ export function SessionDetailFastContent({
 			});
 		}
 		setSelection(nextSelection);
+		const nextTurnId = options[nextSelection.index]?.turnId;
+		if (nextTurnId) {
+			setSearchParams(
+				(current) => {
+					const next = new URLSearchParams(current);
+					next.set("turn", nextTurnId);
+					return next;
+				},
+				{ replace: true },
+			);
+		}
 		window.requestAnimationFrame(() => {
 			responseScrollRef.current
 				?.querySelector<HTMLElement>(
@@ -186,6 +199,7 @@ export function SessionDetailFastContent({
 					responsePane={({ viewportStore }) => (
 						<SessionDetailFastResponsePane
 							key={skeletonDebugKey}
+							anchorTurnId={selectedTurnId}
 							bottomPaddingClassName={columnBottomPaddingClassName}
 							onCancelSearchLoad={searchLoader.cancel}
 							onApproachEnd={() => {

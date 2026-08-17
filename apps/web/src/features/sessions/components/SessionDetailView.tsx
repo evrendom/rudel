@@ -22,6 +22,7 @@ import {
 	sessionDetailFirstOverviewQueryKey,
 	sessionDetailOverviewPageQueryKey,
 	sessionDetailRevisionQueryPrefix,
+	sessionDetailWindowQueryPrefix,
 	shouldRetrySessionDetailFastQuery,
 } from "./session-detail-fast-query";
 import { SessionDetailHeader } from "./session-detail-header";
@@ -346,6 +347,12 @@ function SessionDetailFastView({
 		});
 		queryClient.removeQueries({
 			queryKey: sessionDetailBodyQueryPrefix(sessionId),
+		});
+		void queryClient.cancelQueries({
+			queryKey: sessionDetailWindowQueryPrefix(sessionId),
+		});
+		queryClient.removeQueries({
+			queryKey: sessionDetailWindowQueryPrefix(sessionId),
 		});
 		console.info("[SessionDetailView] Refreshing a stale session revision", {
 			code:

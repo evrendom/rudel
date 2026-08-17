@@ -1,9 +1,25 @@
+// biome-ignore-all lint/nursery/noExcessiveLinesPerFile: The staged virtual transcript controller remains colocated until the legacy path is removed.
 import type {
 	SessionDetailOverview,
-	SessionDetailTurn,
+	SessionDetailWindow,
+	SessionDetailWindowRequest,
 } from "@rudel/api-routes";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { type RefObject, useCallback, useMemo, useRef, useState } from "react";
+import {
+	type QueryClient,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
+import {
+	type RefObject,
+	startTransition,
+	useCallback,
+	// biome-ignore lint/style/noRestrictedImports: external-store, URL-anchor, and delayed-debug synchronization require dependency-aware effects.
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { Button } from "@/app/ui/button";
@@ -16,32 +32,48 @@ import type { SessionContinuousTurnViewportStore } from "./session-continuous-tu
 import {
 	fetchSessionDetailSubagent,
 	fetchSessionDetailTurn,
+	fetchSessionDetailWindow,
 	isSessionDetailStaleRevisionError,
+	isSessionDetailWindowUnsupportedError,
 	SESSION_DETAIL_BODY_CACHE_TIME_MS,
 	SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
+	SESSION_DETAIL_WINDOW_CACHE_TIME_MS,
 	sessionDetailSubagentQueryKey,
 	sessionDetailTurnQueryKey,
+	sessionDetailWindowQueryKey,
 	shouldRetrySessionDetailFastQuery,
 } from "./session-detail-fast-query";
+import { useSessionDetailFastTurnBodies } from "./session-detail-fast-turn-bodies";
 import {
 	resolveSessionDetailLevel,
 	type SessionDetailLevel,
 } from "./session-detail-level";
 import { SessionDetailLevelToggle } from "./session-detail-level-toggle";
-import type { buildSessionDetailOverviewViewModel } from "./session-detail-overview-model";
+import type {
+	buildSessionDetailOverviewViewModel,
+	SessionDetailOverviewTurnOption,
+} from "./session-detail-overview-model";
 import {
 	attachSessionDetailTurnBody,
-	type SessionDetailOverviewTurnOption,
+	buildSessionDetailOverviewTurnOptions,
 } from "./session-detail-overview-model";
 import type { SessionDetailSearchLoadState } from "./session-detail-search";
 import { SessionDetailSearchControl } from "./session-detail-search-control";
 import {
 	getSessionDetailSkeletonDebugKey,
 	getSessionDetailSkeletonTurnPolicy,
-	isSessionDetailSkeletonDebugActive,
 	type SessionDetailSkeletonDebugMode,
-	waitForSessionDetailSkeletonDelay,
 } from "./session-detail-skeleton-debug";
+import {
+	SessionTranscriptList,
+	type SessionTranscriptListHandle,
+} from "./session-transcript-list";
+import {
+	buildSessionTranscriptRowModel,
+	createTranscriptSectionCache,
+	stabilizeTranscriptRows,
+} from "./session-transcript-sections";
+import { createSessionTranscriptWindowStore } from "./session-transcript-window-store";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
 
 type SessionDetailOverviewViewModel = ReturnType<
@@ -50,6 +82,7 @@ type SessionDetailOverviewViewModel = ReturnType<
 type SubagentSummary = SessionDetailOverview["subagents"][number];
 
 export function SessionDetailFastResponsePane({
+	anchorTurnId,
 	bottomPaddingClassName,
 	onCancelSearchLoad,
 	onApproachEnd,
@@ -69,6 +102,7 @@ export function SessionDetailFastResponsePane({
 	viewModel,
 	viewportStore,
 }: {
+	anchorTurnId: string | undefined;
 	bottomPaddingClassName: string;
 	onCancelSearchLoad: () => void;
 	onApproachEnd: () => void;
@@ -90,206 +124,67 @@ export function SessionDetailFastResponsePane({
 }) {
 	const queryClient = useQueryClient();
 	const [searchParams, setSearchParams] = useSearchParams();
-	const [turnBodies, setTurnBodies] = useState<
-		ReadonlyMap<string, SessionDetailTurn>
-	>(() => new Map());
-	const [bodyStates, setBodyStates] = useState<
-		ReadonlyMap<string, "error" | "loading">
-	>(() => new Map());
-	const renderedTurnIdsRef = useRef<ReadonlySet<string>>(new Set());
-	const pendingTurnControllersRef = useRef<Map<string, AbortController>>(
-		new Map(),
-	);
-	const pendingTurnIdsRef = useRef<Set<string>>(new Set());
 	const detailLevel = resolveSessionDetailLevel(searchParams.get("level"));
+	const wantsVirtualTranscript = searchParams.get("transcript") === "virtual";
+	const transcriptDebugEnabled =
+		import.meta.env.DEV && searchParams.get("transcriptDebug") === "1";
 	const skeletonDebugKey = getSessionDetailSkeletonDebugKey(skeletonDebugMode);
-	const availableTurnBodies = useMemo(() => {
-		if (searchLoadModeKey !== skeletonDebugKey || !("bodies" in searchLoad)) {
-			return turnBodies;
-		}
-		return mergeSessionDetailTurnBodies(turnBodies, searchLoad.bodies);
-	}, [searchLoad, searchLoadModeKey, skeletonDebugKey, turnBodies]);
-	const effectiveTurnBodies = useMemo(() => {
-		if (!isSessionDetailSkeletonDebugActive(skeletonDebugMode)) {
-			return availableTurnBodies;
-		}
-		const visibleBodies = new Map<string, SessionDetailTurn>();
-		for (const [index, option] of options.entries()) {
-			const policy = getSessionDetailSkeletonTurnPolicy(
-				skeletonDebugMode,
-				index,
-			);
-			const body = availableTurnBodies.get(option.turnId);
-			if (policy.hydrate && body) {
-				visibleBodies.set(option.turnId, body);
-			}
-		}
-		return visibleBodies;
-	}, [availableTurnBodies, options, skeletonDebugMode]);
-	const loadedOptions = useMemo(
-		() =>
-			options.map((option) => {
-				const body = effectiveTurnBodies.get(option.turnId);
-				return body ? attachSessionDetailTurnBody(option, body) : option;
-			}),
-		[effectiveTurnBodies, options],
-	);
-
-	const loadTurnBody = useCallback(
-		async (index: number) => {
-			const option = options[index];
-			const policy = getSessionDetailSkeletonTurnPolicy(
-				skeletonDebugMode,
-				index,
-			);
-			if (
-				!option?.hasBody ||
-				!policy.hydrate ||
-				pendingTurnIdsRef.current.has(option.turnId) ||
-				effectiveTurnBodies.has(option.turnId)
-			) {
-				return;
-			}
-			pendingTurnIdsRef.current.add(option.turnId);
-			const controller = new AbortController();
-			pendingTurnControllersRef.current.set(option.turnId, controller);
-			const input = { revision, sessionId, turnId: option.turnId };
-			const queryKey = sessionDetailTurnQueryKey(input);
-			setBodyStates((current) =>
-				updateSessionDetailBodyState(current, option.turnId, "loading"),
-			);
-			try {
-				const body = await queryClient.fetchQuery({
-					gcTime: SESSION_DETAIL_BODY_CACHE_TIME_MS,
-					queryFn: ({ signal }) =>
-						fetchSessionDetailTurn(
-							input,
-							AbortSignal.any([signal, controller.signal]),
-						),
-					queryKey,
-					retry: shouldRetrySessionDetailFastQuery,
-					staleTime: SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
-				});
-				await waitForSessionDetailSkeletonDelay(
-					policy.delayMs,
-					controller.signal,
-				);
-				if (
-					policy.delayMs > 0 &&
-					!renderedTurnIdsRef.current.has(option.turnId)
-				) {
-					setBodyStates((current) =>
-						updateSessionDetailBodyState(current, option.turnId, undefined),
-					);
-					return;
-				}
-				setTurnBodies((current) =>
-					mergeSessionDetailTurnBodies(
-						current,
-						new Map([[option.turnId, body]]),
-					),
-				);
-				setBodyStates((current) =>
-					updateSessionDetailBodyState(current, option.turnId, undefined),
-				);
-			} catch (error) {
-				if (controller.signal.aborted) {
-					setBodyStates((current) =>
-						updateSessionDetailBodyState(current, option.turnId, undefined),
-					);
-					return;
-				}
-				if (isSessionDetailStaleRevisionError(error)) {
-					onStaleRevision(error);
-					return;
-				}
-				if (!renderedTurnIdsRef.current.has(option.turnId)) {
-					return;
-				}
-				setBodyStates((current) =>
-					updateSessionDetailBodyState(current, option.turnId, "error"),
-				);
-			} finally {
-				if (
-					pendingTurnControllersRef.current.get(option.turnId) === controller
-				) {
-					pendingTurnControllersRef.current.delete(option.turnId);
-					pendingTurnIdsRef.current.delete(option.turnId);
-				}
-			}
-		},
-		[
-			effectiveTurnBodies,
-			onStaleRevision,
-			options,
-			queryClient,
-			revision,
+	const initialWindowRequest = useMemo<SessionDetailWindowRequest>(
+		() => ({
+			includeBodies: true,
+			mode: "initial",
 			sessionId,
-			skeletonDebugMode,
-		],
+		}),
+		[sessionId],
 	);
-
-	const handleViewportRangeChange = useCallback(
-		(viewportIndices: readonly number[]) => {
-			const nextTurnIds = new Set(
-				viewportIndices
-					.map((index) => options[index]?.turnId)
-					.filter((turnId): turnId is string => Boolean(turnId)),
-			);
-			const previousTurnIds = renderedTurnIdsRef.current;
-			renderedTurnIdsRef.current = nextTurnIds;
-			if (searchLoad.status !== "loading") {
-				for (const turnId of previousTurnIds) {
-					if (!nextTurnIds.has(turnId)) {
-						pendingTurnControllersRef.current
-							.get(turnId)
-							?.abort(
-								new DOMException("Turn left the viewport.", "AbortError"),
-							);
-						void queryClient.cancelQueries({
-							exact: true,
-							queryKey: sessionDetailTurnQueryKey({
-								revision,
-								sessionId,
-								turnId,
-							}),
-						});
-					}
-				}
-			}
-			for (const index of viewportIndices) {
-				void loadTurnBody(index);
-			}
-			if ((viewportIndices.at(-1) ?? -1) >= options.length - 5) {
-				onApproachEnd();
-			}
-		},
-		[
-			loadTurnBody,
-			onApproachEnd,
-			options,
-			queryClient,
-			revision,
-			searchLoad.status,
-			sessionId,
-		],
-	);
-	const handleRetryTurnBody = useCallback(
-		(index: number) => {
-			void loadTurnBody(index);
-		},
-		[loadTurnBody],
-	);
-
-	useMountEffect(() => () => {
-		for (const controller of pendingTurnControllersRef.current.values()) {
-			controller.abort(
-				new DOMException("Session detail pane unmounted.", "AbortError"),
-			);
-		}
-		pendingTurnControllersRef.current.clear();
-		pendingTurnIdsRef.current.clear();
+	const initialWindowQuery = useQuery({
+		enabled: wantsVirtualTranscript,
+		gcTime: SESSION_DETAIL_WINDOW_CACHE_TIME_MS,
+		queryFn: ({ signal }) =>
+			fetchSessionDetailWindow(initialWindowRequest, signal),
+		queryKey: sessionDetailWindowQueryKey(
+			initialWindowRequest,
+			skeletonDebugKey,
+		),
+		retry: (failureCount, error) =>
+			!isSessionDetailWindowUnsupportedError(error) &&
+			shouldRetrySessionDetailFastQuery(failureCount, error),
+		staleTime: SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
 	});
+	const {
+		bodyStates,
+		effectiveTurnBodies,
+		handleRetryTurnBody,
+		handleViewportRangeChange,
+		loadedOptions,
+	} = useSessionDetailFastTurnBodies({
+		onApproachEnd,
+		onStaleRevision,
+		options,
+		revision,
+		searchLoad,
+		searchLoadModeKey,
+		sessionId,
+		skeletonDebugMode,
+	});
+	useEffect(() => {
+		if (
+			initialWindowQuery.data &&
+			initialWindowQuery.data.revision !== revision
+		) {
+			onStaleRevision(new Error("The transcript window revision changed."));
+		} else if (
+			initialWindowQuery.error &&
+			isSessionDetailStaleRevisionError(initialWindowQuery.error)
+		) {
+			onStaleRevision(initialWindowQuery.error);
+		}
+	}, [
+		initialWindowQuery.data,
+		initialWindowQuery.error,
+		onStaleRevision,
+		revision,
+	]);
 
 	useMountEffect(() => {
 		responseScrollRef.current
@@ -336,22 +231,58 @@ export function SessionDetailFastResponsePane({
 			<section
 				ref={responseScrollRef}
 				aria-label="Conversation thread"
-				className={`session-constellation-tree h-full min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-(--session-overview-surface) ${bottomPaddingClassName}`}
+				className={`session-constellation-tree h-full min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-(--session-overview-surface) [overflow-anchor:none] [scrollbar-gutter:stable] ${bottomPaddingClassName}`}
 				data-conversation-trace-scroll-container
 				data-session-trace-presentation="constellation-tree-branch-dots-no-horizontal"
 			>
-				<SessionContinuousTurnThread
-					bodyStates={bodyStates}
-					debugMode={skeletonDebugMode}
-					onRetryTurnBody={handleRetryTurnBody}
-					onViewportRangeChange={handleViewportRangeChange}
-					options={loadedOptions}
-					scrollContainerRef={responseScrollRef}
-					traceCallDisplayMode={detailLevel}
-					userImageUrl={userImageUrl}
-					viewModel={viewModel}
-					viewportStore={viewportStore}
-				/>
+				{wantsVirtualTranscript && initialWindowQuery.isPending ? (
+					<TurnBodySkeleton />
+				) : null}
+				{wantsVirtualTranscript &&
+				initialWindowQuery.error &&
+				!isSessionDetailWindowUnsupportedError(initialWindowQuery.error) ? (
+					<PaneMessage
+						actionLabel="Retry transcript"
+						message="The transcript window could not be loaded."
+						onAction={() => {
+							void initialWindowQuery.refetch();
+						}}
+					/>
+				) : null}
+				{wantsVirtualTranscript && initialWindowQuery.data ? (
+					<SessionDetailVirtualTranscript
+						anchorTurnId={anchorTurnId}
+						debugEnabled={transcriptDebugEnabled}
+						initialWindow={initialWindowQuery.data}
+						level={detailLevel}
+						onApproachEnd={onApproachEnd}
+						onStaleRevision={onStaleRevision}
+						queryClient={queryClient}
+						responseScrollRef={responseScrollRef}
+						selectedTurnId={anchorTurnId ?? options[selection.index]?.turnId}
+						sessionId={sessionId}
+						skeletonDebugKey={skeletonDebugKey}
+						skeletonDebugMode={skeletonDebugMode}
+						userImageUrl={userImageUrl}
+						viewModel={viewModel}
+						viewportStore={viewportStore}
+					/>
+				) : null}
+				{!wantsVirtualTranscript ||
+				isSessionDetailWindowUnsupportedError(initialWindowQuery.error) ? (
+					<SessionContinuousTurnThread
+						bodyStates={bodyStates}
+						debugMode={skeletonDebugMode}
+						onRetryTurnBody={handleRetryTurnBody}
+						onViewportRangeChange={handleViewportRangeChange}
+						options={loadedOptions}
+						scrollContainerRef={responseScrollRef}
+						traceCallDisplayMode={detailLevel}
+						userImageUrl={userImageUrl}
+						viewModel={viewModel}
+						viewportStore={viewportStore}
+					/>
+				) : null}
 				<SessionDetailSubagents
 					onStaleRevision={onStaleRevision}
 					revision={revision}
@@ -360,6 +291,296 @@ export function SessionDetailFastResponsePane({
 				/>
 			</section>
 		</div>
+	);
+}
+
+function SessionDetailVirtualTranscript({
+	anchorTurnId,
+	debugEnabled,
+	initialWindow,
+	level,
+	onApproachEnd,
+	onStaleRevision,
+	queryClient,
+	responseScrollRef,
+	selectedTurnId,
+	sessionId,
+	skeletonDebugKey,
+	skeletonDebugMode,
+	userImageUrl,
+	viewModel,
+	viewportStore,
+}: {
+	anchorTurnId: string | undefined;
+	debugEnabled: boolean;
+	initialWindow: SessionDetailWindow;
+	level: SessionDetailLevel;
+	onApproachEnd: () => void;
+	onStaleRevision: (error: unknown) => void;
+	queryClient: QueryClient;
+	responseScrollRef: RefObject<HTMLDivElement | null>;
+	selectedTurnId: string | undefined;
+	sessionId: string;
+	skeletonDebugKey: string;
+	skeletonDebugMode: SessionDetailSkeletonDebugMode;
+	userImageUrl: string | undefined;
+	viewModel: SessionDetailOverviewViewModel;
+	viewportStore: SessionContinuousTurnViewportStore;
+}) {
+	const listRef = useRef<SessionTranscriptListHandle>(null);
+	const [sectionCache] = useState(createTranscriptSectionCache);
+	const [missingTurnId, setMissingTurnId] = useState<string>();
+	const [fallbackBodies, setFallbackBodies] = useState<
+		ReadonlyMap<
+			string,
+			NonNullable<SessionDetailWindow["turns"][number]["body"]>
+		>
+	>(() => new Map());
+	const [fallbackStates, setFallbackStates] = useState<
+		ReadonlyMap<string, "error" | "loading">
+	>(() => new Map());
+	const [debugReadyTurnIds, setDebugReadyTurnIds] = useState<
+		ReadonlySet<string>
+	>(() => new Set());
+	const fetchWindow = useCallback(
+		(request: SessionDetailWindowRequest) =>
+			queryClient.fetchQuery({
+				gcTime: SESSION_DETAIL_WINDOW_CACHE_TIME_MS,
+				queryFn: ({ signal }) => fetchSessionDetailWindow(request, signal),
+				queryKey: sessionDetailWindowQueryKey(request, skeletonDebugKey),
+				retry: shouldRetrySessionDetailFastQuery,
+				staleTime: SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
+			}),
+		[queryClient, skeletonDebugKey],
+	);
+	const windowStore = useMemo(
+		() =>
+			createSessionTranscriptWindowStore({
+				fetchWindow,
+				initialWindow,
+				sessionId,
+			}),
+		[fetchWindow, initialWindow, sessionId],
+	);
+	const subscribe = useCallback(
+		(listener: () => void) =>
+			windowStore.subscribe(() => startTransition(listener)),
+		[windowStore],
+	);
+	const snapshot = useSyncExternalStore(
+		subscribe,
+		windowStore.getSnapshot,
+		windowStore.getSnapshot,
+	);
+
+	useEffect(() => {
+		const timers: number[] = [];
+		for (const [index, turn] of snapshot.turns.entries()) {
+			const policy = getSessionDetailSkeletonTurnPolicy(
+				skeletonDebugMode,
+				index,
+			);
+			if (
+				policy.hydrate &&
+				policy.delayMs > 0 &&
+				!debugReadyTurnIds.has(turn.turnId)
+			) {
+				timers.push(
+					window.setTimeout(() => {
+						setDebugReadyTurnIds((current) => {
+							if (current.has(turn.turnId)) {
+								return current;
+							}
+							return new Set([...current, turn.turnId]);
+						});
+					}, policy.delayMs),
+				);
+			}
+		}
+		return () => {
+			for (const timer of timers) {
+				window.clearTimeout(timer);
+			}
+		};
+	}, [debugReadyTurnIds, skeletonDebugMode, snapshot.turns]);
+
+	const windowOptions = useMemo(
+		() => buildSessionDetailOverviewTurnOptions(snapshot.turns),
+		[snapshot.turns],
+	);
+	const rawModel = useMemo(() => {
+		const optionById = new Map(
+			windowOptions.map((option) => [option.turnId, option]),
+		);
+		return buildSessionTranscriptRowModel({
+			cache: sectionCache,
+			includeSubagentsAnchor: true,
+			level,
+			newerEdge: snapshot.newerCursor ? snapshot.newerState : undefined,
+			olderEdge: snapshot.olderCursor ? snapshot.olderState : undefined,
+			revision: snapshot.revision,
+			turns: snapshot.turns.flatMap((turn, index) => {
+				const option = optionById.get(turn.turnId);
+				if (!option) {
+					return [];
+				}
+				const policy = getSessionDetailSkeletonTurnPolicy(
+					skeletonDebugMode,
+					index,
+				);
+				const body = fallbackBodies.get(turn.turnId) ?? turn.body ?? undefined;
+				const normalizedBody = body
+					? attachSessionDetailTurnBody(option, {
+							revision: snapshot.revision,
+							responseItems: body.responseItems,
+							turnId: turn.turnId,
+							userItems: body.userItems,
+						}).turn
+					: undefined;
+				const debugBodyReady =
+					policy.hydrate &&
+					(policy.delayMs === 0 || debugReadyTurnIds.has(turn.turnId));
+				const visibleBody = debugBodyReady ? normalizedBody : undefined;
+				const fallbackState = fallbackStates.get(turn.turnId);
+				return [
+					{
+						body: visibleBody,
+						bodyState:
+							fallbackState ??
+							(turn.bodyOmitted === "oversized" && !visibleBody
+								? ("error" as const)
+								: ("loading" as const)),
+						option,
+						requestUsagePlacement: "start" as const,
+					},
+				];
+			}),
+		});
+	}, [
+		debugReadyTurnIds,
+		fallbackBodies,
+		fallbackStates,
+		level,
+		sectionCache,
+		skeletonDebugMode,
+		snapshot,
+		windowOptions,
+	]);
+	const previousRowsRef = useRef(rawModel.rows);
+	const model = useMemo(() => {
+		const rows = stabilizeTranscriptRows(
+			previousRowsRef.current,
+			rawModel.rows,
+		);
+		previousRowsRef.current = rows;
+		return { ...rawModel, rows };
+	}, [rawModel]);
+
+	const loadDirection = useCallback(
+		(direction: "newer" | "older") => {
+			void windowStore
+				.loadDirection(direction)
+				.then(() => {
+					if (direction === "newer") {
+						onApproachEnd();
+					}
+				})
+				.catch((error: unknown) => {
+					if (isSessionDetailStaleRevisionError(error)) {
+						onStaleRevision(error);
+					}
+				});
+		},
+		[onApproachEnd, onStaleRevision, windowStore],
+	);
+	const loadAnchor = useCallback(
+		async (turnId: string) => {
+			setMissingTurnId(undefined);
+			try {
+				const loaded = await windowStore.loadAnchor(turnId);
+				if (!loaded) {
+					setMissingTurnId(turnId);
+				}
+				return loaded;
+			} catch (error) {
+				if (isSessionDetailStaleRevisionError(error)) {
+					onStaleRevision(error);
+				} else {
+					setMissingTurnId(turnId);
+				}
+				return false;
+			}
+		},
+		[onStaleRevision, windowStore],
+	);
+	const retryTurn = useCallback(
+		(turnId: string) => {
+			const input = { revision: snapshot.revision, sessionId, turnId };
+			setFallbackStates((current) => new Map(current).set(turnId, "loading"));
+			void queryClient
+				.fetchQuery({
+					gcTime: SESSION_DETAIL_BODY_CACHE_TIME_MS,
+					queryFn: ({ signal }) => fetchSessionDetailTurn(input, signal),
+					queryKey: sessionDetailTurnQueryKey(input),
+					retry: shouldRetrySessionDetailFastQuery,
+					staleTime: SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
+				})
+				.then((body) => {
+					startTransition(() => {
+						setFallbackBodies((current) => new Map(current).set(turnId, body));
+						setFallbackStates((current) => {
+							const next = new Map(current);
+							next.delete(turnId);
+							return next;
+						});
+					});
+				})
+				.catch((error: unknown) => {
+					if (isSessionDetailStaleRevisionError(error)) {
+						onStaleRevision(error);
+						return;
+					}
+					setFallbackStates((current) => new Map(current).set(turnId, "error"));
+				});
+		},
+		[onStaleRevision, queryClient, sessionId, snapshot.revision],
+	);
+
+	useEffect(() => {
+		if (!anchorTurnId) {
+			return;
+		}
+		void listRef.current?.scrollToTurn(anchorTurnId).then((found) => {
+			if (!found) {
+				setMissingTurnId(anchorTurnId);
+			}
+		});
+	}, [anchorTurnId]);
+
+	return (
+		<>
+			{missingTurnId ? (
+				<output className="pointer-events-none fixed top-16 right-4 z-50 rounded-md border border-(--session-overview-border) bg-(--session-overview-surface) px-3 py-2 text-xs text-(--session-overview-text) shadow-sm">
+					Turn {missingTurnId} no longer exists in the latest upload.
+				</output>
+			) : null}
+			<SessionTranscriptList
+				ref={listRef}
+				bodyTurnCount={snapshot.turns.filter((turn) => turn.body).length}
+				debugEnabled={debugEnabled}
+				model={model}
+				onLoadAnchor={loadAnchor}
+				onLoadDirection={loadDirection}
+				onRetryTurn={retryTurn}
+				pendingCount={snapshot.pending}
+				scrollContainerRef={responseScrollRef}
+				selectedTurnId={selectedTurnId}
+				userImageUrl={userImageUrl}
+				viewModel={viewModel}
+				viewportStore={viewportStore}
+				windowsLoaded={snapshot.windowsLoaded}
+			/>
+		</>
 	);
 }
 
@@ -513,36 +734,4 @@ function PaneMessage({
 			) : null}
 		</div>
 	);
-}
-
-function mergeSessionDetailTurnBodies(
-	current: ReadonlyMap<string, SessionDetailTurn>,
-	incoming: ReadonlyMap<string, SessionDetailTurn>,
-) {
-	let changed = false;
-	const next = new Map(current);
-	for (const [turnId, body] of incoming) {
-		if (next.get(turnId) !== body) {
-			next.set(turnId, body);
-			changed = true;
-		}
-	}
-	return changed ? next : current;
-}
-
-function updateSessionDetailBodyState(
-	current: ReadonlyMap<string, "error" | "loading">,
-	turnId: string,
-	state: "error" | "loading" | undefined,
-) {
-	if (current.get(turnId) === state) {
-		return current;
-	}
-	const next = new Map(current);
-	if (state) {
-		next.set(turnId, state);
-	} else {
-		next.delete(turnId);
-	}
-	return next;
 }

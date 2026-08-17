@@ -36,8 +36,20 @@ const TRANSCRIPT_EDGE_LOAD_DISTANCE = 10;
 const ACTIVE_TURN_MAX_FOCUS_OFFSET_PX = 160;
 const ACTIVE_TURN_FOCUS_RATIO = 0.3;
 const BLANK_FRAME_GAP_TOLERANCE_PX = 8;
+const TRANSCRIPT_ANCHOR_CANCEL_KEYS = new Set([
+	"ArrowDown",
+	"ArrowUp",
+	"End",
+	"Home",
+	"PageDown",
+	"PageUp",
+]);
 
 type SessionDetailViewModel = ReturnType<typeof buildSessionDetailViewModel>;
+
+export function isTranscriptAnchorCancelKey(key: string) {
+	return TRANSCRIPT_ANCHOR_CANCEL_KEYS.has(key);
+}
 
 export type SessionTranscriptListHandle = {
 	scrollToTurn: (turnId: string) => Promise<boolean>;
@@ -54,11 +66,14 @@ export const SessionTranscriptList = forwardRef<
 		bodyTurnCount: number;
 		debugEnabled: boolean;
 		model: SessionTranscriptRowModel;
+		onLoadAnchor?: (turnId: string) => Promise<boolean>;
 		onLoadDirection?: (direction: "newer" | "older") => void;
+		onRetryTurn?: (turnId: string) => void;
 		onTurnRender?: ProfilerOnRenderCallback;
 		pendingCount: number;
 		renderMode?: SessionTranscriptRenderMode;
 		scrollContainerRef: React.RefObject<HTMLDivElement | null>;
+		selectedTurnId?: string;
 		userImageUrl: string | undefined;
 		viewModel: SessionDetailViewModel;
 		viewportStore: SessionContinuousTurnViewportStore;
@@ -69,11 +84,14 @@ export const SessionTranscriptList = forwardRef<
 		bodyTurnCount,
 		debugEnabled,
 		model,
+		onLoadAnchor,
 		onLoadDirection,
+		onRetryTurn,
 		onTurnRender,
 		pendingCount,
 		renderMode = "direct-position",
 		scrollContainerRef,
+		selectedTurnId,
 		userImageUrl,
 		viewModel,
 		viewportStore,
@@ -94,6 +112,10 @@ export const SessionTranscriptList = forwardRef<
 	const blankFrameCountRef = useRef(0);
 	const lastBlankGapRef = useRef(0);
 	const loadingEdgesRef = useRef(new Set<"newer" | "older">());
+	const scrollModeRef = useRef<
+		{ kind: "free-scrolling" } | { kind: "anchoring-turn"; turnId: string }
+	>({ kind: "free-scrolling" });
+	const scrollOwnerEpochRef = useRef(0);
 	const scheduleFeederRef = useRef<() => void>(() => {});
 	const handleVirtualizerChange = useCallback(
 		() => scheduleFeederRef.current(),
@@ -131,10 +153,22 @@ export const SessionTranscriptList = forwardRef<
 		ref,
 		() => ({
 			scrollToTurn: async (turnId) => {
-				const index = modelRef.current.turnFirstRowIndex.get(turnId);
+				let index = modelRef.current.turnFirstRowIndex.get(turnId);
+				if (index === undefined && onLoadAnchor) {
+					const loaded = await onLoadAnchor(turnId);
+					if (loaded) {
+						await new Promise<void>((resolve) =>
+							window.requestAnimationFrame(() => resolve()),
+						);
+						index = modelRef.current.turnFirstRowIndex.get(turnId);
+					}
+				}
 				if (index === undefined) {
 					return false;
 				}
+				const ownerEpoch = scrollOwnerEpochRef.current + 1;
+				scrollOwnerEpochRef.current = ownerEpoch;
+				scrollModeRef.current = { kind: "anchoring-turn", turnId };
 				markTranscriptMeasure("anchor", "start", debugEnabled);
 				const startedAt = performance.now();
 				virtualizer.scrollToIndex(index, { align: "start" });
@@ -143,6 +177,10 @@ export const SessionTranscriptList = forwardRef<
 					scrollContainerRef,
 					virtualizer,
 				});
+				if (scrollOwnerEpochRef.current !== ownerEpoch) {
+					return false;
+				}
+				scrollModeRef.current = { kind: "free-scrolling" };
 				scheduleFeederRef.current();
 				const element = scrollContainerRef.current;
 				if (element) {
@@ -151,10 +189,29 @@ export const SessionTranscriptList = forwardRef<
 					);
 				}
 				markTranscriptMeasure("anchor", "end", debugEnabled);
+				for (let frame = 0; frame < 12; frame += 1) {
+					if (scrollOwnerEpochRef.current !== ownerEpoch) {
+						return false;
+					}
+					const target = Array.from(
+						scrollContainerRef.current?.querySelectorAll<HTMLElement>(
+							"[data-transcript-turn-id]",
+						) ?? [],
+					).find((element) => element.dataset.transcriptTurnId === turnId);
+					if (target) {
+						target.focus({ preventScroll: true });
+						if (document.activeElement === target) {
+							break;
+						}
+					}
+					await new Promise<void>((resolve) =>
+						window.requestAnimationFrame(() => resolve()),
+					);
+				}
 				return true;
 			},
 		}),
-		[debugEnabled, modelRef, scrollContainerRef, virtualizer],
+		[debugEnabled, modelRef, onLoadAnchor, scrollContainerRef, virtualizer],
 	);
 
 	useMountEffect(() => {
@@ -187,7 +244,7 @@ export const SessionTranscriptList = forwardRef<
 				turnItems,
 				turnTotal: new Set(indexedModel.rowTurnIndex.values()).size,
 			});
-			if (viewport) {
+			if (viewport && scrollModeRef.current.kind === "free-scrolling") {
 				viewportStore.publishViewport(
 					viewport.activeTurn,
 					viewport.visibleRange,
@@ -219,7 +276,7 @@ export const SessionTranscriptList = forwardRef<
 					bodyTurns: feederInputRef.current.bodyTurnCount,
 					lastGap: lastBlankGapRef.current,
 					pending: feederInputRef.current.pendingCount,
-					scrollMode: "free-scrolling",
+					scrollMode: scrollModeRef.current.kind,
 					visibleRange: viewport?.visibleRange,
 					windows: feederInputRef.current.windowsLoaded,
 				});
@@ -230,8 +287,29 @@ export const SessionTranscriptList = forwardRef<
 				animationFrame = window.requestAnimationFrame(sync);
 			}
 		};
+		const cancelAnchor = (event: Event) => {
+			if (
+				scrollModeRef.current.kind !== "anchoring-turn" ||
+				(event instanceof KeyboardEvent &&
+					!isTranscriptAnchorCancelKey(event.key))
+			) {
+				return;
+			}
+			scrollOwnerEpochRef.current += 1;
+			scrollModeRef.current = { kind: "free-scrolling" };
+			virtualizer.scrollToOffset(scrollElement.scrollTop, { behavior: "auto" });
+			schedule();
+		};
 		scheduleFeederRef.current = schedule;
 		scrollElement.addEventListener("scroll", schedule, { passive: true });
+		scrollElement.addEventListener("wheel", cancelAnchor, { passive: true });
+		scrollElement.addEventListener("touchmove", cancelAnchor, {
+			passive: true,
+		});
+		scrollElement.addEventListener("pointerdown", cancelAnchor, {
+			passive: true,
+		});
+		window.addEventListener("keydown", cancelAnchor, { passive: true });
 		const resizeObserver =
 			typeof ResizeObserver === "function"
 				? new ResizeObserver(schedule)
@@ -241,6 +319,10 @@ export const SessionTranscriptList = forwardRef<
 		return () => {
 			scheduleFeederRef.current = () => {};
 			scrollElement.removeEventListener("scroll", schedule);
+			scrollElement.removeEventListener("wheel", cancelAnchor);
+			scrollElement.removeEventListener("touchmove", cancelAnchor);
+			scrollElement.removeEventListener("pointerdown", cancelAnchor);
+			window.removeEventListener("keydown", cancelAnchor);
 			resizeObserver?.disconnect();
 			if (animationFrame !== undefined) {
 				window.cancelAnimationFrame(animationFrame);
@@ -273,11 +355,13 @@ export const SessionTranscriptList = forwardRef<
 					const rendered = (
 						<TranscriptVirtualRow
 							key={row.id}
+							active={"turnId" in row && row.turnId === selectedTurnId}
 							debugEnabled={debugEnabled}
 							directDomUpdates={directDomUpdates}
 							measureElement={virtualizer.measureElement}
 							model={model}
 							onLoadDirection={onLoadDirection}
+							onRetryTurn={onRetryTurn}
 							row={row}
 							userImageUrl={userImageUrl}
 							viewModel={viewModel}
@@ -302,11 +386,13 @@ export const SessionTranscriptList = forwardRef<
 });
 
 type TranscriptVirtualRowProps = {
+	active: boolean;
 	debugEnabled: boolean;
 	directDomUpdates: boolean;
 	measureElement: (element: HTMLElement | null) => void;
 	model: SessionTranscriptRowModel;
 	onLoadDirection: ((direction: "newer" | "older") => void) | undefined;
+	onRetryTurn: ((turnId: string) => void) | undefined;
 	row: SessionTranscriptRow;
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailViewModel;
@@ -314,11 +400,13 @@ type TranscriptVirtualRowProps = {
 };
 
 const TranscriptVirtualRow = memo(function TranscriptVirtualRow({
+	active,
 	debugEnabled,
 	directDomUpdates,
 	measureElement,
 	model,
 	onLoadDirection,
+	onRetryTurn,
 	row,
 	userImageUrl,
 	viewModel,
@@ -335,6 +423,8 @@ const TranscriptVirtualRow = memo(function TranscriptVirtualRow({
 	return (
 		<section
 			ref={measureElement}
+			aria-busy={row.kind === "turn-pending" || undefined}
+			aria-current={active ? "true" : undefined}
 			aria-label={getTranscriptRowLabel(row)}
 			className="min-w-0 scroll-mt-0"
 			data-index={virtualItem.index}
@@ -347,6 +437,7 @@ const TranscriptVirtualRow = memo(function TranscriptVirtualRow({
 			<TranscriptRowContent
 				model={model}
 				onLoadDirection={onLoadDirection}
+				onRetryTurn={onRetryTurn}
 				row={row}
 				userImageUrl={userImageUrl}
 				viewModel={viewModel}
@@ -366,11 +457,13 @@ function areTranscriptVirtualRowPropsEqual(
 	right: TranscriptVirtualRowProps,
 ) {
 	return (
+		left.active === right.active &&
 		left.debugEnabled === right.debugEnabled &&
 		left.directDomUpdates === right.directDomUpdates &&
 		left.measureElement === right.measureElement &&
 		left.model === right.model &&
 		left.onLoadDirection === right.onLoadDirection &&
+		left.onRetryTurn === right.onRetryTurn &&
 		left.row === right.row &&
 		left.userImageUrl === right.userImageUrl &&
 		left.viewModel === right.viewModel &&
@@ -385,12 +478,14 @@ function areTranscriptVirtualRowPropsEqual(
 function TranscriptRowContent({
 	model,
 	onLoadDirection,
+	onRetryTurn,
 	row,
 	userImageUrl,
 	viewModel,
 }: {
 	model: SessionTranscriptRowModel;
 	onLoadDirection: ((direction: "newer" | "older") => void) | undefined;
+	onRetryTurn: ((turnId: string) => void) | undefined;
 	row: SessionTranscriptRow;
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailViewModel;
@@ -461,7 +556,12 @@ function TranscriptRowContent({
 			return (
 				<div className="flex min-h-48 flex-col items-center justify-center gap-3 p-6 text-sm text-(--session-overview-muted)">
 					<p>This turn could not be loaded.</p>
-					<Button size="sm" type="button" variant="outline">
+					<Button
+						onClick={() => onRetryTurn?.(row.turnId)}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
 						Retry turn
 					</Button>
 				</div>
