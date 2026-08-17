@@ -27,7 +27,7 @@
 	--conversation-trace-connector-color: var(--constellation-tree-rail);
 	--conversation-trace-connector-width: 0.5;
 	--active-turn-rail-width: 2px;
-	--active-turn-rail: #9bbaf4;
+	--active-turn-rail: #f9233b;
 	--dashboardy-divider: var(--constellation-tree-rail);
 	--dashboardy-heading: var(--constellation-tree-primary);
 	--dashboardy-muted: var(--constellation-tree-secondary);
