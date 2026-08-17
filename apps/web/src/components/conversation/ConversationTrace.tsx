@@ -36,11 +36,13 @@ import type {
 	AgentTraceRequestUsage,
 	AgentTraceRequestUsagePlacement,
 } from "./conversation-trace-requests";
+import type { ConversationTraceDerivedSection } from "./conversation-trace-sections";
 import { deriveConversationTraceSections } from "./conversation-trace-sections";
 import { ConversationTraceTag } from "./conversation-trace-tag";
 import { AgentToolStrip } from "./conversation-trace-tool-strip";
 import {
 	AgentTraceRequestDisplay,
+	AgentTraceTreeContinuationSection,
 	type AgentTraceTreeRenderedBranch,
 	type AgentTraceTreeRenderedSection,
 	AgentTraceTreeSection,
@@ -429,6 +431,152 @@ function toRenderedBranches(
 	);
 }
 
+function toRenderedSection(input: {
+	agentLabel: string;
+	agentModel: string | undefined;
+	focus?: TraceFocusRequest;
+	section: ConversationTraceDerivedSection;
+	userImageUrl: string | undefined;
+	userLabel: string;
+}): AgentTraceTreeRenderedSection {
+	const { agentLabel, agentModel, focus, section, userImageUrl, userLabel } =
+		input;
+	if (section.kind === "agent") {
+		const inlineUsage =
+			section.usage && section.inlineUsage ? (
+				<AgentTraceRequestDisplay
+					key={`${section.key}:inline-usage`}
+					agentModel={agentModel}
+					config={section.config}
+					index={section.groupIndex ?? 0}
+					presentation="inline"
+					previousInputTotal={section.previousInputTotal}
+					skills={section.skills}
+					usage={section.usage}
+				/>
+			) : undefined;
+		const separator = isTraceCallSeparator(section.config);
+		return {
+			branches: toRenderedBranches(section.branches, inlineUsage),
+			events: [...section.events],
+			flatRequestRows: section.config.flatRequestRows,
+			groupIndex: section.groupIndex,
+			groupTreatment: section.groupTreatment,
+			header: section.showHeader
+				? (expanded, collapsedPreview) => (
+						<AgentTraceRequestDisplay
+							agentModel={agentModel}
+							collapsedPreview={collapsedPreview}
+							config={section.config}
+							expanded={expanded}
+							index={section.groupIndex ?? 0}
+							presentation={
+								section.config.flatRequestRows
+									? "context-strip"
+									: separator
+										? "separator"
+										: "header"
+							}
+							previousInputTotal={section.previousInputTotal}
+							skills={section.skills}
+							usage={section.usage}
+						/>
+					)
+				: undefined,
+			key: section.key,
+		};
+	}
+	return {
+		branches: [
+			{
+				children: [],
+				key: section.item.id,
+				row: (
+					<TraceRow
+						agentHeaderTrailing={undefined}
+						agentLabel={agentLabel}
+						agentModel={agentModel}
+						agentSectionMode="expanded"
+						anchorId={`trace-tree-message-${section.itemIndex}`}
+						expandedSpeakerLayout="inline"
+						focus={focus}
+						isLast={section.isLast}
+						item={section.item}
+						previousTimestamp={section.previousTimestamp}
+						userImageUrl={userImageUrl}
+						userLabel={userLabel}
+					/>
+				),
+				sticky: section.item.kind === "user",
+			},
+		],
+		events: [],
+		flatRequestRows: true,
+		groupIndex: undefined,
+		groupTreatment: "none",
+		header: undefined,
+		key: section.key,
+	};
+}
+
+export function ConversationTraceDerivedSectionRow({
+	agentLabel = "Agent",
+	agentModel,
+	allEvents,
+	continuesAfter,
+	focus,
+	isFirst,
+	planMode,
+	section,
+	userImageUrl,
+	userLabel = "User",
+}: {
+	agentLabel?: string;
+	agentModel?: string;
+	allEvents: readonly TraceEvent[];
+	continuesAfter: boolean;
+	focus?: TraceFocusRequest;
+	isFirst: boolean;
+	planMode: boolean;
+	section: ConversationTraceDerivedSection;
+	userImageUrl?: string;
+	userLabel?: string;
+}) {
+	const renderedSection = toRenderedSection({
+		agentLabel,
+		agentModel,
+		focus,
+		section,
+		userImageUrl,
+		userLabel,
+	});
+	if (!isFirst) {
+		return (
+			<AgentTraceTreeContinuationSection
+				continuesAfter={continuesAfter}
+				section={renderedSection}
+			/>
+		);
+	}
+	return (
+		<ol className="grid">
+			<li className="min-w-0">
+				<AgentTraceTreeSection
+					agentLabel={agentLabel}
+					agentModel={agentModel}
+					anchorId="message-0"
+					continuesAfter={continuesAfter}
+					defaultOpen
+					events={[...allEvents]}
+					focus={focus}
+					planMode={planMode}
+					sections={[renderedSection]}
+				/>
+			</li>
+		</ol>
+	);
+}
+
 function ConversationTraceTurnTree({
 	agentHeaderTrailing,
 	agentLabel,
@@ -465,84 +613,15 @@ function ConversationTraceTurnTree({
 		traceCallDisplayMode,
 	});
 	const sections = derivation.sections.map<AgentTraceTreeRenderedSection>(
-		(section) => {
-			if (section.kind === "agent") {
-				const inlineUsage =
-					section.usage && section.inlineUsage ? (
-						<AgentTraceRequestDisplay
-							key={`${section.key}:inline-usage`}
-							agentModel={agentModel}
-							config={section.config}
-							index={section.groupIndex ?? 0}
-							presentation="inline"
-							previousInputTotal={section.previousInputTotal}
-							skills={section.skills}
-							usage={section.usage}
-						/>
-					) : undefined;
-				const separator = isTraceCallSeparator(section.config);
-				return {
-					branches: toRenderedBranches(section.branches, inlineUsage),
-					events: [...section.events],
-					flatRequestRows: section.config.flatRequestRows,
-					groupIndex: section.groupIndex,
-					groupTreatment: section.groupTreatment,
-					header: section.showHeader
-						? (expanded, collapsedPreview) => (
-								<AgentTraceRequestDisplay
-									agentModel={agentModel}
-									collapsedPreview={collapsedPreview}
-									config={section.config}
-									expanded={expanded}
-									index={section.groupIndex ?? 0}
-									presentation={
-										section.config.flatRequestRows
-											? "context-strip"
-											: separator
-												? "separator"
-												: "header"
-									}
-									previousInputTotal={section.previousInputTotal}
-									skills={section.skills}
-									usage={section.usage}
-								/>
-							)
-						: undefined,
-					key: section.key,
-				};
-			}
-			return {
-				branches: [
-					{
-						children: [],
-						key: section.item.id,
-						row: (
-							<TraceRow
-								agentHeaderTrailing={undefined}
-								agentLabel={agentLabel}
-								agentModel={agentModel}
-								agentSectionMode="expanded"
-								anchorId={`trace-tree-message-${section.itemIndex}`}
-								expandedSpeakerLayout="inline"
-								focus={focus}
-								isLast={section.isLast}
-								item={section.item}
-								previousTimestamp={section.previousTimestamp}
-								userImageUrl={userImageUrl}
-								userLabel={userLabel}
-							/>
-						),
-						sticky: section.item.kind === "user",
-					},
-				],
-				events: [],
-				flatRequestRows: true,
-				groupIndex: undefined,
-				groupTreatment: "none",
-				header: undefined,
-				key: section.key,
-			};
-		},
+		(section) =>
+			toRenderedSection({
+				agentLabel,
+				agentModel,
+				focus,
+				section,
+				userImageUrl,
+				userLabel,
+			}),
 	);
 
 	return (

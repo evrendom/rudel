@@ -1,4 +1,7 @@
-import type { TraceItem } from "@/components/conversation/conversation-trace";
+import type {
+	TraceEvent,
+	TraceItem,
+} from "@/components/conversation/conversation-trace";
 import type { AgentTraceRequestUsagePlacement } from "@/components/conversation/conversation-trace-requests";
 import {
 	type ConversationTraceAgentSection,
@@ -24,6 +27,7 @@ export type DerivedSectionPayload = {
 
 type ConversationTraceSectionDerivationContext = {
 	eventCount: number;
+	events: readonly TraceEvent[];
 	planMode: boolean;
 };
 
@@ -161,6 +165,7 @@ export function deriveTranscriptSections(input: {
 			payload: {
 				allEvents: {
 					eventCount: derivation.events.length,
+					events: derivation.events,
 					planMode: derivation.planMode,
 				},
 				hiddenEventCount: bounded.hiddenEventCount,

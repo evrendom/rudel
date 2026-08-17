@@ -1,6 +1,8 @@
+// biome-ignore-all lint/nursery/noExcessiveLinesPerFile: The fixture keeps its controller, profiler, and e2e controls together.
 import {
 	type ProfilerOnRenderCallback,
 	useCallback,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -13,9 +15,21 @@ import {
 } from "@/components/conversation/conversation-trace-fixture";
 import { SessionContinuousTurnThread } from "./session-continuous-turn-thread";
 import { createSessionContinuousTurnViewportStore } from "./session-continuous-turn-viewport-store";
+import type { SessionDetailOverviewTurnOption } from "./session-detail-overview-model";
 import { buildSessionDetailViewModel } from "./session-detail-view-model";
-import type { SessionTurnOption } from "./session-turn-option";
-import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
+import {
+	SessionTranscriptList,
+	type SessionTranscriptListHandle,
+} from "./session-transcript-list";
+import {
+	buildSessionTranscriptRowModel,
+	createTranscriptSectionCache,
+} from "./session-transcript-sections";
+import type { SessionTurn } from "./session-turns";
+
+type ContinuousFixtureOption = SessionDetailOverviewTurnOption & {
+	turn?: SessionTurn;
+};
 
 function countFixtureToolCalls(items: readonly TraceItem[]) {
 	return items.reduce(
@@ -27,7 +41,7 @@ function countFixtureToolCalls(items: readonly TraceItem[]) {
 	);
 }
 
-function buildContinuousFixtureOptions(): SessionTurnOption[] {
+function buildContinuousFixtureOptions(): ContinuousFixtureOption[] {
 	return buildConversationTraceFixtureTurns().map((fixtureTurn, index) => {
 		const userItems = fixtureTurn.items.filter((item) => item.kind === "user");
 		const responseItems = fixtureTurn.items.filter(
@@ -48,8 +62,10 @@ function buildContinuousFixtureOptions(): SessionTurnOption[] {
 
 		return {
 			compactionsBefore: [],
+			hasBody: true,
 			key: fixtureTurn.key,
 			memberPreview: `Fixture prompt for turn ${index + 1}`,
+			memberText: `Fixture prompt for turn ${index + 1}`,
 			metrics: {
 				editedFiles: [],
 				errorCount: 0,
@@ -73,13 +89,41 @@ function buildContinuousFixtureOptions(): SessionTurnOption[] {
 			},
 			toolCallCount: countFixtureToolCalls(responseItems),
 			turn: { responseItems, userItems },
+			turnId: fixtureTurn.key,
 			turnNumber: index + 1,
 		};
 	});
 }
 
 const CONTINUOUS_FIXTURE_OPTIONS = buildContinuousFixtureOptions();
-const STREAMED_FIXTURE_OPTIONS: readonly SessionTurnOption[] = Array.from(
+
+function compactStreamingFixtureTurn(turn: SessionTurn | undefined) {
+	if (!turn) {
+		return undefined;
+	}
+	return {
+		...turn,
+		responseItems: turn.responseItems.map((item) =>
+			item.kind === "agent"
+				? {
+						...item,
+						events: item.events
+							.filter((event) => event.kind === "message")
+							.map((event) => {
+								const compactText = event.text.split("\n")[0] ?? event.text;
+								return {
+									...event,
+									content: compactText,
+									text: compactText,
+								};
+							}),
+					}
+				: item,
+		),
+	};
+}
+
+const STREAMED_FIXTURE_OPTIONS: readonly ContinuousFixtureOption[] = Array.from(
 	{ length: 18 },
 	(_, index) => {
 		const source =
@@ -90,6 +134,8 @@ const STREAMED_FIXTURE_OPTIONS: readonly SessionTurnOption[] = Array.from(
 		return {
 			...source,
 			key: `${source.key}:streamed:${index}`,
+			turn: compactStreamingFixtureTurn(source.turn),
+			turnId: `${source.turnId}:streamed:${index}`,
 			turnNumber: index + 1,
 		};
 	},
@@ -144,11 +190,20 @@ function createFixtureRenderProfile(): FixtureRenderProfile {
 // can be proven not to change active turn state until scrollTop really moves.
 export function SessionContinuousTraceFixturePage() {
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
+	const virtualListRef = useRef<SessionTranscriptListHandle>(null);
 	const hydrationTimerRef = useRef<number | undefined>(undefined);
-	const renderProfileRef = useRef(createFixtureRenderProfile());
+	const longTaskCountRef = useRef(0);
+	const longTaskEpochRef = useRef(0);
+	const profilePublishFrameRef = useRef<number | undefined>(undefined);
+	const renderProfileRef = useRef<FixtureRenderProfile | null>(null);
+	if (renderProfileRef.current === null) {
+		renderProfileRef.current = createFixtureRenderProfile();
+	}
+	const renderProfile = renderProfileRef.current;
 	const searchParams = new URLSearchParams(window.location.search);
 	const streamsTurnBodies = searchParams.get("hydrate") === "manual";
 	const profilesScrolling = searchParams.get("profile") === "scroll";
+	const usesVirtualTranscript = searchParams.get("transcript") === "virtual";
 	const usesLongFixture = streamsTurnBodies || profilesScrolling;
 	const requestedTurnCount = Number(searchParams.get("turns"));
 	const allFixtureOptions = usesLongFixture
@@ -158,7 +213,7 @@ export function SessionContinuousTraceFixturePage() {
 		Number.isInteger(requestedTurnCount) && requestedTurnCount > 0
 			? allFixtureOptions.slice(0, requestedTurnCount)
 			: allFixtureOptions;
-	const [options, setOptions] = useState<readonly SessionTurnTablePaneOption[]>(
+	const [options, setOptions] = useState<readonly ContinuousFixtureOption[]>(
 		() =>
 			streamsTurnBodies
 				? fixtureOptions.map((option) => {
@@ -173,15 +228,72 @@ export function SessionContinuousTraceFixturePage() {
 	// ?display=normal mirrors the session detail default (flat request rows)
 	// so sticky-geometry tests can cover the shipped hierarchy, not only the
 	// nested request layout.
-	const traceCallDisplayMode =
-		searchParams.get("display") === "normal" ? "normal" : "request";
+	const [traceCallDisplayMode, setTraceCallDisplayMode] = useState<
+		"normal" | "request"
+	>(() => (searchParams.get("display") === "normal" ? "normal" : "request"));
+	const virtualRenderMode =
+		searchParams.get("virtualMode") === "default"
+			? ("default" as const)
+			: searchParams.get("virtualMode") === "direct-transform"
+				? ("direct-transform" as const)
+				: ("direct-position" as const);
+	const [sectionCache] = useState(createTranscriptSectionCache);
+	const virtualTurns = useMemo(
+		() =>
+			options.map((option) => ({
+				body: option.turn,
+				option,
+				requestUsagePlacement: "start" as const,
+			})),
+		[options],
+	);
+	const virtualModel = useMemo(
+		() =>
+			buildSessionTranscriptRowModel({
+				cache: sectionCache,
+				includeSubagentsAnchor: true,
+				level: traceCallDisplayMode,
+				revision: "2026-08-02T10:00:00.000Z",
+				turns: virtualTurns,
+			}),
+		[sectionCache, traceCallDisplayMode, virtualTurns],
+	);
 
 	useMountEffect(() => () => {
 		if (hydrationTimerRef.current !== undefined) {
 			window.clearTimeout(hydrationTimerRef.current);
 		}
+		if (profilePublishFrameRef.current !== undefined) {
+			window.cancelAnimationFrame(profilePublishFrameRef.current);
+		}
 	});
 	useMountEffect(() => setMountsThread(true));
+	useMountEffect(() => {
+		const element = scrollContainerRef.current;
+		if (!profilesScrolling || !element) {
+			return;
+		}
+		element.dataset.traceFixtureLongTasks = "0";
+		if (
+			typeof PerformanceObserver !== "function" ||
+			!PerformanceObserver.supportedEntryTypes.includes("longtask")
+		) {
+			return;
+		}
+		const observer = new PerformanceObserver((list) => {
+			for (const entry of list.getEntries()) {
+				if (
+					entry.duration > 50 &&
+					entry.startTime >= longTaskEpochRef.current
+				) {
+					longTaskCountRef.current += 1;
+				}
+			}
+			element.dataset.traceFixtureLongTasks = String(longTaskCountRef.current);
+		});
+		observer.observe({ entryTypes: ["longtask"] });
+		return () => observer.disconnect();
+	});
 	useMountEffect(() => {
 		viewportStore.publishSelection({ index: 0, speaker: "model" });
 		const publishActiveTurn = () => {
@@ -202,7 +314,7 @@ export function SessionContinuousTraceFixturePage() {
 		if (!element) {
 			return;
 		}
-		const profile = renderProfileRef.current;
+		const profile = renderProfile;
 		element.dataset.traceFixtureProfileMounts = String(profile.mounts);
 		element.dataset.traceFixtureProfileMountDuration = String(
 			profile.mountDuration,
@@ -232,11 +344,11 @@ export function SessionContinuousTraceFixturePage() {
 		element.dataset.traceFixtureProfileRowMounts = JSON.stringify(
 			Object.fromEntries(profile.rowMounts),
 		);
-	}, []);
+	}, [renderProfile]);
 
 	const handleTurnRender = useCallback<ProfilerOnRenderCallback>(
 		(id, phase, actualDuration, _baseDuration, _startTime, commitTime) => {
-			const profile = renderProfileRef.current;
+			const profile = renderProfile;
 			if (phase === "mount") {
 				profile.mounts += 1;
 				profile.rowMounts.set(id, (profile.rowMounts.get(id) ?? 0) + 1);
@@ -274,15 +386,29 @@ export function SessionContinuousTraceFixturePage() {
 					committedRows.size,
 				);
 			}
-			publishRenderProfile();
+			if (profilePublishFrameRef.current === undefined) {
+				profilePublishFrameRef.current = window.requestAnimationFrame(() => {
+					profilePublishFrameRef.current = undefined;
+					publishRenderProfile();
+				});
+			}
 		},
-		[publishRenderProfile],
+		[publishRenderProfile, renderProfile],
 	);
 
 	const resetRenderProfile = useCallback(() => {
-		renderProfileRef.current = createFixtureRenderProfile();
+		Object.assign(renderProfile, createFixtureRenderProfile());
+		longTaskCountRef.current = 0;
+		longTaskEpochRef.current = performance.now();
+		if (profilePublishFrameRef.current !== undefined) {
+			window.cancelAnimationFrame(profilePublishFrameRef.current);
+			profilePublishFrameRef.current = undefined;
+		}
+		if (scrollContainerRef.current) {
+			scrollContainerRef.current.dataset.traceFixtureLongTasks = "0";
+		}
 		publishRenderProfile();
-	}, [publishRenderProfile]);
+	}, [publishRenderProfile, renderProfile]);
 
 	const handleRetryTurnBody = useCallback(() => {}, []);
 
@@ -303,6 +429,18 @@ export function SessionContinuousTraceFixturePage() {
 		hydrateNext();
 	}
 
+	function prependFixtureTurns() {
+		setOptions((current) => {
+			const prefix = fixtureOptions.slice(0, 3).map((option, index) => ({
+				...option,
+				key: `${option.key}:prepended:${index}`,
+				turnId: `${option.turnId}:prepended:${index}`,
+				turnNumber: index + 1,
+			}));
+			return [...prefix, ...current];
+		});
+	}
+
 	const hydratedTurnCount = options.filter((option) => option.turn).length;
 
 	return (
@@ -314,9 +452,24 @@ export function SessionContinuousTraceFixturePage() {
 			data-trace-fixture-hydrated-turns={hydratedTurnCount}
 			data-trace-fixture-scroller
 			data-trace-fixture-total-turns={fixtureOptions.length}
-			className="isolate h-dvh min-w-0 overflow-y-auto bg-(--session-overview-surface) antialiased [--session-overview-accent:#266df0] [--session-overview-border:#eeeff1] [--session-overview-hover:#f6f7f7] [--session-overview-muted:rgba(0,0,0,0.63)] [--session-overview-subtle:rgba(0,0,0,0.5)] [--session-overview-surface:#fff] [--session-overview-text:#101112] [font-family:Inter,sans-serif]"
+			className="isolate h-dvh min-w-0 overflow-y-auto overscroll-contain bg-(--session-overview-surface) antialiased [--session-overview-accent:#266df0] [--session-overview-border:#eeeff1] [--session-overview-hover:#f6f7f7] [--session-overview-muted:rgba(0,0,0,0.63)] [--session-overview-subtle:rgba(0,0,0,0.5)] [--session-overview-surface:#fff] [--session-overview-text:#101112] [font-family:Inter,sans-serif] [overflow-anchor:none] [scrollbar-gutter:stable]"
 		>
-			{mountsThread ? (
+			{mountsThread && usesVirtualTranscript ? (
+				<SessionTranscriptList
+					ref={virtualListRef}
+					bodyTurnCount={options.filter((option) => option.turn).length}
+					debugEnabled
+					model={virtualModel}
+					onTurnRender={profilesScrolling ? handleTurnRender : undefined}
+					pendingCount={options.filter((option) => !option.turn).length}
+					renderMode={virtualRenderMode}
+					scrollContainerRef={scrollContainerRef}
+					userImageUrl={undefined}
+					viewModel={CONTINUOUS_FIXTURE_VIEW_MODEL}
+					viewportStore={viewportStore}
+					windowsLoaded={1}
+				/>
+			) : mountsThread ? (
 				<SessionContinuousTurnThread
 					onRetryTurnBody={profilesScrolling ? handleRetryTurnBody : undefined}
 					onTurnRender={profilesScrolling ? handleTurnRender : undefined}
@@ -348,7 +501,49 @@ export function SessionContinuousTraceFixturePage() {
 					Reset render profile
 				</button>
 			) : null}
-			<div aria-hidden="true" className="h-dvh" />
+			{usesVirtualTranscript ? (
+				<>
+					<output
+						className="pointer-events-none fixed top-2 right-2 z-[100] rounded border border-(--session-overview-border) bg-(--session-overview-surface) px-2 py-1 text-[0.6875rem] text-(--session-overview-muted)"
+						data-transcript-debug-hud
+					/>
+					<button
+						className="sr-only"
+						data-trace-fixture-prepend
+						onClick={prependFixtureTurns}
+						type="button"
+					>
+						Prepend turns
+					</button>
+					<button
+						className="sr-only"
+						data-trace-fixture-jump-last
+						onClick={() => {
+							const turnId = options.at(-1)?.turnId;
+							if (turnId) {
+								void virtualListRef.current?.scrollToTurn(turnId);
+							}
+						}}
+						type="button"
+					>
+						Jump to last turn
+					</button>
+					<button
+						className="sr-only"
+						data-trace-fixture-toggle-level
+						onClick={() =>
+							setTraceCallDisplayMode((current) =>
+								current === "normal" ? "request" : "normal",
+							)
+						}
+						type="button"
+					>
+						Toggle transcript level
+					</button>
+				</>
+			) : (
+				<div aria-hidden="true" className="h-dvh" />
+			)}
 		</div>
 	);
 }

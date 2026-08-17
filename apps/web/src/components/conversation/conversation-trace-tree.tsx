@@ -1180,7 +1180,7 @@ function AgentTraceTreeBranchList({
 	);
 }
 
-function AgentTraceTreeRenderedSectionItem({
+export function AgentTraceTreeRenderedSectionItem({
 	defaultOpen,
 	hasNextSibling,
 	section,
@@ -1285,6 +1285,28 @@ function AgentTraceTreeRenderedSectionItem({
 				)}
 			</Collapsible.Root>
 		</li>
+	);
+}
+
+export function AgentTraceTreeContinuationSection({
+	continuesAfter,
+	defaultOpen = true,
+	section,
+}: {
+	continuesAfter: boolean;
+	defaultOpen?: boolean;
+	section: AgentTraceTreeRenderedSection;
+}) {
+	return (
+		<ConversationTraceTreeRailContext.Provider value={[continuesAfter]}>
+			<ol className="list-none">
+				<AgentTraceTreeRenderedSectionItem
+					defaultOpen={defaultOpen}
+					hasNextSibling={continuesAfter}
+					section={section}
+				/>
+			</ol>
+		</ConversationTraceTreeRailContext.Provider>
 	);
 }
 
