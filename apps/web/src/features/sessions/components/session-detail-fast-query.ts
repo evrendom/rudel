@@ -180,10 +180,6 @@ export async function fetchSessionDetailWindow(
 	}
 }
 
-export function isSessionDetailWindowUnsupportedError(value: unknown) {
-	return hasSessionDetailErrorCode(value, "NOT_FOUND");
-}
-
 export async function fetchSessionDetailTurn(
 	input: { revision: string; sessionId: string; turnId: string },
 	querySignal: AbortSignal,

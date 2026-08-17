@@ -11,7 +11,6 @@ import {
 	fetchSessionDetailTurn,
 	fetchSessionDetailWindow,
 	isSessionDetailStaleRevisionError,
-	isSessionDetailWindowUnsupportedError,
 	SESSION_DETAIL_BODY_CACHE_TIME_MS,
 	SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
 	SESSION_DETAIL_WINDOW_CACHE_TIME_MS,
@@ -20,10 +19,7 @@ import {
 	shouldRetrySessionDetailFastQuery,
 } from "./session-detail-fast-query";
 import { SessionDetailFastRevisionMismatchError } from "./session-detail-fast-response";
-import {
-	loadRemainingSessionDetailOverviewPages,
-	loadSessionDetailTurnBodies,
-} from "./session-detail-full-transcript";
+import { loadRemainingSessionDetailOverviewPages } from "./session-detail-full-transcript";
 import {
 	getSessionDetailTurnSearchText,
 	type SessionDetailSearchLoadState,
@@ -32,7 +28,6 @@ import {
 	getSessionDetailSkeletonDebugKey,
 	getSessionDetailSkeletonTurnPolicy,
 	type SessionDetailSkeletonDebugMode,
-	waitForSessionDetailSkeletonDelay,
 } from "./session-detail-skeleton-debug";
 import { WINDOW_RETENTION_LIMIT } from "./session-transcript-window-store";
 
@@ -69,14 +64,8 @@ export function useSessionDetailSearchLoader(input: {
 				? loadState.index
 				: [],
 		);
-		const legacyBodies = new Map(
-			loadModeKey === nextLoadModeKey && "bodies" in loadState
-				? loadState.bodies
-				: [],
-		);
 		setLoadModeKey(nextLoadModeKey);
 		setLoadState({
-			bodies: legacyBodies,
 			completed: 0,
 			index: searchIndex,
 			phase: "pages",
@@ -102,7 +91,6 @@ export function useSessionDetailSearchLoader(input: {
 				searchableTurns.map((turn) => turn.turnId),
 			);
 			setLoadState({
-				bodies: legacyBodies,
 				completed: 0,
 				index: new Map(searchIndex),
 				phase: "turns",
@@ -110,62 +98,32 @@ export function useSessionDetailSearchLoader(input: {
 				total: searchableTurns.length,
 			});
 
-			let failedTurnIds: readonly string[] = [];
-			try {
-				failedTurnIds = await loadSearchIndexFromWindows({
-					controller,
-					debugModeKey: nextLoadModeKey,
-					onProgress: (completed) => {
-						setLoadState({
-							bodies: legacyBodies,
-							completed,
-							index: new Map(searchIndex),
-							phase: "turns",
-							status: "loading",
-							total: searchableTurns.length,
-						});
-					},
-					queryClient,
-					revision: input.firstOverview.revision,
-					searchIndex,
-					searchableTurnIds,
-					sessionId: input.firstOverview.session.sessionId,
-				});
-			} catch (error) {
-				if (!isSessionDetailWindowUnsupportedError(error)) {
-					throw error;
-				}
-				failedTurnIds = await loadLegacySearchIndex({
-					controller,
-					debugMode: input.debugMode,
-					legacyBodies,
-					onProgress: (completed, total) => {
-						setLoadState({
-							bodies: new Map(legacyBodies),
-							completed,
-							index: new Map(searchIndex),
-							phase: "turns",
-							status: "loading",
-							total,
-						});
-					},
-					queryClient,
-					revision: input.firstOverview.revision,
-					searchIndex,
-					sessionId: input.firstOverview.session.sessionId,
-					turns: searchableTurns,
-				});
-			}
+			const failedTurnIds = await loadSearchIndexFromWindows({
+				controller,
+				debugModeKey: nextLoadModeKey,
+				onProgress: (completed) => {
+					setLoadState({
+						completed,
+						index: new Map(searchIndex),
+						phase: "turns",
+						status: "loading",
+						total: searchableTurns.length,
+					});
+				},
+				queryClient,
+				revision: input.firstOverview.revision,
+				searchIndex,
+				searchableTurnIds,
+				sessionId: input.firstOverview.session.sessionId,
+			});
 			setLoadState(
 				failedTurnIds.length > 0
 					? {
-							bodies: new Map(legacyBodies),
 							failedTurnIds,
 							index: new Map(searchIndex),
 							status: "failed",
 						}
 					: {
-							bodies: new Map(legacyBodies),
 							index: new Map(searchIndex),
 							status: "complete",
 						},
@@ -179,7 +137,6 @@ export function useSessionDetailSearchLoader(input: {
 				return;
 			}
 			setLoadState({
-				bodies: legacyBodies,
 				failedTurnIds: [],
 				index: searchIndex,
 				status: "failed",
@@ -199,7 +156,6 @@ export function useSessionDetailSearchLoader(input: {
 			setLoadState((current) =>
 				current.status === "loading"
 					? {
-							bodies: current.bodies,
 							completed: current.completed,
 							index: current.index,
 							status: "cancelled",
@@ -217,7 +173,6 @@ export function useSessionDetailSearchLoader(input: {
 				void loadSearchIndex();
 			}
 		},
-		loadModeKey,
 		loadState,
 	};
 }
@@ -292,7 +247,6 @@ export async function loadSearchIndexFromWindows(input: {
 				try {
 					const body = await loadTurnWithCache({
 						controller: input.controller,
-						delayMs: 0,
 						queryClient: input.queryClient,
 						revision: input.revision,
 						sessionId: input.sessionId,
@@ -339,44 +293,8 @@ export async function loadSearchIndexFromWindows(input: {
 	return [...failedTurnIds];
 }
 
-async function loadLegacySearchIndex(input: {
-	controller: AbortController;
-	debugMode: SessionDetailSkeletonDebugMode;
-	legacyBodies: Map<string, SessionDetailTurn>;
-	onProgress: (completed: number, total: number) => void;
-	queryClient: QueryClient;
-	revision: string;
-	searchIndex: Map<string, readonly string[]>;
-	sessionId: string;
-	turns: SessionDetailOverview["turnPage"]["items"];
-}) {
-	const result = await loadSessionDetailTurnBodies({
-		concurrency: 3,
-		loadTurn: (turn) =>
-			loadTurnWithCache({
-				controller: input.controller,
-				delayMs: getSessionDetailSkeletonTurnPolicy(input.debugMode, turn.index)
-					.delayMs,
-				queryClient: input.queryClient,
-				revision: input.revision,
-				sessionId: input.sessionId,
-				turnId: turn.turnId,
-			}),
-		onProgress: ({ completed, total }) => input.onProgress(completed, total),
-		onTurnLoaded: (turn, body) => {
-			input.legacyBodies.set(turn.turnId, body);
-			input.searchIndex.set(turn.turnId, getSessionDetailTurnSearchText(body));
-		},
-		signal: input.controller.signal,
-		shouldStop: isSessionDetailStaleRevisionError,
-		turns: input.turns,
-	});
-	return [...result.failures.keys()];
-}
-
 async function loadTurnWithCache(input: {
 	controller: AbortController;
-	delayMs: number;
 	queryClient: QueryClient;
 	revision: string;
 	sessionId: string;
@@ -399,10 +317,6 @@ async function loadTurnWithCache(input: {
 		retry: shouldRetrySessionDetailFastQuery,
 		staleTime: SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
 	});
-	await waitForSessionDetailSkeletonDelay(
-		input.delayMs,
-		input.controller.signal,
-	);
 	input.controller.signal.throwIfAborted();
 	return result;
 }

@@ -193,7 +193,6 @@ export function SessionDetailFastContent({
 					</output>
 				) : null}
 				<SessionDetailLayout
-					bottomPaddingClassName={columnBottomPaddingClassName}
 					onSelect={handleSelection}
 					options={options}
 					responsePane={({ viewportStore }) => (
@@ -216,7 +215,6 @@ export function SessionDetailFastContent({
 							responseScrollRef={responseScrollRef}
 							revision={firstOverview.revision}
 							searchLoad={searchLoader.loadState}
-							searchLoadModeKey={searchLoader.loadModeKey}
 							selection={selection}
 							sessionId={firstOverview.session.sessionId}
 							skeletonDebugMode={skeletonDebugMode}
@@ -226,7 +224,6 @@ export function SessionDetailFastContent({
 							viewportStore={viewportStore}
 						/>
 					)}
-					responseScrollRef={responseScrollRef}
 					selection={selection}
 					turnTableFooter={
 						<TurnPageFooter

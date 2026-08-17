@@ -101,7 +101,7 @@ describe("session constellation tree tokens", () => {
 			"utf8",
 		);
 		const responsePane = readFileSync(
-			new URL("./session-turn-response-pane.tsx", import.meta.url),
+			new URL("./session-detail-fast-response-pane.tsx", import.meta.url),
 			"utf8",
 		);
 

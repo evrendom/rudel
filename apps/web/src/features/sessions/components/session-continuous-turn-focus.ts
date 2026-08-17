@@ -68,16 +68,3 @@ export function getContinuousTurnViewport({
 		] as const,
 	};
 }
-
-export function getPrefetchedContinuousTurnIndices(
-	visibleRange: readonly [number, number],
-	count: number,
-	radius: number,
-) {
-	const first = Math.max(0, visibleRange[0] - radius);
-	const last = Math.min(count - 1, visibleRange[1] + radius);
-	return Array.from(
-		{ length: Math.max(0, last - first + 1) },
-		(_, offset) => first + offset,
-	);
-}

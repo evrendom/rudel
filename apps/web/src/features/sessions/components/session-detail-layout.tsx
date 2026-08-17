@@ -8,7 +8,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { useSearchParams } from "react-router-dom";
 import {
 	HorizontalResizeHandle,
 	useElementWidth,
@@ -21,15 +20,10 @@ import {
 	useSessionContinuousTurnActiveSelection,
 	useSessionContinuousTurnVisibleRange,
 } from "./session-continuous-turn-viewport-store";
-import {
-	resolveSessionDetailLevel,
-	type SessionDetailLevel,
-} from "./session-detail-level";
 import type { buildSessionDetailViewModel } from "./session-detail-view-model";
 import type { SessionTurnTableVirtualizerHandle } from "./session-detail-virtualization";
 import { SessionOverviewSummaryStrip } from "./session-overview-summary-strip";
 import { SessionThreadOverviewStrip } from "./session-thread-overview-strip";
-import { SessionTurnResponsePane } from "./session-turn-response-pane";
 import {
 	SessionTurnTablePane,
 	type SessionTurnTablePaneOption,
@@ -79,11 +73,9 @@ function SessionThreadOverviewViewportStrip({
 }
 
 type SessionDetailLayoutProps = {
-	bottomPaddingClassName: string;
 	onSelect: (selection: SessionTurnSelection) => void;
 	options: readonly SessionTurnTablePaneOption[];
-	responsePane?: (props: SessionDetailResponsePaneRenderProps) => ReactNode;
-	responseScrollRef: RefObject<HTMLDivElement | null>;
+	responsePane: (props: SessionDetailResponsePaneRenderProps) => ReactNode;
 	selection: SessionTurnSelection;
 	turnTableFooter?: ReactNode;
 	turnTableSectionRef: RefObject<HTMLElement | null>;
@@ -93,11 +85,9 @@ type SessionDetailLayoutProps = {
 };
 
 export function SessionDetailLayout({
-	bottomPaddingClassName,
 	onSelect,
 	options,
 	responsePane,
-	responseScrollRef,
 	selection,
 	turnTableFooter,
 	turnTableSectionRef,
@@ -105,25 +95,6 @@ export function SessionDetailLayout({
 	userImageUrl,
 	viewModel,
 }: SessionDetailLayoutProps) {
-	const [searchParams, setSearchParams] = useSearchParams();
-	const detailLevel = resolveSessionDetailLevel(searchParams.get("level"));
-	const handleDetailLevelChange = useCallback(
-		(nextLevel: SessionDetailLevel) => {
-			setSearchParams(
-				(previousSearchParams) => {
-					const nextSearchParams = new URLSearchParams(previousSearchParams);
-					if (nextLevel === "normal") {
-						nextSearchParams.delete("level");
-					} else {
-						nextSearchParams.set("level", nextLevel);
-					}
-					return nextSearchParams;
-				},
-				{ replace: true },
-			);
-		},
-		[setSearchParams],
-	);
 	const layoutRef = useRef<HTMLDivElement>(null);
 	const layoutWidth = useElementWidth(layoutRef);
 	const [storedTurnTablePaneWidth, setStoredTurnTablePaneWidth] =
@@ -207,20 +178,7 @@ export function SessionDetailLayout({
 					onValuePreview={previewTurnTablePaneWidth}
 					value={turnTablePaneWidth}
 				/>
-				{responsePane?.({ viewportStore: continuousTurnViewportStore }) ?? (
-					<SessionTurnResponsePane
-						bottomPaddingClassName={bottomPaddingClassName}
-						detailLevel={detailLevel}
-						onDetailLevelChange={handleDetailLevelChange}
-						options={options}
-						responseScrollRef={responseScrollRef}
-						title="Session Detail"
-						traceCallDisplayMode={detailLevel}
-						userImageUrl={userImageUrl}
-						viewModel={viewModel}
-						viewportStore={continuousTurnViewportStore}
-					/>
-				)}
+				{responsePane({ viewportStore: continuousTurnViewportStore })}
 			</div>
 		</div>
 	);

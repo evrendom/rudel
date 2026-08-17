@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SessionDetailOverviewTurnOption } from "./session-detail-overview-model";
 import {
-	estimateSessionContinuousTurnSize,
 	estimateSessionTurnTableRowSize,
 	measureSessionVirtualElement,
 } from "./session-detail-virtualization";
@@ -56,23 +55,6 @@ describe("session detail virtualization", () => {
 			value: 920,
 		});
 		expect(measureSessionVirtualElement(element)).toBe(920);
-	});
-
-	it("estimates larger thread rows from summary previews and activity", () => {
-		const compact = estimateSessionContinuousTurnSize(createOption());
-		const dense = estimateSessionContinuousTurnSize(
-			createOption({
-				memberPreview: "m".repeat(300),
-				metrics: {
-					...createOption().metrics,
-					errorCount: 2,
-					skills: ["one", "two"],
-				},
-				preview: "r".repeat(400),
-				toolCallCount: 3,
-			}),
-		);
-		expect(dense).toBeGreaterThan(compact);
 	});
 
 	it("includes turn decorations in the ledger row estimate", () => {

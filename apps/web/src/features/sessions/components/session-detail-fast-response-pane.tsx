@@ -27,14 +27,12 @@ import { Skeleton } from "@/app/ui/skeleton";
 import { ConversationTrace } from "@/components/conversation/ConversationTrace";
 import { buildConversationTrace } from "@/components/conversation/conversation-trace";
 import { parseConversations } from "@/lib/conversation-schema";
-import { SessionContinuousTurnThread } from "./session-continuous-turn-thread";
 import type { SessionContinuousTurnViewportStore } from "./session-continuous-turn-viewport-store";
 import {
 	fetchSessionDetailSubagent,
 	fetchSessionDetailTurn,
 	fetchSessionDetailWindow,
 	isSessionDetailStaleRevisionError,
-	isSessionDetailWindowUnsupportedError,
 	SESSION_DETAIL_BODY_CACHE_TIME_MS,
 	SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
 	SESSION_DETAIL_WINDOW_CACHE_TIME_MS,
@@ -43,7 +41,6 @@ import {
 	sessionDetailWindowQueryKey,
 	shouldRetrySessionDetailFastQuery,
 } from "./session-detail-fast-query";
-import { useSessionDetailFastTurnBodies } from "./session-detail-fast-turn-bodies";
 import {
 	resolveSessionDetailLevel,
 	type SessionDetailLevel,
@@ -100,7 +97,6 @@ export function SessionDetailFastResponsePane({
 	responseScrollRef,
 	revision,
 	searchLoad,
-	searchLoadModeKey,
 	selection,
 	sessionId,
 	skeletonDebugMode,
@@ -120,7 +116,6 @@ export function SessionDetailFastResponsePane({
 	responseScrollRef: RefObject<HTMLDivElement | null>;
 	revision: string;
 	searchLoad: SessionDetailSearchLoadState;
-	searchLoadModeKey: string;
 	selection: SessionTurnSelection;
 	sessionId: string;
 	skeletonDebugMode: SessionDetailSkeletonDebugMode;
@@ -179,25 +174,8 @@ export function SessionDetailFastResponsePane({
 			initialWindowRequest,
 			skeletonDebugKey,
 		),
-		retry: (failureCount, error) =>
-			!isSessionDetailWindowUnsupportedError(error) &&
-			shouldRetrySessionDetailFastQuery(failureCount, error),
+		retry: shouldRetrySessionDetailFastQuery,
 		staleTime: SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
-	});
-	const {
-		bodyStates,
-		handleRetryTurnBody,
-		handleViewportRangeChange,
-		loadedOptions,
-	} = useSessionDetailFastTurnBodies({
-		onApproachEnd,
-		onStaleRevision,
-		options,
-		revision,
-		searchLoad,
-		searchLoadModeKey,
-		sessionId,
-		skeletonDebugMode,
 	});
 	useEffect(() => {
 		if (
@@ -263,16 +241,12 @@ export function SessionDetailFastResponsePane({
 			<section
 				ref={responseScrollRef}
 				aria-label="Conversation thread"
-				className={`session-constellation-tree h-full min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-(--session-overview-surface) [overflow-anchor:none] [scrollbar-gutter:stable] ${wantsVirtualTranscript ? "session-transcript-mask" : ""} ${bottomPaddingClassName}`}
+				className={`session-constellation-tree session-transcript-mask h-full min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-(--session-overview-surface) [overflow-anchor:none] [scrollbar-gutter:stable] ${bottomPaddingClassName}`}
 				data-conversation-trace-scroll-container
 				data-session-trace-presentation="constellation-tree-branch-dots-no-horizontal"
 			>
-				{wantsVirtualTranscript && initialWindowQuery.isPending ? (
-					<TurnBodySkeleton />
-				) : null}
-				{wantsVirtualTranscript &&
-				initialWindowQuery.error &&
-				!isSessionDetailWindowUnsupportedError(initialWindowQuery.error) ? (
+				{initialWindowQuery.isPending ? <TurnBodySkeleton /> : null}
+				{initialWindowQuery.error ? (
 					<PaneMessage
 						actionLabel="Retry transcript"
 						message="The transcript window could not be loaded."
@@ -281,7 +255,7 @@ export function SessionDetailFastResponsePane({
 						}}
 					/>
 				) : null}
-				{wantsVirtualTranscript && initialWindowQuery.data ? (
+				{initialWindowQuery.data ? (
 					<SessionDetailVirtualTranscript
 						anchorTurnId={anchorTurnId}
 						debugEnabled={transcriptDebugEnabled}
@@ -295,21 +269,6 @@ export function SessionDetailFastResponsePane({
 						sessionId={sessionId}
 						skeletonDebugKey={skeletonDebugKey}
 						skeletonDebugMode={skeletonDebugMode}
-						userImageUrl={userImageUrl}
-						viewModel={viewModel}
-						viewportStore={viewportStore}
-					/>
-				) : null}
-				{!wantsVirtualTranscript ||
-				isSessionDetailWindowUnsupportedError(initialWindowQuery.error) ? (
-					<SessionContinuousTurnThread
-						bodyStates={bodyStates}
-						debugMode={skeletonDebugMode}
-						onRetryTurnBody={handleRetryTurnBody}
-						onViewportRangeChange={handleViewportRangeChange}
-						options={loadedOptions}
-						scrollContainerRef={responseScrollRef}
-						traceCallDisplayMode={detailLevel}
 						userImageUrl={userImageUrl}
 						viewModel={viewModel}
 						viewportStore={viewportStore}

@@ -17,7 +17,6 @@ export type SessionDetailSearchResult = {
 export type SessionDetailSearchIndex = ReadonlyMap<string, readonly string[]>;
 
 type SessionDetailSearchPayload = {
-	bodies: ReadonlyMap<string, SessionDetailTurn>;
 	index: SessionDetailSearchIndex;
 };
 

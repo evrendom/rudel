@@ -12,9 +12,7 @@ import { formatModelDisplayLabel } from "@/features/dashboard/components/dashboa
 import type { SessionNavigation } from "@/features/sessions/session-navigation";
 import { useShellHeaderPortal } from "@/features/shell/shell-header-portal";
 import { useUserMap } from "@/features/workspace/hooks/useUserMap";
-import { SessionDetailContent } from "./session-detail-content";
 import { SessionDetailFastContent } from "./session-detail-fast-content";
-import { isSessionDetailFastPathEnabled } from "./session-detail-fast-path";
 import {
 	fetchSessionDetailOverview,
 	SESSION_DETAIL_OVERVIEW_STALE_TIME_MS,
@@ -27,9 +25,6 @@ import {
 } from "./session-detail-fast-query";
 import { SessionDetailHeader } from "./session-detail-header";
 import { buildSessionDetailOverviewViewModel } from "./session-detail-overview-model";
-import { fetchSessionDetail } from "./session-detail-query";
-import { shouldRetrySessionDetailQuery } from "./session-detail-response";
-import { buildSessionDetailViewModel } from "./session-detail-view-model";
 import {
 	canRetrySessionDetailError,
 	getSessionDetailErrorState,
@@ -113,147 +108,7 @@ function SessionDetailStateMessage({
 	);
 }
 
-export function SessionDetailView(props: SessionDetailViewProps) {
-	return isSessionDetailFastPathEnabled() ? (
-		<SessionDetailFastView {...props} />
-	) : (
-		<SessionDetailLegacyView {...props} />
-	);
-}
-
-function SessionDetailLegacyView({
-	navigation,
-	position,
-	sessionId,
-	totalSessions,
-	onReturn,
-}: SessionDetailViewProps) {
-	const headerRef = useRef<HTMLElement>(null);
-	const responseScrollRef = useRef<HTMLDivElement>(null);
-	const shellHeaderPortal = useShellHeaderPortal();
-
-	const handleHeaderWheel = useCallback((event: WheelEvent) => {
-		if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
-			return;
-		}
-
-		event.preventDefault();
-		event.stopPropagation();
-		if (responseScrollRef.current) {
-			responseScrollRef.current.scrollTop += event.deltaY;
-		}
-	}, []);
-	const setHeaderElement = useCallback(
-		(element: HTMLElement | null) => {
-			headerRef.current?.removeEventListener("wheel", handleHeaderWheel);
-			headerRef.current = element;
-			element?.addEventListener("wheel", handleHeaderWheel, { passive: false });
-		},
-		[handleHeaderWheel],
-	);
-	const { userMap, avatarMap } = useUserMap();
-	const { data, error, isFetching, isLoading, refetch } = useQuery({
-		// Namespaced away from the oRPC-derived key: this cache entry stores the
-		// parsed boundary shape, not the raw procedure response.
-		queryKey: ["session-detail-parsed", sessionId],
-		queryFn: ({ signal }) => fetchSessionDetail(sessionId, signal),
-		enabled: sessionId.length > 0,
-		retry: shouldRetrySessionDetailQuery,
-	});
-	const session = data?.session;
-
-	useTrackProductPageView({
-		isLoading,
-		isError: Boolean(error),
-		hasData: Boolean(session),
-	});
-
-	const viewModel = session
-		? buildSessionDetailViewModel(session, userMap)
-		: undefined;
-	const sessionTabTitle = `${
-		viewModel?.safeModelUsed
-			? formatModelDisplayLabel(viewModel.safeModelUsed)
-			: "Session"
-	} · ${sessionId}`;
-
-	useEffect(() => {
-		const previousTitle = document.title;
-		document.title = sessionTabTitle;
-
-		return () => {
-			document.title = previousTitle;
-		};
-	}, [sessionTabTitle]);
-
-	const errorState = getSessionDetailErrorState(error);
-	const hasShapeWarning = (data?.shapeIssueFields.length ?? 0) > 0;
-
-	return (
-		<div className="dashboardy-page flex h-full min-h-0 min-w-0 flex-1 flex-col bg-(--dashboardy-surface) text-(--dashboardy-heading)">
-			<SessionDetailHeader
-				avatarMap={avatarMap}
-				headerRef={setHeaderElement}
-				hideMetrics
-				isLoading={isLoading}
-				navigation={navigation}
-				onReturn={onReturn}
-				portalHost={shellHeaderPortal}
-				position={position}
-				sessionId={sessionId}
-				totalSessions={totalSessions}
-				viewModel={viewModel}
-			/>
-
-			<div
-				key={sessionId}
-				className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
-			>
-				{isLoading ? <SessionDetailContentLoadingView /> : null}
-				{!isLoading && errorState ? (
-					<SessionDetailStateMessage
-						description={errorState.description}
-						isRetrying={isFetching}
-						onRetry={
-							canRetrySessionDetailError(error)
-								? () => {
-										void refetch();
-									}
-								: undefined
-						}
-						title={errorState.title}
-					/>
-				) : null}
-				{!isLoading && !errorState && viewModel ? (
-					<div className="flex h-full min-h-0 flex-col">
-						{hasShapeWarning ? (
-							<output className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-(--dashboardy-heading)">
-								Some session fields were unavailable. The rest of the transcript
-								is shown with safe defaults.
-							</output>
-						) : null}
-						<div className="min-h-0 flex-1">
-							<SessionDetailContent
-								key={`${viewModel.safeSessionId}:expanded-speakers-v1`}
-								responseScrollRef={responseScrollRef}
-								userImageUrl={avatarMap[viewModel.safeUserId]}
-								viewModel={viewModel}
-							/>
-						</div>
-					</div>
-				) : null}
-				{!isLoading && !errorState && !viewModel ? (
-					<SessionDetailStateMessage
-						description={undefined}
-						title="Session Not Found"
-					/>
-				) : null}
-			</div>
-		</div>
-	);
-}
-
-function SessionDetailFastView({
+export function SessionDetailView({
 	navigation,
 	position,
 	sessionId,

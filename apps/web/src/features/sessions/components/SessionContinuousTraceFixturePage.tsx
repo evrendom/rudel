@@ -13,7 +13,6 @@ import {
 	CONVERSATION_TRACE_FIXTURE_MODEL,
 	CONVERSATION_TRACE_FIXTURE_USER_LABEL,
 } from "@/components/conversation/conversation-trace-fixture";
-import { SessionContinuousTurnThread } from "./session-continuous-turn-thread";
 import { createSessionContinuousTurnViewportStore } from "./session-continuous-turn-viewport-store";
 import type { SessionDetailOverviewTurnOption } from "./session-detail-overview-model";
 import { buildSessionDetailViewModel } from "./session-detail-view-model";
@@ -220,7 +219,6 @@ export function SessionContinuousTraceFixturePage() {
 	const streamsTurnBodies = searchParams.get("hydrate") === "manual";
 	const profilesScrolling = searchParams.get("profile") === "scroll";
 	const usesFoldFixture = searchParams.get("folds") === "1";
-	const usesVirtualTranscript = searchParams.get("transcript") === "virtual";
 	const usesLongFixture =
 		streamsTurnBodies || profilesScrolling || usesFoldFixture;
 	const requestedTurnCount = Number(searchParams.get("turns"));
@@ -449,7 +447,6 @@ export function SessionContinuousTraceFixturePage() {
 		publishRenderProfile();
 	}, [publishRenderProfile, renderProfile]);
 
-	const handleRetryTurnBody = useCallback(() => {}, []);
 	const expandTurn = useCallback((turnId: string) => {
 		setExpandedTurnIds((current) =>
 			current.has(turnId) ? current : new Set([...current, turnId]),
@@ -507,9 +504,9 @@ export function SessionContinuousTraceFixturePage() {
 			data-trace-fixture-hydrated-turns={hydratedTurnCount}
 			data-trace-fixture-scroller
 			data-trace-fixture-total-turns={fixtureOptions.length}
-			className={`${usesVirtualTranscript ? "session-transcript-mask" : ""} isolate h-dvh min-w-0 overflow-y-auto overscroll-contain bg-(--session-overview-surface) antialiased [--session-overview-accent:#266df0] [--session-overview-border:#eeeff1] [--session-overview-hover:#f6f7f7] [--session-overview-muted:rgba(0,0,0,0.63)] [--session-overview-subtle:rgba(0,0,0,0.5)] [--session-overview-surface:#fff] [--session-overview-text:#101112] [font-family:Inter,sans-serif] [overflow-anchor:none] [scrollbar-gutter:stable]`}
+			className="session-transcript-mask isolate h-dvh min-w-0 overflow-y-auto overscroll-contain bg-(--session-overview-surface) antialiased [--session-overview-accent:#266df0] [--session-overview-border:#eeeff1] [--session-overview-hover:#f6f7f7] [--session-overview-muted:rgba(0,0,0,0.63)] [--session-overview-subtle:rgba(0,0,0,0.5)] [--session-overview-surface:#fff] [--session-overview-text:#101112] [font-family:Inter,sans-serif] [overflow-anchor:none] [scrollbar-gutter:stable]"
 		>
-			{mountsThread && usesVirtualTranscript ? (
+			{mountsThread ? (
 				<SessionTranscriptList
 					ref={virtualListRef}
 					bodyTurnCount={options.filter((option) => option.turn).length}
@@ -528,17 +525,6 @@ export function SessionContinuousTraceFixturePage() {
 					viewModel={CONTINUOUS_FIXTURE_VIEW_MODEL}
 					viewportStore={viewportStore}
 					windowsLoaded={1}
-				/>
-			) : mountsThread ? (
-				<SessionContinuousTurnThread
-					onRetryTurnBody={profilesScrolling ? handleRetryTurnBody : undefined}
-					onTurnRender={profilesScrolling ? handleTurnRender : undefined}
-					options={options}
-					scrollContainerRef={scrollContainerRef}
-					traceCallDisplayMode={traceCallDisplayMode}
-					userImageUrl={undefined}
-					viewModel={CONTINUOUS_FIXTURE_VIEW_MODEL}
-					viewportStore={viewportStore}
 				/>
 			) : null}
 			{streamsTurnBodies ? (
@@ -561,76 +547,70 @@ export function SessionContinuousTraceFixturePage() {
 					Reset render profile
 				</button>
 			) : null}
-			{usesVirtualTranscript ? (
-				<>
-					<output
-						className="pointer-events-none fixed top-2 right-2 z-[100] rounded border border-(--session-overview-border) bg-(--session-overview-surface) px-2 py-1 text-[0.6875rem] text-(--session-overview-muted)"
-						data-transcript-debug-hud
-					/>
-					<button
-						className="sr-only"
-						data-trace-fixture-prepend
-						onClick={prependFixtureTurns}
-						type="button"
-					>
-						Prepend turns
-					</button>
-					<button
-						className="sr-only"
-						data-trace-fixture-jump-first
-						onClick={() => {
-							const turnId = options[0]?.turnId;
-							if (turnId) {
-								setSelectedVirtualTurnId(turnId);
-								void virtualListRef.current?.scrollToTurn(turnId, {
-									expandFolds: true,
-								});
-							}
-						}}
-						type="button"
-					>
-						Jump to first turn
-					</button>
-					<button
-						className="sr-only"
-						data-trace-fixture-jump-last
-						onClick={() => {
-							const turnId = options.at(-1)?.turnId;
-							if (turnId) {
-								setSelectedVirtualTurnId(turnId);
-								void virtualListRef.current?.scrollToTurn(turnId, {
-									expandFolds: true,
-								});
-							}
-						}}
-						type="button"
-					>
-						Jump to last turn
-					</button>
-					<button
-						className="sr-only"
-						data-trace-fixture-reset-row-paints
-						onClick={() => setDebugPaintEpoch((current) => current + 1)}
-						type="button"
-					>
-						Reset row paint markers
-					</button>
-					<button
-						className="sr-only"
-						data-trace-fixture-toggle-level
-						onClick={() =>
-							setTraceCallDisplayMode((current) =>
-								current === "normal" ? "request" : "normal",
-							)
-						}
-						type="button"
-					>
-						Toggle transcript level
-					</button>
-				</>
-			) : (
-				<div aria-hidden="true" className="h-dvh" />
-			)}
+			<output
+				className="pointer-events-none fixed top-2 right-2 z-[100] rounded border border-(--session-overview-border) bg-(--session-overview-surface) px-2 py-1 text-[0.6875rem] text-(--session-overview-muted)"
+				data-transcript-debug-hud
+			/>
+			<button
+				className="sr-only"
+				data-trace-fixture-prepend
+				onClick={prependFixtureTurns}
+				type="button"
+			>
+				Prepend turns
+			</button>
+			<button
+				className="sr-only"
+				data-trace-fixture-jump-first
+				onClick={() => {
+					const turnId = options[0]?.turnId;
+					if (turnId) {
+						setSelectedVirtualTurnId(turnId);
+						void virtualListRef.current?.scrollToTurn(turnId, {
+							expandFolds: true,
+						});
+					}
+				}}
+				type="button"
+			>
+				Jump to first turn
+			</button>
+			<button
+				className="sr-only"
+				data-trace-fixture-jump-last
+				onClick={() => {
+					const turnId = options.at(-1)?.turnId;
+					if (turnId) {
+						setSelectedVirtualTurnId(turnId);
+						void virtualListRef.current?.scrollToTurn(turnId, {
+							expandFolds: true,
+						});
+					}
+				}}
+				type="button"
+			>
+				Jump to last turn
+			</button>
+			<button
+				className="sr-only"
+				data-trace-fixture-reset-row-paints
+				onClick={() => setDebugPaintEpoch((current) => current + 1)}
+				type="button"
+			>
+				Reset row paint markers
+			</button>
+			<button
+				className="sr-only"
+				data-trace-fixture-toggle-level
+				onClick={() =>
+					setTraceCallDisplayMode((current) =>
+						current === "normal" ? "request" : "normal",
+					)
+				}
+				type="button"
+			>
+				Toggle transcript level
+			</button>
 		</div>
 	);
 }

@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 import {
 	getActiveContinuousTurnIndex,
 	getContinuousTurnViewport,
-	getPrefetchedContinuousTurnIndices,
 } from "./session-continuous-turn-focus";
 
 describe("getActiveContinuousTurnIndex", () => {
@@ -68,16 +67,5 @@ describe("getContinuousTurnViewport", () => {
 			activePosition: 1,
 			visibleRange: [2, 7],
 		});
-	});
-});
-
-describe("getPrefetchedContinuousTurnIndices", () => {
-	test("loads the visible range plus bounded adjacent turns", () => {
-		expect(getPrefetchedContinuousTurnIndices([5, 7], 20, 4)).toEqual([
-			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
-		]);
-		expect(getPrefetchedContinuousTurnIndices([0, 1], 6, 4)).toEqual([
-			0, 1, 2, 3, 4, 5,
-		]);
 	});
 });
