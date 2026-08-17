@@ -44,6 +44,45 @@ function getLivelineY(
 	return baselineY - Math.min(value / maximum, 1) * (baselineY - topY);
 }
 
+function getObservedInputMaximum(
+	series: SessionOverviewCallSeries,
+	headroom: number,
+) {
+	return (
+		Math.max(
+			0,
+			...series.turns.flatMap((turn) =>
+				turn.calls.map((call) => call.inputTotal),
+			),
+		) * headroom
+	);
+}
+
+function getCallInputMaximum(
+	call: SessionOverviewCallPoint,
+	observedMaximum: number,
+) {
+	return (
+		call.modelContextWindow ??
+		resolveLivelineInputTokenLimit(call.model) ??
+		observedMaximum
+	);
+}
+
+export function getLivelineCallY(
+	series: SessionOverviewCallSeries,
+	config: SessionThreadOverviewStripConfig,
+	call: SessionOverviewCallPoint,
+	headroom = 1.12,
+) {
+	return getLivelineY(
+		call.inputTotal,
+		getCallInputMaximum(call, getObservedInputMaximum(series, headroom)),
+		5,
+		config.axisY,
+	);
+}
+
 function getInteriorCallXs(
 	turn: SessionOverviewCallTurn,
 	config: SessionThreadOverviewStripConfig,
@@ -98,13 +137,7 @@ export function getLivelineInputAxisMaximum(
 	series: SessionOverviewCallSeries,
 	headroom = 1.12,
 ) {
-	const observedMaximum =
-		Math.max(
-			0,
-			...series.turns.flatMap((turn) =>
-				turn.calls.map((call) => call.inputTotal),
-			),
-		) * headroom;
+	const observedMaximum = getObservedInputMaximum(series, headroom);
 	let maximum = 0;
 	for (const turn of series.turns) {
 		for (const call of turn.calls) {
@@ -192,17 +225,7 @@ export function buildLivelineSignal(
 	const baselineY = config.axisY;
 	const plotLeft = config.plotPadding;
 	const plotRight = config.chartWidth - config.plotPadding;
-	const observedMaximum =
-		Math.max(
-			0,
-			...series.turns.flatMap((turn) =>
-				turn.calls.map((call) => call.inputTotal),
-			),
-		) * headroom;
-	const getMaximum = (call: SessionOverviewCallTurn["calls"][number]) =>
-		call.modelContextWindow ??
-		resolveLivelineInputTokenLimit(call.model) ??
-		observedMaximum;
+	const observedMaximum = getObservedInputMaximum(series, headroom);
 	const points: SessionOverviewLivelinePoint[] = [
 		{ value: 0, x: plotLeft, y: baselineY },
 	];
@@ -227,7 +250,12 @@ export function buildLivelineSignal(
 			const point = {
 				value,
 				x,
-				y: getLivelineY(value, getMaximum(call), topY, baselineY),
+				y: getLivelineY(
+					value,
+					getCallInputMaximum(call, observedMaximum),
+					topY,
+					baselineY,
+				),
 			};
 			points.push(point);
 			if (callIndex === 0) {

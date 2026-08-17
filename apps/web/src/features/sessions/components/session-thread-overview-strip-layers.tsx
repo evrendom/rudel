@@ -19,12 +19,7 @@ import type {
 	SessionThreadOverviewTick,
 } from "./session-thread-overview-chart";
 import type { SessionThreadOverviewStripConfig } from "./session-thread-overview-config";
-import { resolveLivelineInputTokenLimit } from "./session-thread-overview-context-limits";
-import type { SessionThreadOverviewTimelineEvent } from "./session-thread-overview-events";
-import {
-	getLivelineInputAxisMaximum,
-	type SessionOverviewLivelineCallHit,
-} from "./session-thread-overview-liveline-geometry";
+import { getLivelineInputAxisMaximum } from "./session-thread-overview-liveline-geometry";
 import type { SessionOverviewCallSeries } from "./session-thread-overview-model";
 import { transformSessionOverviewRulerScale } from "./session-thread-overview-ruler-scale";
 import { SessionOverviewMetricButton } from "./session-thread-overview-strip-parts";
@@ -171,33 +166,6 @@ export function SessionOverviewLivelineAxisLabels({
 				</span>
 			))}
 		</div>
-	);
-}
-
-// The nearest plotted call's value, appended to the time readout. The hit is
-// shared with the timestamp so both labels change at the same cursor position.
-export function SessionOverviewHoverValueLabel({
-	hit,
-	series,
-}: {
-	hit: SessionOverviewLivelineCallHit | undefined;
-	series: SessionOverviewCallSeries;
-}) {
-	if (!hit) {
-		return null;
-	}
-	const limit =
-		hit.call.modelContextWindow ??
-		resolveLivelineInputTokenLimit(hit.call.model) ??
-		series.aggregates.largestCallInputTotal * 1.12;
-	return (
-		<span className="text-(--session-overview-muted)" data-liveline-hover-value>
-			{" · "}
-			{hit.call.inputTotal.toLocaleString("en-US")}
-			{limit > 0
-				? ` (${((hit.call.inputTotal / limit) * 100).toFixed(1)}%)`
-				: null}
-		</span>
 	);
 }
 
@@ -361,12 +329,10 @@ export function SessionOverviewTickLabels({
 
 export function SessionOverviewTimelineFooter({
 	config,
-	events,
 	rulerTicks,
 	ticks,
 }: {
 	config: SessionThreadOverviewStripConfig;
-	events: readonly SessionThreadOverviewTimelineEvent[];
 	rulerTicks: readonly SessionThreadOverviewTick[];
 	ticks: readonly SessionThreadOverviewTick[];
 }) {
@@ -385,39 +351,6 @@ export function SessionOverviewTimelineFooter({
 				rangeDurationMs,
 			)
 		: undefined;
-	const visibleEvents = events.filter(
-		(event) =>
-			event.xRatio >= config.xDomainStartRatio &&
-			event.xRatio <= config.xDomainEndRatio,
-	);
-	const eventClusters = new Map<
-		string,
-		{
-			errorEvents: SessionThreadOverviewTimelineEvent[];
-			skillEvents: SessionThreadOverviewTimelineEvent[];
-			xRatio: number;
-		}
-	>();
-	for (const event of visibleEvents) {
-		const clusterKey = event.xRatio.toFixed(6);
-		const cluster = eventClusters.get(clusterKey) ?? {
-			errorEvents: [],
-			skillEvents: [],
-			xRatio: event.xRatio,
-		};
-		if (event.kind === "error") {
-			cluster.errorEvents.push(event);
-		} else {
-			cluster.skillEvents.push(event);
-		}
-		eventClusters.set(clusterKey, cluster);
-	}
-	const errorCount = visibleEvents
-		.filter((event) => event.kind === "error")
-		.reduce((total, event) => total + event.count, 0);
-	const skillCount = visibleEvents
-		.filter((event) => event.kind === "skill")
-		.reduce((total, event) => total + event.count, 0);
 	const majorTickRatios = ticks.map((tick) => tick.xRatio);
 	const minimumOverlapRatio = 1 / Math.max(config.chartWidth, 1);
 	const minorTicks = rulerTicks.filter(
@@ -448,8 +381,7 @@ export function SessionOverviewTimelineFooter({
 				<div
 					ref={proximityLayerRef}
 					className="relative h-2 shrink-0"
-					role="img"
-					aria-label={`${errorCount.toLocaleString()} errors and ${skillCount.toLocaleString()} skill uses on the timeline`}
+					aria-hidden="true"
 				>
 					{minorTicks.map((tick) => (
 						<SessionOverviewProximityTick
@@ -473,57 +405,6 @@ export function SessionOverviewTimelineFooter({
 							tick={tick}
 						/>
 					))}
-					{[...eventClusters.entries()].map(([clusterKey, cluster]) => {
-						const errorEventCount = cluster.errorEvents.reduce(
-							(total, event) => total + event.count,
-							0,
-						);
-						const skillEventCount = cluster.skillEvents.reduce(
-							(total, event) => total + event.count,
-							0,
-						);
-						return (
-							<span
-								key={clusterKey}
-								aria-hidden="true"
-								className="pointer-events-none absolute inset-y-0 z-10 w-3 -translate-x-1/2"
-								style={{
-									left: `${(getChartX(cluster.xRatio, config) / config.chartWidth) * 100}%`,
-								}}
-							>
-								<span className="absolute bottom-0 left-1/2 flex -translate-x-1/2 items-end gap-px">
-									{errorEventCount > 0 ? (
-										<SessionOverviewEventTick
-											config={config}
-											count={errorEventCount}
-											kind="error"
-											pointerX={pointerX}
-											reduceMotion={reduceMotion}
-											stripWidth={stripWidth}
-											title={cluster.errorEvents
-												.map((event) => event.label)
-												.join(", ")}
-											xRatio={cluster.xRatio}
-										/>
-									) : null}
-									{skillEventCount > 0 ? (
-										<SessionOverviewEventTick
-											config={config}
-											count={skillEventCount}
-											kind="skill"
-											pointerX={pointerX}
-											reduceMotion={reduceMotion}
-											stripWidth={stripWidth}
-											title={cluster.skillEvents
-												.map((event) => event.label)
-												.join(", ")}
-											xRatio={cluster.xRatio}
-										/>
-									) : null}
-								</span>
-							</span>
-						);
-					})}
 				</div>
 				<div className="relative min-h-4 flex-1" aria-hidden="true">
 					{ticks.slice(0, -1).map((tick) => {
@@ -591,50 +472,6 @@ function useSessionOverviewProximityScale({
 		mass: 0.35,
 		stiffness: 600,
 	});
-}
-
-function SessionOverviewEventTick({
-	config,
-	count,
-	kind,
-	pointerX,
-	reduceMotion,
-	stripWidth,
-	title,
-	xRatio,
-}: {
-	config: SessionThreadOverviewStripConfig;
-	count: number;
-	kind: "error" | "skill";
-	pointerX: MotionValue<number>;
-	reduceMotion: boolean;
-	stripWidth: MotionValue<number>;
-	title: string;
-	xRatio: number;
-}) {
-	const scaleY = useSessionOverviewProximityScale({
-		config,
-		intensity: 0.35,
-		pointerX,
-		reduceMotion,
-		stripWidth,
-		xRatio,
-	});
-
-	return (
-		<motion.span
-			className={cn(
-				"h-[10.6667px] w-[1.5px] origin-bottom",
-				kind === "error"
-					? "bg-red-600 dark:bg-red-400"
-					: "bg-(--session-overview-accent)",
-			)}
-			data-count={count}
-			data-session-overview-event={kind}
-			style={{ scaleY }}
-			title={title}
-		/>
-	);
 }
 
 function SessionOverviewProximityTick({

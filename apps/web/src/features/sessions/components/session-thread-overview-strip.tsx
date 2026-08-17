@@ -134,23 +134,23 @@ export function SessionThreadOverviewStrip({
 			: chart.rows.find((row) => row.index === focusedIndex);
 	const readout = hover ?? focusedRow;
 	const markerRatio = focusedRow?.xRatio ?? selectedRatio;
-	const cursorTimestamp = hover
-		? chart.unprojectRatio(hover.xRatio)
+	const readoutTimestampAtCursor = readout
+		? chart.unprojectRatio(readout.xRatio)
 		: undefined;
-	const hoveredCall = hover
+	const readoutCall = readout
 		? getNearestLivelineCallAtX(
 				callSeries,
 				resolvedConfig,
-				getChartX(hover.xRatio, resolvedConfig),
+				getChartX(readout.xRatio, resolvedConfig),
 			)
 		: undefined;
-	const hoverTimestamp = resolveSessionOverviewHoverTimestamp(
-		hoveredCall?.call,
-		cursorTimestamp,
+	const readoutTimestamp = resolveSessionOverviewHoverTimestamp(
+		readoutCall?.call,
+		readoutTimestampAtCursor,
 	);
-	const hoverElapsedMs =
-		hoverTimestamp !== undefined && chart.axisStartTimestamp !== undefined
-			? hoverTimestamp - chart.axisStartTimestamp
+	const readoutElapsedMs =
+		readoutTimestamp !== undefined && chart.axisStartTimestamp !== undefined
+			? readoutTimestamp - chart.axisStartTimestamp
 			: undefined;
 	const visibleAxisStartTimestamp = chart.unprojectRatio(
 		zoomWindow.xStartRatio,
@@ -248,10 +248,6 @@ export function SessionThreadOverviewStrip({
 			chart={chart}
 			chartPlotRef={chartPlotRef}
 			footerTicks={footerTicks}
-			hover={hover}
-			hoverElapsedMs={hoverElapsedMs}
-			hoveredCall={hoveredCall}
-			hoverTimestamp={hoverTimestamp}
 			hasViewport={viewport !== undefined}
 			markerRatio={markerRatio}
 			onPointerLeave={() => setHover(undefined)}
@@ -283,7 +279,10 @@ export function SessionThreadOverviewStrip({
 			plotLeft={plotLeft}
 			plotRight={plotRight}
 			readout={readout}
+			readoutCall={readoutCall}
+			readoutElapsedMs={readoutElapsedMs}
 			readoutId={readoutId}
+			readoutTimestamp={readoutTimestamp}
 			resolvedConfig={resolvedConfig}
 			rulerTicks={rulerTicks}
 			selectedIndex={selectedIndex}

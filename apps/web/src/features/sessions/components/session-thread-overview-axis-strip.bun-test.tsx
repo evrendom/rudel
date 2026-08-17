@@ -43,24 +43,6 @@ describe("SessionOverviewTimelineFooter", () => {
 		const markup = renderToStaticMarkup(
 			<SessionOverviewTimelineFooter
 				config={DEFAULT_SESSION_THREAD_OVERVIEW_STRIP_CONFIG}
-				events={[
-					{
-						count: 1,
-						key: "error-event",
-						kind: "error",
-						label: "Error",
-						timestamp: startTimestamp + 15 * 60 * 1_000,
-						xRatio: 0.25,
-					},
-					{
-						count: 1,
-						key: "skill-event",
-						kind: "skill",
-						label: "Skill: ui",
-						timestamp: startTimestamp + 30 * 60 * 1_000,
-						xRatio: 0.5,
-					},
-				]}
 				rulerTicks={rulerTicks}
 				ticks={ticks}
 			/>,
@@ -80,9 +62,7 @@ describe("SessionOverviewTimelineFooter", () => {
 		expect(markup).toContain("data-session-overview-axis-end");
 		expect(markup).toContain(">11:00 AM<");
 		expect(markup).not.toContain(">Now<");
-		expect(markup).toContain('data-session-overview-event="error"');
-		expect(markup).toContain('data-session-overview-event="skill"');
-		expect(markup).toContain("1 errors and 1 skill uses on the timeline");
+		expect(markup).not.toContain("data-session-overview-event");
 	});
 
 	test("expresses later calendar days as compact offsets", () => {

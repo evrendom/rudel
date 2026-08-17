@@ -6,19 +6,15 @@ import type {
 	SetStateAction,
 	WheelEvent,
 } from "react";
-import { cn } from "@/lib/utils";
 import type { buildSessionThreadOverviewChart } from "./session-thread-overview-chart";
 import type { SessionThreadOverviewStripConfig } from "./session-thread-overview-config";
+import { SessionThreadOverviewEventDots } from "./session-thread-overview-event-dots";
 import type { buildSessionThreadOverviewTimelineEvents } from "./session-thread-overview-events";
+import { SessionThreadOverviewHoverCard } from "./session-thread-overview-hover-card";
 import type { SessionOverviewLivelineCallHit } from "./session-thread-overview-liveline-geometry";
 import type { buildSessionOverviewCallSeries } from "./session-thread-overview-model";
 import {
-	formatElapsedSinceStart,
-	formatTimelineMomentWithSeconds,
-} from "./session-thread-overview-model";
-import {
 	SessionOverviewCallMarker,
-	SessionOverviewHoverValueLabel,
 	SessionOverviewTimelineFooter,
 	SessionOverviewTurnHitTargets,
 } from "./session-thread-overview-strip-layers";
@@ -46,10 +42,6 @@ export function SessionThreadOverviewStripView({
 	chart,
 	chartPlotRef,
 	footerTicks,
-	hover,
-	hoverElapsedMs,
-	hoveredCall,
-	hoverTimestamp,
 	hasViewport,
 	markerRatio,
 	onPointerLeave,
@@ -65,7 +57,10 @@ export function SessionThreadOverviewStripView({
 	plotLeft,
 	plotRight,
 	readout,
+	readoutCall,
+	readoutElapsedMs,
 	readoutId,
+	readoutTimestamp,
 	resolvedConfig,
 	rulerTicks,
 	selectedIndex,
@@ -82,10 +77,6 @@ export function SessionThreadOverviewStripView({
 	chart: Chart;
 	chartPlotRef: RefObject<HTMLDivElement | null>;
 	footerTicks: TimelineTicks;
-	hover: SessionOverviewHover | undefined;
-	hoverElapsedMs: number | undefined;
-	hoveredCall: SessionOverviewLivelineCallHit | undefined;
-	hoverTimestamp: number | undefined;
 	hasViewport: boolean;
 	markerRatio: number | undefined;
 	onPointerLeave: () => void;
@@ -101,7 +92,10 @@ export function SessionThreadOverviewStripView({
 	plotLeft: number;
 	plotRight: number;
 	readout: SessionOverviewHover | undefined;
+	readoutCall: SessionOverviewLivelineCallHit | undefined;
+	readoutElapsedMs: number | undefined;
 	readoutId: string;
+	readoutTimestamp: number | undefined;
 	resolvedConfig: SessionThreadOverviewStripConfig;
 	rulerTicks: TimelineTicks;
 	selectedIndex: number;
@@ -120,41 +114,12 @@ export function SessionThreadOverviewStripView({
 			aria-label="Session activity map (input context)"
 			className="@container h-[6.57rem] shrink-0 border-b border-(--session-overview-border) bg-(--session-overview-surface)"
 		>
-			<div
-				id={readoutId}
-				className="relative h-6 shrink-0 border-b border-(--session-overview-border)"
-			>
+			<div className="relative h-6 shrink-0 border-b border-(--session-overview-border)">
 				<div className="absolute inset-y-0 left-3 right-3">
 					{visibleAxisStartTimestamp !== undefined ? (
-						<span
-							className={cn(
-								"absolute top-1/2 left-0 -translate-y-1/2 font-mono text-[0.5625rem] whitespace-nowrap text-(--session-overview-subtle) tabular-nums transition-opacity duration-150 motion-reduce:transition-none",
-								hover && "opacity-0",
-							)}
-						>
+						<span className="absolute top-1/2 left-0 -translate-y-1/2 font-mono text-[0.5625rem] whitespace-nowrap text-(--session-overview-subtle) tabular-nums">
 							{formatTimelineMoment(visibleAxisStartTimestamp)}
 						</span>
-					) : null}
-					{hover && hoverTimestamp !== undefined ? (
-						<div
-							aria-hidden="true"
-							className="pointer-events-none absolute top-1/2 z-40 -translate-x-1/2 -translate-y-1/2 bg-(--session-overview-surface) px-1 font-mono text-[0.5625rem] font-medium whitespace-nowrap text-(--session-overview-text) tabular-nums"
-							style={{
-								left: `${(Math.min(Math.max(getChartX(hover.xRatio, resolvedConfig), 70), resolvedConfig.chartWidth - 70) / resolvedConfig.chartWidth) * 100}%`,
-							}}
-						>
-							{formatTimelineMomentWithSeconds(hoverTimestamp)}
-							{hoverElapsedMs !== undefined ? (
-								<span className="text-(--session-overview-muted)">
-									{" "}
-									{formatElapsedSinceStart(hoverElapsedMs)}
-								</span>
-							) : null}
-							<SessionOverviewHoverValueLabel
-								hit={hoveredCall}
-								series={callSeries}
-							/>
-						</div>
 					) : null}
 					<div className="absolute inset-y-0 right-0 z-40 flex items-center gap-2">
 						<SessionThreadOverviewZoomControls
@@ -165,12 +130,7 @@ export function SessionThreadOverviewStripView({
 							zoomLevel={zoomLevel}
 						/>
 						{visibleAxisEndTimestamp !== undefined ? (
-							<span
-								className={cn(
-									"font-mono text-[0.5625rem] whitespace-nowrap text-(--session-overview-subtle) tabular-nums transition-opacity duration-150 motion-reduce:transition-none",
-									hover && "opacity-0",
-								)}
-							>
+							<span className="font-mono text-[0.5625rem] whitespace-nowrap text-(--session-overview-subtle) tabular-nums">
 								{formatTimelineMoment(visibleAxisEndTimestamp)}
 							</span>
 						) : null}
@@ -179,6 +139,16 @@ export function SessionThreadOverviewStripView({
 			</div>
 
 			<div className="relative flex h-[5.07rem] min-w-0 flex-col overflow-hidden bg-(--session-overview-surface)">
+				<SessionThreadOverviewHoverCard
+					config={resolvedConfig}
+					elapsedMs={readoutElapsedMs}
+					hit={readoutCall}
+					options={options}
+					readout={readout}
+					readoutId={readoutId}
+					series={callSeries}
+					timestamp={readoutTimestamp}
+				/>
 				<div
 					className="relative h-[2.57rem] min-w-0 overflow-hidden"
 					onPointerLeave={onPointerLeave}
@@ -208,6 +178,11 @@ export function SessionThreadOverviewStripView({
 								/>
 							) : null}
 						</svg>
+						<SessionThreadOverviewEventDots
+							config={resolvedConfig}
+							events={timelineEvents}
+							series={callSeries}
+						/>
 						<SessionOverviewTurnHitTargets
 							config={resolvedConfig}
 							onFocusIndexChange={setFocusedIndex}
@@ -245,7 +220,6 @@ export function SessionThreadOverviewStripView({
 				</div>
 				<SessionOverviewTimelineFooter
 					config={resolvedConfig}
-					events={timelineEvents}
 					rulerTicks={resolvedConfig.showTicks ? rulerTicks : []}
 					ticks={resolvedConfig.showTicks ? footerTicks : []}
 				/>
