@@ -6,6 +6,7 @@ import type {
 	ToolUseContent,
 } from "@/lib/conversation-schema";
 import { cn } from "@/lib/utils";
+import { SignalText } from "../signal-text";
 import { CodeBlock, InlineCode } from "./CodeBlock";
 import { formatShellOutput } from "./conversation-tools";
 import {
@@ -273,9 +274,10 @@ function renderStrongText(text: string, keyPrefix: string): ReactNode[] {
 
 	while (match !== null) {
 		if (match.index > lastIndex) {
+			const plainText = text.slice(lastIndex, match.index);
 			content.push(
 				<span key={`${keyPrefix}-text-${lastIndex}`}>
-					{text.slice(lastIndex, match.index)}
+					<SignalText text={plainText} />
 				</span>,
 			);
 		}
@@ -287,7 +289,7 @@ function renderStrongText(text: string, keyPrefix: string): ReactNode[] {
 					key={`${keyPrefix}-strong-${match.index}`}
 					className="font-semibold"
 				>
-					{strongText}
+					<SignalText text={strongText} />
 				</strong>,
 			);
 		} else {
@@ -301,13 +303,18 @@ function renderStrongText(text: string, keyPrefix: string): ReactNode[] {
 	}
 
 	if (lastIndex === 0) {
-		return [<span key={`${keyPrefix}-text`}>{text}</span>];
+		return [
+			<span key={`${keyPrefix}-text`}>
+				<SignalText text={text} />
+			</span>,
+		];
 	}
 
 	if (lastIndex < text.length) {
+		const trailingText = text.slice(lastIndex);
 		content.push(
 			<span key={`${keyPrefix}-text-${lastIndex}`}>
-				{text.slice(lastIndex)}
+				<SignalText text={trailingText} />
 			</span>,
 		);
 	}
@@ -429,7 +436,7 @@ export function MessageContent({ content, className }: MessageContentProps) {
 									Thinking
 								</p>
 								<p className="whitespace-pre-wrap text-[0.8125rem] leading-5 text-[color:var(--dashboardy-muted)] italic text-pretty">
-									{block.thinking}
+									<SignalText text={block.thinking} />
 								</p>
 							</div>
 						);
