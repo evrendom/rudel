@@ -117,6 +117,9 @@ describe("session constellation tree tokens", () => {
 		expect(css).toContain("var(--constellation-tree-v2-content-shift) -");
 		expect(css).toContain("var(--constellation-tree-v2-icon-shift)");
 		expect(css).toContain(
+			"min-height: calc(32px + var(--constellation-tree-v2-body-lift))",
+		);
+		expect(css).toContain(
 			"margin-bottom: calc(0px - var(--constellation-tree-v2-body-lift))",
 		);
 		expect(css).toContain(
