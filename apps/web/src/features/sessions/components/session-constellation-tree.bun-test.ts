@@ -117,9 +117,6 @@ describe("session constellation tree tokens", () => {
 		expect(css).toContain("var(--constellation-tree-v2-content-shift) -");
 		expect(css).toContain("var(--constellation-tree-v2-icon-shift)");
 		expect(css).toContain(
-			"min-height: calc(32px + var(--constellation-tree-v2-body-lift))",
-		);
-		expect(css).toContain(
 			"margin-bottom: calc(0px - var(--constellation-tree-v2-body-lift))",
 		);
 		expect(css).toContain(
@@ -133,6 +130,7 @@ describe("session constellation tree tokens", () => {
 		);
 		expect(css).toContain('[data-trace-tree-marker-geometry="dot"]');
 		expect(css).toContain('[data-trace-tree-marker-geometry="icon"]');
+		expect(css).toContain("[data-trace-tree-entry-rail]");
 		expect(css).toContain("display: inline");
 		expect(css).not.toContain("&::after");
 		expect(stickyHeaders).toContain("<ConversationTraceTreeItem");

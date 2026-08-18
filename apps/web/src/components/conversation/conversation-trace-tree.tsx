@@ -671,6 +671,7 @@ export function ConversationTraceTreeItem({
 	continuesThroughSubtree = false,
 	descends = false,
 	depth,
+	incomingRailExtension = 0,
 	rowHeight = CONVERSATION_TRACE_TREE_ROW_HEIGHT,
 	sticky,
 	subtree,
@@ -682,6 +683,7 @@ export function ConversationTraceTreeItem({
 	continuesThroughSubtree?: boolean;
 	descends?: boolean;
 	depth: number;
+	incomingRailExtension?: number;
 	rowHeight?: number;
 	sticky?: boolean;
 	subtree?: ReactNode;
@@ -719,6 +721,21 @@ export function ConversationTraceTreeItem({
 			<ConversationTraceTreeStickyOffsetContext.Provider
 				value={subtreeStickyOffset}
 			>
+				{incomingRailExtension > 0 ? (
+					<span
+						aria-hidden="true"
+						className="pointer-events-none absolute hidden -translate-x-1/2 bg-[color:var(--conversation-trace-connector-color,var(--session-overview-border))]"
+						data-trace-tree-entry-rail
+						data-trace-tree-line
+						data-trace-tree-line-depth={depth}
+						style={{
+							height: `${incomingRailExtension}px`,
+							left: `${getConversationTraceTreeX(depth, connectorStyle)}px`,
+							top: `${-incomingRailExtension}px`,
+							width: "calc(var(--conversation-trace-connector-width, 1) * 1px)",
+						}}
+					/>
+				) : null}
 				<ConversationTraceTreeRail
 					continues={continues}
 					depth={depth}
@@ -1242,6 +1259,9 @@ function AgentTraceTreeBranchList({
 								branch.childStartIndex + childIndex < branch.totalChildren - 1
 							}
 							depth={depth + 1}
+							incomingRailExtension={
+								branch.root !== undefined && childIndex === 0 ? 2 : 0
+							}
 							rowHeight={CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT}
 						>
 							<div className="-ml-3">{child.row}</div>

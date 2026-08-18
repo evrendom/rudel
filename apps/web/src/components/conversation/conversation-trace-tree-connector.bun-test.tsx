@@ -206,6 +206,26 @@ describe("ConversationTraceTree connector styles", () => {
 		expect(terminalMarkup).not.toContain('d="M 39 30 V 32"');
 	});
 
+	test("can complete the first icon row's incoming rail to the sibling cadence", () => {
+		const markup = renderToStaticMarkup(
+			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
+				<ConversationTraceTreeItem
+					continues
+					depth={3}
+					incomingRailExtension={2}
+					rowHeight={32}
+				>
+					<span className="size-5">Tool</span>
+				</ConversationTraceTreeItem>
+			</ConversationTraceTreeConnectorStyleProvider>,
+		);
+
+		expect(markup).toContain("data-trace-tree-entry-rail");
+		expect(markup).toContain("height:2px");
+		expect(markup).toContain("top:-2px");
+		expect(markup).toContain("left:62px");
+	});
+
 	test("continues a dotted rail through non-tree subtree content", () => {
 		const promptMarkup = renderToStaticMarkup(
 			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">

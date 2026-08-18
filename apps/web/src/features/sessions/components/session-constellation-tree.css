@@ -119,10 +119,17 @@
 	)
 	> [data-trace-tree-row-body] {
 	> div:last-child {
-		min-height: calc(32px + var(--constellation-tree-v2-body-lift));
 		margin-bottom: calc(0px - var(--constellation-tree-v2-body-lift));
 		transform: translateY(calc(0px - var(--constellation-tree-v2-body-lift)));
 	}
+}
+
+.session-constellation-tree-v2
+	[data-trace-tree-item-depth]:has(
+		> [data-trace-tree-row-owner] [data-trace-row-header] [data-trace-icon]
+	)
+	> [data-trace-tree-entry-rail] {
+	display: block;
 }
 
 .session-constellation-tree-v2
