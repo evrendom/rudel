@@ -1,4 +1,8 @@
-export type LanguageSignalCategory = "swear" | "apology" | "positive";
+export type LanguageSignalCategory =
+	| "negative"
+	| "swear"
+	| "apology"
+	| "positive";
 
 export interface LanguageSignalMatch {
 	readonly category: LanguageSignalCategory;

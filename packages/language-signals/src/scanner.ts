@@ -12,9 +12,20 @@ interface CompiledSurface {
 }
 
 const CATEGORY_PRECEDENCE: Readonly<Record<LanguageSignalCategory, number>> = {
-	swear: 0,
-	apology: 1,
-	positive: 2,
+	negative: 0,
+	swear: 1,
+	apology: 2,
+	positive: 3,
+};
+
+const NEGATIVE_QUESTION_RUN: CompiledSurface = {
+	category: "negative",
+	ruleId: "negative.question-run",
+	source: "\\?{2,}",
+	surfaceLength: 2,
+	categoryPrecedence: CATEGORY_PRECEDENCE.negative,
+	ruleOrder: -1,
+	surfaceOrder: 0,
 };
 
 export const MAX_LANGUAGE_SIGNAL_MATCHES = 10_000;
@@ -32,7 +43,7 @@ const COMPILED_SURFACES = LANGUAGE_SIGNAL_RULES.flatMap((rule, ruleOrder) =>
 ).sort(compareCompiledSurfaces);
 
 const LANGUAGE_SIGNAL_PATTERN = new RegExp(
-	`(?<![\\p{L}\\p{N}])(?:${COMPILED_SURFACES.map(({ source }) => `(${source})`).join("|")})(?![\\p{L}\\p{N}])`,
+	`(${NEGATIVE_QUESTION_RUN.source})|(?<![\\p{L}\\p{N}])(?:${COMPILED_SURFACES.map(({ source }) => `(${source})`).join("|")})(?![\\p{L}\\p{N}])`,
 	"giu",
 );
 
@@ -64,9 +75,13 @@ export function scanLanguageSignals(
 function findCompiledSurface(
 	match: RegExpExecArray,
 ): CompiledSurface | undefined {
-	for (let captureIndex = 1; captureIndex < match.length; captureIndex += 1) {
+	if (match[1] !== undefined) {
+		return NEGATIVE_QUESTION_RUN;
+	}
+
+	for (let captureIndex = 2; captureIndex < match.length; captureIndex += 1) {
 		if (match[captureIndex] !== undefined) {
-			return COMPILED_SURFACES[captureIndex - 1];
+			return COMPILED_SURFACES[captureIndex - 2];
 		}
 	}
 

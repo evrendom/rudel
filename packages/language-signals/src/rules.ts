@@ -6,13 +6,18 @@ export interface LanguageSignalRule {
 	readonly surfaces: readonly string[];
 }
 
-export const LANGUAGE_SIGNAL_RULES_VERSION = 2;
+export const LANGUAGE_SIGNAL_RULES_VERSION = 3;
 
 // Deterministic surface lists only: no stemming, fuzzy matching, leetspeak,
 // negation, or context awareness. Identity slurs stay excluded. "hellish" and
 // bare "absolutely right" are deliberate non-surfaces (boundary and ordering
 // semantics depend on them).
 export const LANGUAGE_SIGNAL_RULES: readonly LanguageSignalRule[] = [
+	{
+		category: "negative",
+		ruleId: "negative.fishy",
+		surfaces: ["fishy"],
+	},
 	{
 		category: "swear",
 		ruleId: "swear.fuck",

@@ -9,7 +9,7 @@ import { LANGUAGE_SIGNAL_RULES } from "../rules.js";
 
 describe("language signal rules", () => {
 	test("keeps the ruleset explicitly versioned", () => {
-		expect(LANGUAGE_SIGNAL_RULES_VERSION).toBe(2);
+		expect(LANGUAGE_SIGNAL_RULES_VERSION).toBe(3);
 	});
 
 	for (const rule of LANGUAGE_SIGNAL_RULES) {
@@ -52,6 +52,49 @@ describe("language signal rules", () => {
 				end: 20,
 			},
 		]);
+	});
+
+	test("treats fishy and consecutive question marks as negative", () => {
+		const text = "Fishy? One? Two?? Three??? Four????";
+
+		expect(scanLanguageSignals(text)).toEqual([
+			{
+				category: "negative",
+				ruleId: "negative.fishy",
+				matchedText: "Fishy",
+				start: 0,
+				end: 5,
+			},
+			{
+				category: "negative",
+				ruleId: "negative.question-run",
+				matchedText: "??",
+				start: 15,
+				end: 17,
+			},
+			{
+				category: "negative",
+				ruleId: "negative.question-run",
+				matchedText: "???",
+				start: 23,
+				end: 26,
+			},
+			{
+				category: "negative",
+				ruleId: "negative.question-run",
+				matchedText: "????",
+				start: 31,
+				end: 35,
+			},
+		]);
+	});
+
+	test("keeps negative punctuation independent of word boundaries", () => {
+		expect(
+			scanLanguageSignals("what??really fishyish").map(
+				({ matchedText }) => matchedText,
+			),
+		).toEqual(["??"]);
 	});
 
 	test("categorizes researched completion and correction surfaces", () => {
