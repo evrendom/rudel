@@ -100,6 +100,10 @@ describe("session constellation tree tokens", () => {
 			new URL("./session-constellation-tree.css", import.meta.url),
 			"utf8",
 		);
+		const stickyHeaders = readFileSync(
+			new URL("./use-transcript-sticky-header-wrappers.tsx", import.meta.url),
+			"utf8",
+		);
 
 		expect(css).toContain(".session-constellation-tree-v2");
 		expect(css).toContain("--constellation-tree-v2-content-shift: 21px");
@@ -128,6 +132,8 @@ describe("session constellation tree tokens", () => {
 		expect(css).toContain('[data-trace-tree-marker-geometry="icon"]');
 		expect(css).toContain("display: inline");
 		expect(css).not.toContain("&::after");
+		expect(stickyHeaders).toContain("<ConversationTraceTreeItem");
+		expect(stickyHeaders).not.toContain("<ConversationTraceTreeNode");
 	});
 
 	test("does not paint hover fills behind trace rows", () => {

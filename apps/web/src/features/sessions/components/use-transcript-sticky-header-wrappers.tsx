@@ -1,7 +1,7 @@
 import type { VirtualItem } from "@tanstack/react-virtual";
 import { memo, useCallback, useRef, useState } from "react";
 import {
-	ConversationTraceTreeNode,
+	ConversationTraceTreeItem,
 	TraceTextDisclosureIcon,
 } from "@/components/conversation/ConversationTrace";
 import { UserTraceAvatar } from "@/components/conversation/conversation-trace-icons";
@@ -323,7 +323,7 @@ function TranscriptStickyHeaderVisual({
 		`${group.turnId}:member:heading`,
 	);
 	return (
-		<ConversationTraceTreeNode
+		<ConversationTraceTreeItem
 			continues={group.header.continues}
 			depth={1}
 			descends={group.header.kind === "model"}
@@ -360,7 +360,7 @@ function TranscriptStickyHeaderVisual({
 					</div>
 				)}
 			</div>
-		</ConversationTraceTreeNode>
+		</ConversationTraceTreeItem>
 	);
 }
 
