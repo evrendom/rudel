@@ -117,20 +117,21 @@ export function SessionMemberRow({
 							expandable={false}
 							imageUrl={userImageUrl}
 						/>
+						<h3
+							id={headingId}
+							className="min-w-0 shrink-0 truncate text-xs font-medium text-(--session-overview-text)"
+						>
+							{userLabel}
+						</h3>
 						<button
 							type="button"
+							aria-label={`${promptExpanded ? "Collapse" : "Expand"} ${userLabel} message`}
 							aria-controls={promptPanelId}
 							aria-expanded={promptExpanded}
-							className="group flex min-w-0 items-center gap-0 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)"
+							className="group flex shrink-0 items-center outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)"
 							data-trace-content-disclosure
 							onClick={() => setPromptExpanded((current) => !current)}
 						>
-							<h3
-								id={headingId}
-								className="min-w-0 shrink-0 truncate text-xs font-medium text-(--session-overview-text)"
-							>
-								{userLabel}
-							</h3>
 							<TraceTextDisclosureIcon expanded={promptExpanded} />
 						</button>
 						{headerTrailing ? (
