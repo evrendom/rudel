@@ -32,6 +32,7 @@
 		"@orpc/contract": "latest",
 		"@orpc/tanstack-query": "latest",
 		"@rudel/api-routes": "workspace:*",
+		"@rudel/language-signals": "workspace:*",
 		"@tabler/icons-react": "^3.40.0",
 		"@tanstack/react-query": "^5.80.0",
 		"@tanstack/react-table": "^8.21.3",

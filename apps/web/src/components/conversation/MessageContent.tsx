@@ -7,6 +7,7 @@ import type {
 	ToolUseContent,
 } from "@/lib/conversation-schema";
 import { cn } from "@/lib/utils";
+import { SignalText } from "../signal-text";
 import { CodeBlock } from "./CodeBlock";
 import {
 	parseMessageTextBlocks,
@@ -183,7 +184,7 @@ function renderTextParts(parts: ReadonlyArray<TextPart>, key: string) {
 						className="max-w-none"
 					>
 						<p className="whitespace-pre-wrap break-words text-[0.8125rem] leading-5 text-[color:var(--dashboardy-heading)] text-pretty [overflow-wrap:anywhere]">
-							{part.content}
+							<SignalText text={part.content} />
 						</p>
 					</div>
 				);
@@ -298,7 +299,7 @@ export function MessageContent({ content, className }: MessageContentProps) {
 									Thinking
 								</p>
 								<p className="whitespace-pre-wrap text-[0.8125rem] leading-5 text-[color:var(--dashboardy-muted)] italic text-pretty">
-									{block.thinking}
+									<SignalText text={block.thinking} />
 								</p>
 							</div>
 						);
