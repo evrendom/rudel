@@ -24,7 +24,7 @@ describe("ConversationTraceEventRow language signals", () => {
 
 	test("uses display boundaries for assistant previews and bodies", () => {
 		const text =
-			"Great work. `fuck`\n```text\nshit\n```\n<context>sorry</context>";
+			"Elegant work. `fuck`\n```text\nshit\n```\n<context>sorry</context>";
 		const markup = renderToStaticMarkup(
 			<ConversationTraceEventRow
 				event={{
@@ -38,6 +38,7 @@ describe("ConversationTraceEventRow language signals", () => {
 		);
 
 		expect(markup).toContain('data-signal="positive"');
+		expect(markup).toContain("Elegant");
 		expect(markup).not.toContain('data-signal="swear"');
 		expect(markup).not.toContain('data-signal="apology"');
 	});

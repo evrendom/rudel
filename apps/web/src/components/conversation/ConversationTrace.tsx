@@ -5,6 +5,7 @@ import {
 	parseSlashCommand,
 } from "@/lib/parse-slash-command";
 import { cn } from "@/lib/utils";
+import { SignalText } from "../signal-text";
 import {
 	compactPreview,
 	formatClockTime,
@@ -312,7 +313,7 @@ function TraceRow({
 					compact
 					collapsedBody={
 						<span className={previewClassName} data-trace-preview>
-							{collapsedPreviewText}
+							<SignalText text={collapsedPreviewText} />
 						</span>
 					}
 					focus={focus}
@@ -322,7 +323,7 @@ function TraceRow({
 					leading={<TraceIcon icon={TraceFileIcon} tone="grass" />}
 					body={
 						<p className="whitespace-pre-wrap text-[0.8125rem] leading-6 text-[color:var(--dashboardy-heading)]">
-							{item.text}
+							<SignalText text={item.text} />
 						</p>
 					}
 				/>
@@ -381,7 +382,7 @@ function TraceRow({
 				collapsedBody={
 					collapsedPreviewText ? (
 						<span className={previewClassName} data-trace-preview>
-							{collapsedPreviewText}
+							<SignalText text={collapsedPreviewText} />
 						</span>
 					) : undefined
 				}
