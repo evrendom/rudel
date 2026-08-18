@@ -40,10 +40,8 @@ export function scanLanguageSignals(
 	text: string,
 ): ReadonlyArray<LanguageSignalMatch> {
 	const matches: LanguageSignalMatch[] = [];
-	LANGUAGE_SIGNAL_PATTERN.lastIndex = 0;
 
-	let match = LANGUAGE_SIGNAL_PATTERN.exec(text);
-	while (match !== null && matches.length < MAX_LANGUAGE_SIGNAL_MATCHES) {
+	for (const match of text.matchAll(LANGUAGE_SIGNAL_PATTERN)) {
 		const compiledSurface = findCompiledSurface(match);
 		if (compiledSurface !== undefined) {
 			matches.push({
@@ -55,7 +53,9 @@ export function scanLanguageSignals(
 			});
 		}
 
-		match = LANGUAGE_SIGNAL_PATTERN.exec(text);
+		if (matches.length >= MAX_LANGUAGE_SIGNAL_MATCHES) {
+			break;
+		}
 	}
 
 	return matches;

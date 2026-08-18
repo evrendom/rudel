@@ -1,5 +1,8 @@
 import type { DisplayTextPart } from "./types.js";
 
+// Deliberate dependency-free regex splitter trade-offs: unclosed code fences
+// fall through as prose; nested same-name XML closes at the first closing tag;
+// void and self-closing tags are not recognized, so their surroundings are prose.
 const BLOCK_PATTERN =
 	/```([\w-]*)\n([\s\S]*?)```|<([\w-]+)(?:\s[^>]*)?>([\s\S]*?)<\/\3>/g;
 const INLINE_CODE_PATTERN = /(`+)([^`\n]+?)\1/g;

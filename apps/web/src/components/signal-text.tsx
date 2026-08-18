@@ -8,13 +8,15 @@ const SIGNAL_MARK_CLASS_NAMES: Readonly<
 	Record<LanguageSignalCategory, string>
 > = {
 	swear:
-		"bg-[var(--language-signal-swear-background)] text-inherit [box-decoration-break:clone]",
+		"bg-[var(--language-signal-swear-background)] text-inherit underline decoration-wavy underline-offset-2 [box-decoration-break:clone]",
 	apology:
-		"bg-[var(--language-signal-apology-background)] text-inherit [box-decoration-break:clone]",
+		"bg-[var(--language-signal-apology-background)] text-inherit underline decoration-dotted underline-offset-2 [box-decoration-break:clone]",
 	positive:
-		"bg-[var(--language-signal-positive-background)] text-inherit [box-decoration-break:clone]",
+		"bg-[var(--language-signal-positive-background)] text-inherit underline decoration-solid underline-offset-2 [box-decoration-break:clone]",
 };
 
+// Keep light and dark values scoped to this leaf instead of the global theme so
+// the feature stays self-contained and merge-friendly across the parallel rewrite.
 const SIGNAL_VARIABLE_CLASS_NAME =
 	"[--language-signal-swear-background:#ffe4e6] [--language-signal-apology-background:#fef3c7] [--language-signal-positive-background:#dcfce7] dark:[--language-signal-swear-background:#4c1d25] dark:[--language-signal-apology-background:#493719] dark:[--language-signal-positive-background:#173d2a]";
 

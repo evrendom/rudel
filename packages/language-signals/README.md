@@ -1,6 +1,8 @@
 # `@rudel/language-signals`
 
-Dependency-free, versioned detection of language signals in transcript prose.
+This package exists to provide deterministic tone signals over a user's own
+transcripts. Identity slurs are permanently excluded, and matching uses literal
+surface forms only—no stemming, fuzzy matching, or leetspeak.
 
 The package owns the shared swear, apology, and positive-reinforcement rules,
 UTF-16 match offsets, and display-boundary splitting used to keep code and XML
