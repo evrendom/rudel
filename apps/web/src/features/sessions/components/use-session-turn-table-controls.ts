@@ -3,7 +3,6 @@ import type { SessionTurnTableOption } from "./session-turn-table";
 import { DEFAULT_SESSION_TURN_TABLE_COLUMNS } from "./session-turn-table-column-options";
 import {
 	getInitialSessionTurnTableSortDirection,
-	getSessionTurnTableSortLabel,
 	type SessionTurnTableSortKey,
 	type SessionTurnTableSortState,
 	sortSessionTurnTableOptions,
@@ -28,7 +27,6 @@ export function useSessionTurnTableControls<
 			),
 		[options, sort],
 	);
-	const activeSortLabel = getSessionTurnTableSortLabel(sort.key);
 
 	function handleSort(sortKey: SessionTurnTableSortKey) {
 		setSort((currentSort) => ({
@@ -42,19 +40,10 @@ export function useSessionTurnTableControls<
 		}));
 	}
 
-	function toggleSortDirection() {
-		setSort((currentSort) => ({
-			...currentSort,
-			direction: currentSort.direction === "asc" ? "desc" : "asc",
-		}));
-	}
-
 	return {
-		activeSortLabel,
 		effectiveVisibleColumnKeys,
 		handleSort,
 		sort,
-		toggleSortDirection,
 		visibleMatches,
 	};
 }

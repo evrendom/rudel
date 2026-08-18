@@ -1,20 +1,20 @@
 import type { SessionTurnTableOption } from "./session-turn-table";
 
 const SESSION_TURN_TABLE_SORT_COLUMNS = [
-	{ key: "time", label: "Time" },
-	{ key: "duration", label: "Duration" },
-	{ key: "input", label: "Input" },
-	{ key: "output", label: "Output" },
-	{ key: "cost", label: "Cost" },
-	{ key: "tools", label: "Tools" },
-	{ key: "errors", label: "Errors" },
-	{ key: "files", label: "Files" },
-	{ key: "skills", label: "Skills" },
-	{ key: "commands", label: "Commands" },
+	"time",
+	"duration",
+	"input",
+	"output",
+	"cost",
+	"tools",
+	"errors",
+	"files",
+	"skills",
+	"commands",
 ] as const;
 
 export type SessionTurnTableSortKey =
-	(typeof SESSION_TURN_TABLE_SORT_COLUMNS)[number]["key"];
+	(typeof SESSION_TURN_TABLE_SORT_COLUMNS)[number];
 type SessionTurnTableSortDirection = "asc" | "desc";
 export type SessionTurnTableSortState = {
 	direction: SessionTurnTableSortDirection;
@@ -46,13 +46,6 @@ export function getInitialSessionTurnTableSortDirection(
 	sortKey: SessionTurnTableSortKey,
 ): SessionTurnTableSortDirection {
 	return sortKey === "time" ? "asc" : "desc";
-}
-
-export function getSessionTurnTableSortLabel(sortKey: SessionTurnTableSortKey) {
-	return (
-		SESSION_TURN_TABLE_SORT_COLUMNS.find((column) => column.key === sortKey)
-			?.label ?? "Time"
-	);
 }
 
 function compareMatches<TOption extends SessionTurnTableOption>(

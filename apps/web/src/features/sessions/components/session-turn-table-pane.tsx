@@ -10,7 +10,6 @@ import {
 	type SessionTurnTableSpeaker,
 	type SessionTurnTableVirtualizerHandle,
 } from "./session-turn-table";
-import { SessionTurnTableControls } from "./session-turn-table-filter";
 import type { IndexedSessionTurnTableOption } from "./session-turn-table-filters";
 import {
 	getVisibleSessionTurnSpeaker,
@@ -59,16 +58,8 @@ export function SessionTurnTablePane({
 	const [visibleSpeakers, setVisibleSpeakers] = useState<
 		ReadonlySet<SessionTurnTableSpeaker>
 	>(() => new Set(["model"]));
-	const {
-		activeSortLabel,
-		effectiveVisibleColumnKeys,
-		handleSort,
-		sort,
-		toggleSortDirection,
-		visibleMatches,
-	} = useSessionTurnTableControls({
-		options,
-	});
+	const { effectiveVisibleColumnKeys, handleSort, sort, visibleMatches } =
+		useSessionTurnTableControls({ options });
 	const tableRows = useMemo(
 		() =>
 			buildSessionTurnTableViewRows(
@@ -94,23 +85,17 @@ export function SessionTurnTablePane({
 
 	return (
 		<>
-			<SessionTurnTableControls
-				activeSortLabel={activeSortLabel}
-				className={undefined}
-				onToggleSortDirection={toggleSortDirection}
-				sort={sort}
-				viewControls={
-					<SessionTurnTableSpeakerVisibilityControls
-						className={undefined}
-						model={model}
-						onPrimarySpeakerChange={setPrimarySpeaker}
-						onVisibleSpeakersChange={handleVisibleSpeakersChange}
-						primarySpeaker={primarySpeaker}
-						userImageUrl={userImageUrl}
-						visibleSpeakers={visibleSpeakers}
-					/>
-				}
-			/>
+			<div className="flex min-h-12 shrink-0 items-center gap-2 overflow-x-auto border-b border-(--session-overview-border) px-3">
+				<SessionTurnTableSpeakerVisibilityControls
+					className={undefined}
+					model={model}
+					onPrimarySpeakerChange={setPrimarySpeaker}
+					onVisibleSpeakersChange={handleVisibleSpeakersChange}
+					primarySpeaker={primarySpeaker}
+					userImageUrl={userImageUrl}
+					visibleSpeakers={visibleSpeakers}
+				/>
+			</div>
 			<div className="flex min-h-0 flex-1 flex-col">
 				<SessionTurnTable
 					model={model}
