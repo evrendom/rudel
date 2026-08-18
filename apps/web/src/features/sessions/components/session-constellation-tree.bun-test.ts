@@ -95,17 +95,28 @@ describe("session constellation tree tokens", () => {
 		expect(css).toContain('content: "·"');
 	});
 
-	test("scopes the icon-at-junction geometry to the v2 route", () => {
+	test("matches the Interfere rail and content arrangement on the v2 route", () => {
 		const css = readFileSync(
 			new URL("./session-constellation-tree.css", import.meta.url),
 			"utf8",
 		);
 
 		expect(css).toContain(".session-constellation-tree-v2");
+		expect(css).toContain("--constellation-tree-v2-content-shift: 21px");
 		expect(css).toContain("--constellation-tree-v2-icon-shift: 23px");
+		expect(css).toContain("--constellation-tree-v2-body-shift: 7px");
+		expect(css).toContain("--constellation-tree-v2-body-lift: 8px");
 		expect(css).toContain("[data-trace-tree-junction-dot]");
 		expect(css).toContain(
-			"translateX(calc(0px - var(--constellation-tree-v2-icon-shift)))",
+			"translateX(calc(0px - var(--constellation-tree-v2-content-shift)))",
+		);
+		expect(css).toContain("var(--constellation-tree-v2-content-shift) -");
+		expect(css).toContain("var(--constellation-tree-v2-icon-shift)");
+		expect(css).toContain(
+			"margin-top: calc(0px - var(--constellation-tree-v2-body-lift))",
+		);
+		expect(css).toContain(
+			"transform: translateX(var(--constellation-tree-v2-body-shift))",
 		);
 	});
 

@@ -41,7 +41,12 @@
 }
 
 .session-constellation-tree-v2 {
+	/* Interfere's rail lane leaves 20px from marker center to the shared
+	   title/body edge, with 4px between the 16px title line and its body. */
+	--constellation-tree-v2-content-shift: 21px;
 	--constellation-tree-v2-icon-shift: 23px;
+	--constellation-tree-v2-body-shift: 7px;
+	--constellation-tree-v2-body-lift: 8px;
 }
 
 .session-constellation-tree-v2
@@ -59,8 +64,41 @@
 	)
 	> [data-trace-tree-row-owner]
 	[data-trace-row-header] {
-	width: calc(100% + var(--constellation-tree-v2-icon-shift));
-	transform: translateX(calc(0px - var(--constellation-tree-v2-icon-shift)));
+	width: calc(100% + var(--constellation-tree-v2-content-shift));
+	transform: translateX(calc(0px - var(--constellation-tree-v2-content-shift)));
+}
+
+.session-constellation-tree-v2
+	[data-trace-tree-item-depth]:has(
+		> [data-trace-tree-row-owner] [data-trace-row-header] [data-trace-icon]
+	)
+	> [data-trace-tree-row-owner]
+	[data-trace-row-header]
+	> [data-trace-icon] {
+	transform: translateX(
+		calc(
+			var(--constellation-tree-v2-content-shift) -
+			var(--constellation-tree-v2-icon-shift)
+		)
+	);
+}
+
+.session-constellation-tree-v2
+	[data-trace-tree-item-depth]:has(
+		> [data-trace-tree-row-owner] [data-trace-row-header] [data-trace-icon]
+	)
+	> [data-trace-tree-row-body] {
+	margin-top: calc(0px - var(--constellation-tree-v2-body-lift));
+}
+
+.session-constellation-tree-v2
+	[data-trace-tree-item-depth]:has(
+		> [data-trace-tree-row-owner] [data-trace-row-header] [data-trace-icon]
+	)
+	> [data-trace-tree-row-body]
+	> div:last-child
+	> :is([data-trace-collapsed-preview], [data-trace-expanded-content]) {
+	transform: translateX(var(--constellation-tree-v2-body-shift));
 }
 
 .dark .session-constellation-tree {
