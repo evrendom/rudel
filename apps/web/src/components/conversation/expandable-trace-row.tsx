@@ -193,7 +193,7 @@ function isPreviewTruncated(fullPreviewText: string | undefined) {
 	);
 }
 
-function useTraceExpansionState(expansionId: string) {
+export function useTraceExpansionState(expansionId: string) {
 	const store =
 		React.useContext(TraceExpansionStoreContext) ?? fallbackTraceExpansionStore;
 	const subscribe = React.useCallback(

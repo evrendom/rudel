@@ -1,4 +1,4 @@
-import { type ReactNode, useId, useState } from "react";
+import { type ReactNode, useId } from "react";
 import {
 	type ConversationTraceSpeakerLayout,
 	ConversationTraceTreeItem,
@@ -14,6 +14,7 @@ import {
 	conversationTraceStickyOnlyFillClassName,
 } from "@/components/conversation/conversation-trace-class-names";
 import { UserTraceAvatar } from "@/components/conversation/conversation-trace-icons";
+import { useTraceExpansionState } from "@/components/conversation/expandable-trace-row";
 import { cn } from "@/lib/utils";
 import type { SessionTurn } from "./session-turns";
 
@@ -55,7 +56,8 @@ export function SessionMemberRow({
 	userLabel: string;
 }) {
 	const promptPanelId = useId();
-	const [promptExpanded, setPromptExpanded] = useState(false);
+	const { open: promptExpanded, setOpen: setPromptExpanded } =
+		useTraceExpansionState(headingId);
 
 	if (speakerLayout === "trace-tree") {
 		const promptPreviewText = items

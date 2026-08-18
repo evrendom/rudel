@@ -5,6 +5,7 @@ import {
 	TraceTextDisclosureIcon,
 } from "@/components/conversation/ConversationTrace";
 import { UserTraceAvatar } from "@/components/conversation/conversation-trace-icons";
+import { useTraceExpansionState } from "@/components/conversation/expandable-trace-row";
 import {
 	ModelSectionHeader,
 	type ModelSectionHeaderData,
@@ -270,6 +271,9 @@ function TranscriptStickyHeaderVisual({
 }: {
 	group: TranscriptStickyHeaderGroup;
 }) {
+	const { open: memberExpanded } = useTraceExpansionState(
+		`${group.turnId}:member:heading`,
+	);
 	return (
 		<ConversationTraceTreeNode
 			continues={group.header.continues}
@@ -299,7 +303,7 @@ function TranscriptStickyHeaderVisual({
 							>
 								{group.header.userLabel}
 							</h3>
-							<TraceTextDisclosureIcon expanded={false} />
+							<TraceTextDisclosureIcon expanded={memberExpanded} />
 						</div>
 					</>
 				) : (
@@ -327,7 +331,7 @@ export const TranscriptStickyHeaderWrappers = memo(
 			>
 				<div
 					aria-hidden="true"
-					className="pointer-events-auto sticky top-0 w-full min-w-0 bg-(--session-overview-surface)"
+					className="pointer-events-none sticky top-0 w-full min-w-0 bg-(--session-overview-surface)"
 					data-transcript-sticky-header
 					data-transcript-sticky-header-kind={placement.group.header.kind}
 					data-transcript-sticky-header-owner={placement.group.turnId}
