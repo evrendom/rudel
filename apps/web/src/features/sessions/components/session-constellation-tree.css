@@ -40,6 +40,38 @@
 	font-weight: 400;
 }
 
+.session-constellation-tree-v2 {
+	--constellation-tree-v2-icon-shift: 23px;
+	--constellation-tree-v2-body-lift: 15px;
+}
+
+.session-constellation-tree-v2
+	[data-trace-tree-item-depth]:has(
+		> [data-trace-tree-row-owner] [data-trace-row-header] [data-trace-icon]
+	)
+	> [data-trace-tree-row-owner]
+	[data-trace-tree-junction-dot] {
+	display: none;
+}
+
+.session-constellation-tree-v2
+	[data-trace-tree-item-depth]:has(
+		> [data-trace-tree-row-owner] [data-trace-row-header] [data-trace-icon]
+	)
+	> [data-trace-tree-row-owner]
+	[data-trace-row-header] {
+	width: calc(100% + var(--constellation-tree-v2-icon-shift));
+	transform: translateX(calc(0px - var(--constellation-tree-v2-icon-shift)));
+}
+
+.session-constellation-tree-v2
+	[data-trace-tree-item-depth]:has(
+		> [data-trace-tree-row-owner] [data-trace-row-header] [data-trace-icon]
+	)
+	> [data-trace-tree-row-body] {
+	margin-top: calc(0px - var(--constellation-tree-v2-body-lift));
+}
+
 .dark .session-constellation-tree {
 	--constellation-tree-primary: #ffffffed;
 	--constellation-tree-secondary: #ffffffaf;

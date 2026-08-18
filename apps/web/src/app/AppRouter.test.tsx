@@ -76,6 +76,7 @@ describe("AppRouter", () => {
 		["/dashboard", "Dashboard page"],
 		["/session", "Sessions page"],
 		["/session/session-123", "Sessions page"],
+		["/session/session-123/v2", "Sessions page"],
 		["/skills", "Historical skills page"],
 		["/team", "Team page"],
 		["/settings", "Workspace settings page"],

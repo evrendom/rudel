@@ -243,7 +243,8 @@ function App() {
 			? SessionContinuousTraceFixturePage
 			: ConversationTraceFixturePage;
 	const isSessionDetailFastIntegrationPath =
-		location.pathname === "/dev/session-detail-fast-integration";
+		location.pathname === "/dev/session-detail-fast-integration" ||
+		location.pathname === "/dev/session-detail-fast-integration/v2";
 	const isTranscriptMaskFixturePath =
 		location.pathname === "/dev/transcript-mask";
 

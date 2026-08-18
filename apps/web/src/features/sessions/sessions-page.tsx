@@ -2,7 +2,7 @@ import type { SessionAnalytics } from "@rudel/api-routes";
 import { useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { appRoutes } from "@/app/routes";
+import { appRoutes, isSessionDetailV2Path } from "@/app/routes";
 import { useAnalyticsTracking } from "@/features/analytics/tracking/useAnalyticsTracking";
 import { SessionDetailView } from "@/features/sessions/components/SessionDetailView";
 import { SessionDetailErrorBoundary } from "@/features/sessions/components/session-detail-view-parts";
@@ -88,6 +88,7 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
 	const data = useSessionsPageData({ trackPageView: false });
 	const canViewSession = useCanViewSession();
 	const location = useLocation();
+	const usesSessionDetailV2 = isSessionDetailV2Path(location.pathname);
 	const navigate = useNavigate();
 	const getShellRoutePath = useShellRoutePath();
 	const shellBottomNavigationPortal = useShellBottomNavigationPortal();
@@ -129,7 +130,11 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
 		}
 
 		navigate(
-			getShellRoutePath(appRoutes.sessionDetail(targetSession.session_id)),
+			getShellRoutePath(
+				usesSessionDetailV2
+					? appRoutes.sessionDetailV2(targetSession.session_id)
+					: appRoutes.sessionDetail(targetSession.session_id),
+			),
 			{
 				replace: true,
 				state: returnState,

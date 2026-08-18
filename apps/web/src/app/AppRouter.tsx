@@ -201,6 +201,10 @@ function getShellRouteElements(routePaths: ShellRoutePaths) {
 				element={<LazyRoute Component={SessionsPage} />}
 			/>
 			<Route
+				path={`${routePaths.session}/:sessionId/v2`}
+				element={<LazyRoute Component={SessionsPage} />}
+			/>
+			<Route
 				path={routePaths.skills}
 				element={<LazyRoute Component={SkillsPage} />}
 			/>

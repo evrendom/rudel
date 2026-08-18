@@ -25,6 +25,7 @@ import {
 	createTranscriptSectionCache,
 } from "./session-transcript-sections";
 import type { SessionTurn } from "./session-turns";
+import "./session-constellation-tree.css";
 
 type ContinuousFixtureOption = SessionDetailOverviewTurnOption & {
 	turn?: SessionTurn;
@@ -261,6 +262,7 @@ export function SessionContinuousTraceFixturePage() {
 	}
 	const renderProfile = renderProfileRef.current;
 	const searchParams = new URLSearchParams(window.location.search);
+	const usesConstellationV2 = searchParams.get("constellation") === "v2";
 	const modelHeaderFixture = searchParams.get("modelHeader");
 	const usesModelHeaderFixture =
 		modelHeaderFixture === "split" || modelHeaderFixture === "no-response";
@@ -572,7 +574,8 @@ export function SessionContinuousTraceFixturePage() {
 			data-trace-fixture-hydrated-turns={hydratedTurnCount}
 			data-trace-fixture-scroller
 			data-trace-fixture-total-turns={fixtureOptions.length}
-			className="session-transcript-mask isolate h-dvh min-w-0 overflow-y-auto overscroll-contain bg-(--session-overview-surface) antialiased [--session-overview-accent:#266df0] [--session-overview-border:#eeeff1] [--session-overview-hover:#f6f7f7] [--session-overview-muted:rgba(0,0,0,0.63)] [--session-overview-subtle:rgba(0,0,0,0.5)] [--session-overview-surface:#fff] [--session-overview-text:#101112] [font-family:Inter,sans-serif] [overflow-anchor:none] [scrollbar-gutter:stable]"
+			data-session-constellation-version={usesConstellationV2 ? "v2" : "v1"}
+			className={`${usesConstellationV2 ? "session-constellation-tree session-constellation-tree-v2 " : ""}session-transcript-mask isolate h-dvh min-w-0 overflow-y-auto overscroll-contain bg-(--session-overview-surface) antialiased [--session-overview-accent:#266df0] [--session-overview-border:#eeeff1] [--session-overview-hover:#f6f7f7] [--session-overview-muted:rgba(0,0,0,0.63)] [--session-overview-subtle:rgba(0,0,0,0.5)] [--session-overview-surface:#fff] [--session-overview-text:#101112] [font-family:Inter,sans-serif] [overflow-anchor:none] [scrollbar-gutter:stable]`}
 		>
 			{mountsThread ? (
 				<SessionTranscriptList

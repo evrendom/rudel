@@ -20,8 +20,9 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { useMountEffect } from "@/app/hooks/useMountEffect";
+import { isSessionDetailV2Path } from "@/app/routes";
 import { Button } from "@/app/ui/button";
 import { Skeleton } from "@/app/ui/skeleton";
 import { ConversationTrace } from "@/components/conversation/ConversationTrace";
@@ -126,7 +127,11 @@ export function SessionDetailFastResponsePane({
 	viewportStore: SessionContinuousTurnViewportStore;
 }) {
 	const queryClient = useQueryClient();
+	const location = useLocation();
 	const [searchParams, setSearchParams] = useSearchParams();
+	const usesConstellationV2 =
+		isSessionDetailV2Path(location.pathname) ||
+		searchParams.get("constellation") === "v2";
 	const detailLevel = resolveSessionDetailLevel(searchParams.get("level"));
 	const requestedTranscriptMode = searchParams.get("transcript");
 	const requestedSkeletonMode = searchParams.get("skeletons");
@@ -263,8 +268,9 @@ export function SessionDetailFastResponsePane({
 			<section
 				ref={responseScrollRef}
 				aria-label="Conversation thread"
-				className={`session-constellation-tree session-transcript-mask h-full min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-(--session-overview-surface) [overflow-anchor:none] [scrollbar-gutter:stable] ${bottomPaddingClassName}`}
+				className={`session-constellation-tree ${usesConstellationV2 ? "session-constellation-tree-v2" : ""} session-transcript-mask h-full min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-(--session-overview-surface) [overflow-anchor:none] [scrollbar-gutter:stable] ${bottomPaddingClassName}`}
 				data-conversation-trace-scroll-container
+				data-session-constellation-version={usesConstellationV2 ? "v2" : "v1"}
 				data-session-trace-presentation="constellation-tree-branch-dots-no-horizontal"
 			>
 				{initialWindowQuery.isPending ? <TurnBodySkeleton /> : null}

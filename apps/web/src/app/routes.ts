@@ -53,6 +53,8 @@ export const appRoutes = {
 	session: () => SESSION_PATH,
 	sessionDetail: (sessionId: string) =>
 		`${SESSION_PATH}/${encodeURIComponent(sessionId)}`,
+	sessionDetailV2: (sessionId: string) =>
+		`${SESSION_PATH}/${encodeURIComponent(sessionId)}/v2`,
 	skills: () => SKILLS_PATH,
 	getStarted: () => GET_STARTED_PATH,
 	dashboardGetStartedLegacy: () => DASHBOARD_GET_STARTED_LEGACY_PATH,
@@ -90,6 +92,9 @@ export const appRoutes = {
 };
 
 export function isSessionDetailPath(pathname: string) {
+	if (isSessionDetailV2Path(pathname)) {
+		return true;
+	}
 	const canonicalPathname = getCanonicalAppPath(pathname);
 	const sessionDetailPrefix = `${SESSION_PATH}/`;
 	const normalizedPathname =
@@ -108,6 +113,19 @@ export function isSessionDetailPath(pathname: string) {
 		!sessionDetailSegment.includes("/") &&
 		sessionDetailSegment !== "full" &&
 		sessionDetailSegment !== "split"
+	);
+}
+
+export function isSessionDetailV2Path(pathname: string) {
+	const canonicalPathname = getCanonicalAppPath(pathname);
+	const normalizedPathname =
+		canonicalPathname.length > 1 && canonicalPathname.endsWith("/")
+			? canonicalPathname.slice(0, -1)
+			: canonicalPathname;
+	const match = normalizedPathname.match(/^\/session\/([^/]+)\/v2$/u);
+	const sessionId = match?.[1];
+	return (
+		sessionId !== undefined && sessionId !== "full" && sessionId !== "split"
 	);
 }
 
