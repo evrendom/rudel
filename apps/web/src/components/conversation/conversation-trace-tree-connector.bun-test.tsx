@@ -135,10 +135,10 @@ describe("ConversationTraceTree connector styles", () => {
 		expect(dottedMarkup).not.toContain("<circle");
 		expect([
 			...dottedMarkup.matchAll(/data-trace-tree-rail-segment="incoming"/g),
-		]).toHaveLength(1);
+		]).toHaveLength(2);
 		expect([
 			...dottedMarkup.matchAll(/data-trace-tree-rail-segment="outgoing"/g),
-		]).toHaveLength(1);
+		]).toHaveLength(2);
 		expect(dottedMarkup).toContain('d="M 16 0 V 14"');
 		expect(dottedMarkup).toContain('d="M 16 26 V 40"');
 		expect(dottedMarkup).toContain("--conversation-trace-tree-descend-x:39px");
@@ -172,8 +172,38 @@ describe("ConversationTraceTree connector styles", () => {
 		expect(noHorizontalMarkup).toContain("data-trace-tree-terminal-feed");
 		expect(noHorizontalMarkup).toContain('d="M 16 0 V 40"');
 		expect(noHorizontalMarkup).toContain('d="M 39 0 V 14"');
+		expect(noHorizontalMarkup).toContain(
+			'data-trace-tree-marker-geometry="dot"',
+		);
+		expect(noHorizontalMarkup).toContain(
+			'data-trace-tree-marker-geometry="icon"',
+		);
+		expect(noHorizontalMarkup).toContain('d="M 39 0 V 6"');
+		expect(noHorizontalMarkup).toContain('class="hidden"');
 		expect(noHorizontalMarkup).not.toContain(" H ");
 		expect(noHorizontalMarkup).not.toContain("data-trace-tree-descendant-rail");
+	});
+
+	test("reserves Interfere's four-pixel gap around a twenty-pixel event icon", () => {
+		const continuingMarkup = renderToStaticMarkup(
+			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
+				<ConversationTraceTreeItem continues depth={2} rowHeight={32}>
+					<span className="size-5">Reasoning</span>
+				</ConversationTraceTreeItem>
+			</ConversationTraceTreeConnectorStyleProvider>,
+		);
+		const terminalMarkup = renderToStaticMarkup(
+			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
+				<ConversationTraceTreeItem continues={false} depth={2} rowHeight={32}>
+					<span className="size-5">Message</span>
+				</ConversationTraceTreeItem>
+			</ConversationTraceTreeConnectorStyleProvider>,
+		);
+
+		expect(continuingMarkup).toContain('d="M 39 0 V 2"');
+		expect(continuingMarkup).toContain('d="M 39 30 V 32"');
+		expect(terminalMarkup).toContain('d="M 39 0 V 2"');
+		expect(terminalMarkup).not.toContain('d="M 39 30 V 32"');
 	});
 
 	test("continues a dotted rail through non-tree subtree content", () => {

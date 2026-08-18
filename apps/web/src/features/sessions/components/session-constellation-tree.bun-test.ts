@@ -113,17 +113,21 @@ describe("session constellation tree tokens", () => {
 		expect(css).toContain("var(--constellation-tree-v2-content-shift) -");
 		expect(css).toContain("var(--constellation-tree-v2-icon-shift)");
 		expect(css).toContain(
+			"margin-bottom: calc(0px - var(--constellation-tree-v2-body-lift))",
+		);
+		expect(css).toContain(
+			"transform: translateY(calc(0px - var(--constellation-tree-v2-body-lift)))",
+		);
+		expect(css).not.toContain(
 			"margin-top: calc(0px - var(--constellation-tree-v2-body-lift))",
 		);
 		expect(css).toContain(
 			"transform: translateX(var(--constellation-tree-v2-body-shift))",
 		);
-		expect(css).toContain("&::after");
-		expect(css).toContain("top: 26px");
-		expect(css).toContain("left: 19px");
-		expect(css).toContain("z-index: 1");
-		expect(css).toContain("height: 4px");
-		expect(css).toContain("background-color: var(--session-overview-surface)");
+		expect(css).toContain('[data-trace-tree-marker-geometry="dot"]');
+		expect(css).toContain('[data-trace-tree-marker-geometry="icon"]');
+		expect(css).toContain("display: inline");
+		expect(css).not.toContain("&::after");
 	});
 
 	test("does not paint hover fills behind trace rows", () => {

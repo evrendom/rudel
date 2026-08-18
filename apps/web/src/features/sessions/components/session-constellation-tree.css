@@ -62,21 +62,8 @@
 	)
 	> [data-trace-tree-row-owner]
 	[data-trace-row-header] {
-	position: relative;
-	isolation: isolate;
 	width: calc(100% + var(--constellation-tree-v2-content-shift));
 	transform: translateX(calc(0px - var(--constellation-tree-v2-content-shift)));
-
-	&::after {
-		position: absolute;
-		top: 26px;
-		left: 19px;
-		z-index: 1;
-		width: 2px;
-		height: 4px;
-		background-color: var(--session-overview-surface);
-		content: "";
-	}
 }
 
 .session-constellation-tree-v2
@@ -86,8 +73,6 @@
 	> [data-trace-tree-row-owner]
 	[data-trace-row-header]
 	> [data-trace-icon] {
-	position: relative;
-	z-index: 2;
 	transform: translateX(
 		calc(
 			var(--constellation-tree-v2-content-shift) -
@@ -100,8 +85,43 @@
 	[data-trace-tree-item-depth]:has(
 		> [data-trace-tree-row-owner] [data-trace-row-header] [data-trace-icon]
 	)
+	> svg
+	[data-trace-tree-marker-geometry="dot"],
+.session-constellation-tree-v2
+	[data-trace-tree-item-depth]:has(
+		> [data-trace-tree-row-owner] [data-trace-row-header] [data-trace-icon]
+	)
+	> [data-trace-tree-row-owner]
+	> svg
+	[data-trace-tree-marker-geometry="dot"] {
+	display: none;
+}
+
+.session-constellation-tree-v2
+	[data-trace-tree-item-depth]:has(
+		> [data-trace-tree-row-owner] [data-trace-row-header] [data-trace-icon]
+	)
+	> svg
+	[data-trace-tree-marker-geometry="icon"],
+.session-constellation-tree-v2
+	[data-trace-tree-item-depth]:has(
+		> [data-trace-tree-row-owner] [data-trace-row-header] [data-trace-icon]
+	)
+	> [data-trace-tree-row-owner]
+	> svg
+	[data-trace-tree-marker-geometry="icon"] {
+	display: inline;
+}
+
+.session-constellation-tree-v2
+	[data-trace-tree-item-depth]:has(
+		> [data-trace-tree-row-owner] [data-trace-row-header] [data-trace-icon]
+	)
 	> [data-trace-tree-row-body] {
-	margin-top: calc(0px - var(--constellation-tree-v2-body-lift));
+	> div:last-child {
+		margin-bottom: calc(0px - var(--constellation-tree-v2-body-lift));
+		transform: translateY(calc(0px - var(--constellation-tree-v2-body-lift)));
+	}
 }
 
 .session-constellation-tree-v2

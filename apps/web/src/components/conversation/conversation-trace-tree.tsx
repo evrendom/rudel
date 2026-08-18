@@ -125,10 +125,44 @@ export type AgentTraceTreeRenderedSection = {
 
 const CONVERSATION_TRACE_TREE_ROW_HEIGHT = 40;
 const CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT = 32;
+const INTERFERE_EVENT_ICON_RAIL_OFFSET = 14;
 const COLLAPSED_TRACE_ICON_LIMIT = 25;
 const traceCollapsiblePanelClassName =
 	"h-(--collapsible-panel-height) min-w-0 overflow-clip transition-[height,opacity] duration-200 ease-[cubic-bezier(0.2,0,0,1)] data-ending-style:h-0 data-ending-style:opacity-0 data-starting-style:h-0 data-starting-style:opacity-0 motion-reduce:transition-none";
 type ConversationTraceTreeConnectorShape = "branch" | "through";
+
+function InterfereEventIconRailSegments({
+	depth,
+	markerY,
+	railX,
+	rowHeight,
+}: {
+	depth: number;
+	markerY: number;
+	railX: number;
+	rowHeight: number;
+}) {
+	return (
+		<>
+			<path
+				className="hidden"
+				d={`M ${railX} 0 V ${Math.max(markerY - INTERFERE_EVENT_ICON_RAIL_OFFSET, 0)}`}
+				data-trace-tree-line
+				data-trace-tree-line-depth={depth}
+				data-trace-tree-marker-geometry="icon"
+				data-trace-tree-rail-segment="incoming"
+			/>
+			<path
+				className="hidden"
+				d={`M ${railX} ${markerY + INTERFERE_EVENT_ICON_RAIL_OFFSET} V ${rowHeight}`}
+				data-trace-tree-line
+				data-trace-tree-line-depth={depth}
+				data-trace-tree-marker-geometry="icon"
+				data-trace-tree-rail-segment="outgoing"
+			/>
+		</>
+	);
+}
 
 function isDottedInterfereBranchStyle(
 	style: ConversationTraceTreeConnectorStyle,
@@ -242,14 +276,28 @@ function ConversationTraceTreeRail({
 					d={`M ${railX} 0 V ${Math.max(markerY - lineOffset, 0)}`}
 					data-trace-tree-line
 					data-trace-tree-line-depth={depth}
+					data-trace-tree-marker-geometry={
+						isDottedInterfereBranchStyle(connectorStyle) ? "dot" : undefined
+					}
 					data-trace-tree-rail-segment="incoming"
 				/>
 				<path
 					d={`M ${railX} ${markerY + lineOffset} V ${rowHeight}`}
 					data-trace-tree-line
 					data-trace-tree-line-depth={depth}
+					data-trace-tree-marker-geometry={
+						isDottedInterfereBranchStyle(connectorStyle) ? "dot" : undefined
+					}
 					data-trace-tree-rail-segment="outgoing"
 				/>
+				{isDottedInterfereBranchStyle(connectorStyle) ? (
+					<InterfereEventIconRailSegments
+						depth={depth}
+						markerY={markerY}
+						railX={railX}
+						rowHeight={rowHeight}
+					/>
+				) : null}
 			</svg>
 		);
 	}
@@ -382,6 +430,10 @@ function ConversationTraceTreeConnector({
 		style: connectorStyle,
 		width,
 	});
+	const iconTerminalFeedPath =
+		connectorStyle === "interfere-branch-dots-no-horizontal" && !continues
+			? `M ${currentX} 0 V ${Math.max(elbowY - INTERFERE_EVENT_ICON_RAIL_OFFSET, 0)}`
+			: undefined;
 	const stickyRailOffset =
 		connectorStyle === "interfere"
 			? INTERFERE_RAIL_OFFSET
@@ -435,13 +487,31 @@ function ConversationTraceTreeConnector({
 								<path
 									d={`M ${currentX} 0 V ${Math.max(elbowY - stickyRailOffset, 0)}`}
 									data-trace-tree-line-depth={depth}
+									data-trace-tree-marker-geometry={
+										isDottedInterfereBranchStyle(connectorStyle)
+											? "dot"
+											: undefined
+									}
 									data-trace-tree-rail-segment="incoming"
 								/>
 								<path
 									d={`M ${currentX} ${elbowY + stickyRailOffset} V ${rowHeight}`}
 									data-trace-tree-line-depth={depth}
+									data-trace-tree-marker-geometry={
+										isDottedInterfereBranchStyle(connectorStyle)
+											? "dot"
+											: undefined
+									}
 									data-trace-tree-rail-segment="outgoing"
 								/>
+								{isDottedInterfereBranchStyle(connectorStyle) ? (
+									<InterfereEventIconRailSegments
+										depth={depth}
+										markerY={elbowY}
+										railX={currentX}
+										rowHeight={rowHeight}
+									/>
+								) : null}
 							</>
 						) : (
 							<path
@@ -458,9 +528,21 @@ function ConversationTraceTreeConnector({
 						<path
 							d={branchPath}
 							data-trace-tree-line-depth={depth}
+							data-trace-tree-marker-geometry={
+								iconTerminalFeedPath === undefined ? undefined : "dot"
+							}
 							data-trace-tree-terminal-feed={
 								shape === "branch" && !continues ? "true" : undefined
 							}
+						/>
+					)}
+					{iconTerminalFeedPath === undefined ? null : (
+						<path
+							className="hidden"
+							d={iconTerminalFeedPath}
+							data-trace-tree-line-depth={depth}
+							data-trace-tree-marker-geometry="icon"
+							data-trace-tree-terminal-feed="true"
 						/>
 					)}
 					{isDottedInterfereBranchStyle(connectorStyle) ? (
