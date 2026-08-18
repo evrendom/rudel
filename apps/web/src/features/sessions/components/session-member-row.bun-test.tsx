@@ -35,6 +35,8 @@ describe("SessionMemberRow trace rail", () => {
 		expect(markup).toContain("data-trace-content-disclosure-icon");
 		expect(markup).not.toContain('data-trace-disclosure-symbol="chevron"');
 		expect(markup).toContain("data-trace-preview");
+		expect(markup).toContain("pl-[1.8125rem]");
+		expect(markup).not.toContain("pl-[3.25rem]");
 		expect(markup.indexOf("data-trace-content-disclosure")).toBeLessThan(
 			markup.indexOf("data-trace-preview"),
 		);

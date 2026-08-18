@@ -25,6 +25,8 @@ function UserPrompt({ content }: { content: UserContent }) {
 	);
 }
 
+const userPromptRowClassName = "min-w-0 py-2 pr-3 pl-[1.8125rem]";
+
 export function SessionMemberRow({
 	active,
 	continues = true,
@@ -69,13 +71,13 @@ export function SessionMemberRow({
 				{promptExpanded ? (
 					items.map((item) =>
 						item.kind === "user" ? (
-							<div key={item.id} className="min-w-0 py-2 pr-3 pl-[3.25rem]">
+							<div key={item.id} className={userPromptRowClassName}>
 								<UserPrompt content={item.content} />
 							</div>
 						) : null,
 					)
 				) : (
-					<div className="min-w-0 py-2 pr-3 pl-[3.25rem]">
+					<div className={userPromptRowClassName}>
 						<p
 							className={conversationTraceProsePreviewClassName}
 							data-trace-preview
