@@ -41,8 +41,6 @@
 }
 
 .session-constellation-tree-v2 {
-	/* Interfere's rail lane leaves 20px from marker center to the shared
-	   title/body edge, with 4px between the 16px title line and its body. */
 	--constellation-tree-v2-content-shift: 21px;
 	--constellation-tree-v2-icon-shift: 23px;
 	--constellation-tree-v2-body-shift: 7px;
@@ -64,8 +62,21 @@
 	)
 	> [data-trace-tree-row-owner]
 	[data-trace-row-header] {
+	position: relative;
+	isolation: isolate;
 	width: calc(100% + var(--constellation-tree-v2-content-shift));
 	transform: translateX(calc(0px - var(--constellation-tree-v2-content-shift)));
+
+	&::after {
+		position: absolute;
+		top: 26px;
+		left: 19px;
+		z-index: 1;
+		width: 2px;
+		height: 4px;
+		background-color: var(--session-overview-surface);
+		content: "";
+	}
 }
 
 .session-constellation-tree-v2
@@ -75,6 +86,8 @@
 	> [data-trace-tree-row-owner]
 	[data-trace-row-header]
 	> [data-trace-icon] {
+	position: relative;
+	z-index: 2;
 	transform: translateX(
 		calc(
 			var(--constellation-tree-v2-content-shift) -

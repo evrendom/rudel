@@ -118,6 +118,12 @@ describe("session constellation tree tokens", () => {
 		expect(css).toContain(
 			"transform: translateX(var(--constellation-tree-v2-body-shift))",
 		);
+		expect(css).toContain("&::after");
+		expect(css).toContain("top: 26px");
+		expect(css).toContain("left: 19px");
+		expect(css).toContain("z-index: 1");
+		expect(css).toContain("height: 4px");
+		expect(css).toContain("background-color: var(--session-overview-surface)");
 	});
 
 	test("does not paint hover fills behind trace rows", () => {
