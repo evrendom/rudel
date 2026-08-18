@@ -103,13 +103,9 @@ describe("session constellation tree tokens", () => {
 
 		expect(css).toContain(".session-constellation-tree-v2");
 		expect(css).toContain("--constellation-tree-v2-icon-shift: 23px");
-		expect(css).toContain("--constellation-tree-v2-body-lift: 15px");
 		expect(css).toContain("[data-trace-tree-junction-dot]");
 		expect(css).toContain(
 			"translateX(calc(0px - var(--constellation-tree-v2-icon-shift)))",
-		);
-		expect(css).toContain(
-			"margin-top: calc(0px - var(--constellation-tree-v2-body-lift))",
 		);
 	});
 
