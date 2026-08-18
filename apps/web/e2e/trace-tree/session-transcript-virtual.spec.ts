@@ -436,12 +436,17 @@ test("the native sticky clone is pixel-stable as the real header slides undernea
 		x: Math.floor(box.absoluteX),
 		y: Math.floor(box.absoluteY),
 	};
-	const before = await page.screenshot({ animations: "disabled", clip });
+	const screenshotOptions = {
+		animations: "disabled" as const,
+		clip,
+		style: "[data-transcript-debug-hud] { visibility: hidden !important; }",
+	};
+	const before = await page.screenshot(screenshotOptions);
 	await scroller.evaluate((element, scrollTop) => {
 		element.scrollTop = scrollTop;
 	}, firstRange.start + 40);
 	await waitForFrames(page, 1);
-	const after = await page.screenshot({ animations: "disabled", clip });
+	const after = await page.screenshot(screenshotOptions);
 	expect(after.equals(before)).toBe(true);
 });
 
@@ -463,16 +468,24 @@ test("native sticky wrappers push off and swap owners without an uncovered bound
 	const sampleHandoff = async (boundary: number) => {
 		const samples: Array<
 			Awaited<ReturnType<typeof sampleStickyHeaderAtTop>> & {
+				frameGapMs: number;
 				scrollTop: number;
 			}
 		> = [];
 		for (let scrollTop = boundary - 32; scrollTop <= boundary; scrollTop += 4) {
-			await scroller.evaluate((element, nextScrollTop) => {
-				element.scrollTop = nextScrollTop;
-			}, scrollTop);
-			await waitForFrames(page, 1);
+			const frameGapMs = await scroller.evaluate(
+				async (element, nextScrollTop) =>
+					new Promise<number>((resolve) => {
+						requestAnimationFrame((startedAt) => {
+							element.scrollTop = nextScrollTop;
+							requestAnimationFrame((endedAt) => resolve(endedAt - startedAt));
+						});
+					}),
+				scrollTop,
+			);
 			samples.push({
 				...(await sampleStickyHeaderAtTop(scroller)),
+				frameGapMs,
 				scrollTop,
 			});
 		}
@@ -490,6 +503,17 @@ test("native sticky wrappers push off and swap owners without an uncovered bound
 				`header pop at ${current.scrollTop}`,
 			).toBeLessThanOrEqual(current.scrollTop - previous.scrollTop + 1);
 		}
+		const normalFrameMax = Math.max(
+			...samples.slice(0, -1).map((sample) => sample.frameGapMs),
+		);
+		const handoverFrame = samples.at(-1);
+		if (!handoverFrame) {
+			throw new Error("Expected a sticky handover frame sample");
+		}
+		expect(
+			handoverFrame.frameGapMs,
+			`handover frame at ${boundary}`,
+		).toBeLessThanOrEqual(normalFrameMax + 2);
 		return samples;
 	};
 	const modelToMemberSamples = await sampleHandoff(firstRange.end);

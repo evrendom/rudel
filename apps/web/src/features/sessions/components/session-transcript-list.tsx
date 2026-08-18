@@ -218,10 +218,13 @@ export const SessionTranscriptList = forwardRef<
 			),
 		[stickyHeaderGroups],
 	);
-	const { placements: stickyHeaderPlacements, sync: syncStickyHeaderWrappers } =
-		useTranscriptStickyHeaderWrappers({
-			groups: stickyHeaderGroups,
-		});
+	const {
+		placements: stickyHeaderPlacements,
+		registerWrapper: registerStickyHeaderWrapper,
+		sync: syncStickyHeaderWrappers,
+	} = useTranscriptStickyHeaderWrappers({
+		groups: stickyHeaderGroups,
+	});
 	const feederInputRef = useLatestValueRef({
 		bodyTurnCount,
 		debugPaintEpoch,
@@ -735,7 +738,10 @@ export const SessionTranscriptList = forwardRef<
 							: { height: virtualizer.getTotalSize() }
 					}
 				>
-					<TranscriptStickyHeaderWrappers placements={stickyHeaderPlacements} />
+					<TranscriptStickyHeaderWrappers
+						placements={stickyHeaderPlacements}
+						registerWrapper={registerStickyHeaderWrapper}
+					/>
 					{virtualItems.map((virtualItem) => {
 						const row = model.rows[virtualItem.index];
 						if (!row) {

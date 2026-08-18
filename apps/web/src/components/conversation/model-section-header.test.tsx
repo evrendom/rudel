@@ -49,6 +49,7 @@ test("the model row and overlay render identical section-header DOM", () => {
 					start: 100,
 				},
 			]}
+			registerWrapper={() => undefined}
 		/>,
 	);
 	const stickyHeader = new JSDOM(stickyMarkup).window.document.querySelector(

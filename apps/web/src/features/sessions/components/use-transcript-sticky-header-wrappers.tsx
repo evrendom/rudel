@@ -222,30 +222,57 @@ export function placeTranscriptStickyHeaderGroups(input: {
 	});
 }
 
-function arePlacementsEqual(
+function haveSamePlacementMembership(
 	left: readonly TranscriptStickyHeaderPlacement[],
 	right: readonly TranscriptStickyHeaderPlacement[],
 ) {
 	return (
 		left.length === right.length &&
-		left.every((placement, index) => {
-			const candidate = right[index];
-			return (
-				candidate?.group.ownerKey === placement.group.ownerKey &&
-				candidate.start === placement.start &&
-				candidate.extent === placement.extent
-			);
-		})
+		left.every(
+			(placement, index) =>
+				right[index]?.group.ownerKey === placement.group.ownerKey,
+		)
 	);
+}
+
+function applyStickyHeaderPlacement(
+	element: HTMLElement,
+	placement: TranscriptStickyHeaderPlacement,
+) {
+	const height = `${placement.extent}px`;
+	const top = `${placement.start}px`;
+	if (element.style.height !== height) {
+		element.style.height = height;
+	}
+	if (element.style.top !== top) {
+		element.style.top = top;
+	}
 }
 
 export function useTranscriptStickyHeaderWrappers(input: {
 	groups: readonly TranscriptStickyHeaderGroup[];
 }) {
 	const placementsRef = useRef<readonly TranscriptStickyHeaderPlacement[]>([]);
+	const wrapperElementsRef = useRef(new Map<string, HTMLElement>());
 	const [placements, setPlacements] = useState<
 		readonly TranscriptStickyHeaderPlacement[]
 	>([]);
+	const registerWrapper = useCallback(
+		(ownerKey: string, element: HTMLDivElement | null) => {
+			if (!element) {
+				wrapperElementsRef.current.delete(ownerKey);
+				return;
+			}
+			wrapperElementsRef.current.set(ownerKey, element);
+			const placement = placementsRef.current.find(
+				(candidate) => candidate.group.ownerKey === ownerKey,
+			);
+			if (placement) {
+				applyStickyHeaderPlacement(element, placement);
+			}
+		},
+		[],
+	);
 	const sync = useCallback(
 		(inputValue: {
 			measurements: readonly VirtualItem[];
@@ -255,7 +282,28 @@ export function useTranscriptStickyHeaderWrappers(input: {
 				groups: input.groups,
 				...inputValue,
 			});
-			if (arePlacementsEqual(placementsRef.current, next)) {
+			const current = placementsRef.current;
+			if (haveSamePlacementMembership(current, next)) {
+				for (const [index, placement] of current.entries()) {
+					const nextPlacement = next[index];
+					if (!nextPlacement) {
+						continue;
+					}
+					if (
+						placement.extent === nextPlacement.extent &&
+						placement.start === nextPlacement.start
+					) {
+						continue;
+					}
+					placement.extent = nextPlacement.extent;
+					placement.start = nextPlacement.start;
+					const element = wrapperElementsRef.current.get(
+						placement.group.ownerKey,
+					);
+					if (element) {
+						applyStickyHeaderPlacement(element, placement);
+					}
+				}
 				return;
 			}
 			placementsRef.current = next;
@@ -263,7 +311,7 @@ export function useTranscriptStickyHeaderWrappers(input: {
 		},
 		[input.groups],
 	);
-	return { placements, sync };
+	return { placements, registerWrapper, sync };
 }
 
 function TranscriptStickyHeaderVisual({
@@ -319,14 +367,17 @@ function TranscriptStickyHeaderVisual({
 export const TranscriptStickyHeaderWrappers = memo(
 	function TranscriptStickyHeaderWrappers({
 		placements,
+		registerWrapper,
 	}: {
 		placements: readonly TranscriptStickyHeaderPlacement[];
+		registerWrapper: (ownerKey: string, element: HTMLDivElement | null) => void;
 	}) {
 		return placements.map((placement) => (
 			<div
 				key={placement.group.ownerKey}
 				className="pointer-events-none absolute left-0 z-40 w-full min-w-0"
 				data-transcript-sticky-header-wrapper={placement.group.ownerKey}
+				ref={(element) => registerWrapper(placement.group.ownerKey, element)}
 				style={{ height: placement.extent, top: placement.start }}
 			>
 				<div
