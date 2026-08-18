@@ -13,10 +13,22 @@ const languageSignalScanCache = new Map<
 >();
 
 const SIGNAL_MARK_CLASS_NAME =
-	"rounded-lg px-1 py-0.5 font-sans text-[0.8125rem] leading-5 font-normal select-none";
+	"font-sans font-normal text-body-sm bg-brand-subtle text-brand-solid rounded-lg px-1 py-0.5 select-none";
 const SIGNAL_MARK_STYLE = {
-	backgroundColor: "color(display-p3 0.122 0.463 1 / 0.219)",
+	WebkitBackgroundClip: "border-box",
+	WebkitBoxDecorationBreak: "clone",
+	WebkitTextFillColor: "color(display-p3 0.251 0.573 0.996 / 0.967)",
+	background: "color(display-p3 0.122 0.463 1 / 0.219)",
+	backgroundClip: "border-box",
+	borderRadius: "8px",
+	boxDecorationBreak: "clone",
 	color: "color(display-p3 0.251 0.573 0.996 / 0.967)",
+	display: "inline",
+	fontSize: "13px",
+	fontWeight: 400,
+	lineHeight: "20px",
+	padding: "2px 4px",
+	userSelect: "none",
 } satisfies CSSProperties;
 
 const SEARCH_MARK_CLASS_NAME = "bg-yellow-300 text-inherit dark:bg-yellow-700";
