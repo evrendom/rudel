@@ -77,7 +77,6 @@ export type SessionTurnTableRow = {
 };
 
 type SessionTurnTableProps = {
-	hasActiveFilters: boolean;
 	collapsedEpisodeKeys?: ReadonlySet<string>;
 	episodes?: readonly SessionTurnEpisode[];
 	matchedIndices?: ReadonlySet<number>;
@@ -103,7 +102,6 @@ type SessionTurnTableProps = {
 export function SessionTurnTable({
 	collapsedEpisodeKeys,
 	episodes,
-	hasActiveFilters,
 	matchedIndices,
 	model,
 	onEpisodeToggle,
@@ -303,9 +301,7 @@ export function SessionTurnTable({
 			{tableRows.length === 0 ? (
 				<div className="flex min-h-40 items-center justify-center px-6 text-center">
 					<p className="text-sm text-(--session-overview-muted)">
-						{hasActiveFilters
-							? "No turns match the selected filters."
-							: "No turns available."}
+						No turns available.
 					</p>
 				</div>
 			) : null}

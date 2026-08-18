@@ -1,12 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { SessionTurnTableSpeaker } from "./session-turn-table";
 import { buildSessionTurnTableColumns } from "./session-turn-table-columns";
-import {
-	createEmptySessionTurnTableExcludedFilterValues,
-	createEmptySessionTurnTableRangeFilterValues,
-	filterSessionTurnTableOptions,
-	sortSessionTurnTableOptions,
-} from "./session-turn-table-filters";
+import { sortSessionTurnTableOptions } from "./session-turn-table-filters";
 import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
 import {
 	getSessionTurnTableSelectedRowKey,
@@ -162,32 +157,9 @@ describe("session turn table pane", () => {
 		expect(getVisibleSessionTurnSpeaker("model", USER_SPEAKERS)).toBe("member");
 	});
 
-	test("filters turns by option and numeric metadata", () => {
-		const excludedFilters = createEmptySessionTurnTableExcludedFilterValues();
-		const rangeFilters = createEmptySessionTurnTableRangeFilterValues();
-
-		expect(
-			filterSessionTurnTableOptions(
-				options,
-				{ ...excludedFilters, commands: new Set(["/review"]) },
-				rangeFilters,
-			).map((match) => match.index),
-		).toEqual([1]);
-		expect(
-			filterSessionTurnTableOptions(options, excludedFilters, {
-				...rangeFilters,
-				errors: { maximum: null, minimum: 1 },
-			}).map((match) => match.index),
-		).toEqual([0]);
-	});
-
 	test("sorts while keeping original row indices and compaction assignments", () => {
 		const matches = sortSessionTurnTableOptions(
-			filterSessionTurnTableOptions(
-				options,
-				createEmptySessionTurnTableExcludedFilterValues(),
-				createEmptySessionTurnTableRangeFilterValues(),
-			),
+			options.map((option, index) => ({ index, option })),
 			{ direction: "desc", key: "time" },
 		);
 

@@ -10,7 +10,6 @@ import {
 	type SessionTurnTableSpeaker,
 	type SessionTurnTableVirtualizerHandle,
 } from "./session-turn-table";
-import { SessionTurnTableColumnComposer } from "./session-turn-table-column-composer";
 import { SessionTurnTableControls } from "./session-turn-table-filter";
 import type { IndexedSessionTurnTableOption } from "./session-turn-table-filters";
 import {
@@ -62,27 +61,13 @@ export function SessionTurnTablePane({
 	>(() => new Set(["model"]));
 	const {
 		activeSortLabel,
-		availableColumnKeys,
-		clearAllFilters,
-		clearFilter,
-		clearRangeFilter,
 		effectiveVisibleColumnKeys,
-		excludedFilterValues,
-		filterOptions,
 		handleSort,
-		hasActiveFilters,
-		rangeFilterBounds,
-		rangeFilterValues,
-		setFilterOptionChecked,
-		setRangeFilter,
-		setVisibleColumnKeys,
 		sort,
 		toggleSortDirection,
 		visibleMatches,
 	} = useSessionTurnTableControls({
-		onSelect: (index) => onSelect({ ...effectiveSelection, index }),
 		options,
-		selectedIndex: effectiveSelection.index,
 	});
 	const tableRows = useMemo(
 		() =>
@@ -110,30 +95,10 @@ export function SessionTurnTablePane({
 	return (
 		<>
 			<SessionTurnTableControls
-				actions={
-					primarySpeaker === "model" ? (
-						<SessionTurnTableColumnComposer
-							availableColumns={availableColumnKeys}
-							onVisibleColumnsChange={setVisibleColumnKeys}
-							visibleColumns={effectiveVisibleColumnKeys}
-						/>
-					) : null
-				}
 				activeSortLabel={activeSortLabel}
 				className={undefined}
-				excludedFilterValues={excludedFilterValues}
-				filterOptions={filterOptions}
-				onClearAll={clearAllFilters}
-				onClearFilter={clearFilter}
-				onClearRangeFilter={clearRangeFilter}
-				onFilterOptionChecked={setFilterOptionChecked}
-				onRangeFilterChange={setRangeFilter}
 				onToggleSortDirection={toggleSortDirection}
-				rangeFilterBounds={rangeFilterBounds}
-				rangeFilterValues={rangeFilterValues}
-				resultCount={visibleMatches.length}
 				sort={sort}
-				totalCount={options.length}
 				viewControls={
 					<SessionTurnTableSpeakerVisibilityControls
 						className={undefined}
@@ -148,7 +113,6 @@ export function SessionTurnTablePane({
 			/>
 			<div className="flex min-h-0 flex-1 flex-col">
 				<SessionTurnTable
-					hasActiveFilters={hasActiveFilters}
 					model={model}
 					onPrimarySpeakerChange={setPrimarySpeaker}
 					onSort={handleSort}

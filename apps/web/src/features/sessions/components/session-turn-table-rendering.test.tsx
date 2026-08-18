@@ -50,7 +50,6 @@ function renderTable(
 	return {
 		...render(
 			<SessionTurnTable
-				hasActiveFilters={false}
 				model={undefined}
 				onPrimarySpeakerChange={vi.fn()}
 				onSelect={vi.fn()}
