@@ -42,11 +42,7 @@ import {
 	sessionDetailWindowQueryKey,
 	shouldRetrySessionDetailFastQuery,
 } from "./session-detail-fast-query";
-import {
-	resolveSessionDetailLevel,
-	type SessionDetailLevel,
-} from "./session-detail-level";
-import { SessionDetailLevelToggle } from "./session-detail-level-toggle";
+import type { SessionDetailLevel } from "./session-detail-level";
 import type {
 	buildSessionDetailOverviewViewModel,
 	SessionDetailOverviewTurnOption,
@@ -128,11 +124,11 @@ export function SessionDetailFastResponsePane({
 }) {
 	const queryClient = useQueryClient();
 	const location = useLocation();
-	const [searchParams, setSearchParams] = useSearchParams();
+	const [searchParams] = useSearchParams();
 	const usesConstellationV2 =
 		isSessionDetailV2Path(location.pathname) ||
 		searchParams.get("constellation") === "v2";
-	const detailLevel = resolveSessionDetailLevel(searchParams.get("level"));
+	const detailLevel: SessionDetailLevel = "normal";
 	const requestedTranscriptMode = searchParams.get("transcript");
 	const requestedSkeletonMode = searchParams.get("skeletons");
 	const skeletonDebugMode = useMemo(
@@ -231,31 +227,12 @@ export function SessionDetailFastResponsePane({
 			?.scrollIntoView({ block: "nearest" });
 	});
 
-	function handleDetailLevelChange(nextLevel: SessionDetailLevel) {
-		setSearchParams(
-			(previousSearchParams) => {
-				const nextSearchParams = new URLSearchParams(previousSearchParams);
-				if (nextLevel === "normal") {
-					nextSearchParams.delete("level");
-				} else {
-					nextSearchParams.set("level", nextLevel);
-				}
-				return nextSearchParams;
-			},
-			{ replace: true },
-		);
-	}
-
 	return (
 		<div className="flex h-full min-h-0 min-w-0 flex-col">
 			<header className="flex min-h-12 shrink-0 items-center gap-3 border-b border-(--session-overview-border) bg-(--session-overview-surface) px-3">
 				<h2 className="min-w-0 truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-text) sm:text-sm">
 					Session Detail
 				</h2>
-				<SessionDetailLevelToggle
-					onChange={handleDetailLevelChange}
-					value={detailLevel}
-				/>
 				<SessionDetailSearchControl
 					index={"index" in searchLoad ? searchLoad.index : EMPTY_SEARCH_INDEX}
 					loadState={searchLoad}

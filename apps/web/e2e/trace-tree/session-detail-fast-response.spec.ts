@@ -43,7 +43,7 @@ async function expectWheelDirection(input: {
 	return after;
 }
 
-test("the real fast response pane keeps user scroll authoritative across windows, jumps, and levels", async ({
+test("the real fast response pane keeps user scroll authoritative across windows and jumps", async ({
 	page,
 }) => {
 	const windowRequests: SessionDetailWindowRequest[] = [];
@@ -126,10 +126,12 @@ test("the real fast response pane keeps user scroll authoritative across windows
 		),
 	);
 
-	const requestLevel = page.getByRole("radio", { name: "Request level" });
-	await requestLevel.click();
-	await expect(page).toHaveURL(/level=request/u);
-	await expect(requestLevel).toBeChecked();
+	await expect(
+		page.getByRole("group", { name: "Session detail level" }),
+	).toHaveCount(0);
+	await expect(page.getByRole("radio", { name: "Request level" })).toHaveCount(
+		0,
+	);
 	await waitForFrames(page, 5);
 	await expect(target).toBeVisible();
 	await expectWheelDirection({ deltaY: -400, page, scroller });
