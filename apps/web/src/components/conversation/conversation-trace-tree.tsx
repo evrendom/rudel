@@ -1242,17 +1242,15 @@ function AgentTraceTreeBranchList({
 	branches,
 	depth,
 	hasNextSibling,
-	incomingRailExtension = 0,
 }: {
 	branches: readonly AgentTraceTreeRenderedBranch[];
 	depth: number;
 	hasNextSibling: boolean;
-	incomingRailExtension?: number;
 }) {
 	const ancestorRails = useContext(ConversationTraceTreeRailContext);
 	return (
 		<ol className="list-none">
-			{branches.map((branch, branchIndex) => {
+			{branches.map((branch) => {
 				const branchHasNext = branch.hasFollowingBranch || hasNextSibling;
 				const childRows = branch.children.map((child, childIndex) => (
 					<li key={child.key}>
@@ -1291,9 +1289,6 @@ function AgentTraceTreeBranchList({
 								continues={branchHasNext}
 								descends={branch.totalChildren > 0}
 								depth={depth}
-								incomingRailExtension={
-									branchIndex === 0 ? incomingRailExtension : 0
-								}
 								rowHeight={CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT}
 								sticky={branch.sticky}
 								subtree={subtree}
@@ -1311,11 +1306,6 @@ function AgentTraceTreeBranchList({
 									branch.totalChildren - 1 || branchHasNext
 							}
 							depth={depth}
-							incomingRailExtension={
-								!branch.hasRoot && branchIndex === 0 && childIndex === 0
-									? incomingRailExtension
-									: 0
-							}
 							rowHeight={CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT}
 						>
 							<div className="-ml-3">{child.row}</div>
@@ -1330,12 +1320,10 @@ function AgentTraceTreeBranchList({
 function AgentTraceTreeRenderedSectionItem({
 	defaultOpen,
 	hasNextSibling,
-	incomingRailExtension,
 	section,
 }: {
 	defaultOpen: boolean;
 	hasNextSibling: boolean;
-	incomingRailExtension: number;
 	section: AgentTraceTreeRenderedSection;
 }) {
 	const [open, setOpen] = useState(defaultOpen);
@@ -1357,7 +1345,6 @@ function AgentTraceTreeRenderedSectionItem({
 					branches={section.branches}
 					depth={section.branchDepth}
 					hasNextSibling={hasNextSibling}
-					incomingRailExtension={incomingRailExtension}
 				/>
 			</li>
 		);
@@ -1372,7 +1359,6 @@ function AgentTraceTreeRenderedSectionItem({
 				<ConversationTraceTreeItem
 					continues={hasNextSibling}
 					depth={2}
-					incomingRailExtension={incomingRailExtension}
 					rowHeight={section.flatRequestRows ? 24 : undefined}
 				>
 					<span className="-ml-3 block">{section.header(undefined, null)}</span>
@@ -1386,7 +1372,6 @@ function AgentTraceTreeRenderedSectionItem({
 				branches={section.branches}
 				depth={section.flatRequestRows ? 2 : 3}
 				hasNextSibling={section.flatRequestRows && hasNextSibling}
-				incomingRailExtension={2}
 			/>
 		</ConversationTraceCollapsiblePanel>
 	);
@@ -1404,7 +1389,6 @@ function AgentTraceTreeRenderedSectionItem({
 							connectorShape="through"
 							continues={(open && hasBranches) || hasNextSibling}
 							depth={2}
-							incomingRailExtension={incomingRailExtension}
 							rowHeight={24}
 							sticky={false}
 						>
@@ -1424,7 +1408,6 @@ function AgentTraceTreeRenderedSectionItem({
 						continues={hasNextSibling}
 						descends={open && hasBranches}
 						depth={2}
-						incomingRailExtension={incomingRailExtension}
 						subtree={branchPanel}
 					>
 						<Collapsible.Trigger
@@ -1464,7 +1447,6 @@ export function AgentTraceTreeContinuationSection({
 				<AgentTraceTreeRenderedSectionItem
 					defaultOpen={defaultOpen}
 					hasNextSibling={continuesAfter && !section.continuesToNext}
-					incomingRailExtension={0}
 					section={section}
 				/>
 			</ol>
@@ -1525,7 +1507,6 @@ export function AgentTraceTreeSection({
 						key={section.key}
 						defaultOpen={defaultOpen}
 						hasNextSibling={sectionIndex < visibleSections.length - 1}
-						incomingRailExtension={sectionIndex === 0 ? 2 : 0}
 						section={section}
 					/>
 				))}

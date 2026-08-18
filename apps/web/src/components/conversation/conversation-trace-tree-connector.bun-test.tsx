@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-	AgentTraceTreeSection,
 	ConversationTraceTreeConnectorStyleProvider,
 	ConversationTraceTreeItem,
 } from "./conversation-trace-tree";
@@ -225,48 +224,6 @@ describe("ConversationTraceTree connector styles", () => {
 		expect(markup).toContain("height:2px");
 		expect(markup).toContain("top:-2px");
 		expect(markup).toContain("left:62px");
-	});
-
-	test("completes the first trace node below a model header", () => {
-		const markup = renderToStaticMarkup(
-			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
-				<AgentTraceTreeSection
-					agentLabel="Claude"
-					agentModel="claude-sonnet-4"
-					events={[]}
-					planMode={false}
-					sections={[
-						{
-							branchDepth: 2,
-							branches: [
-								{
-									childStartIndex: 0,
-									children: [],
-									hasFollowingBranch: false,
-									hasRoot: true,
-									key: "reasoning-branch",
-									root: { key: "reasoning", row: <span>Reasoning</span> },
-									totalChildren: 0,
-								},
-							],
-							continuesFromPrevious: false,
-							continuesToNext: false,
-							events: [],
-							flatRequestRows: false,
-							groupIndex: undefined,
-							groupTreatment: "none",
-							header: undefined,
-							key: "section-1",
-						},
-					]}
-					stickyHeader={false}
-				/>
-			</ConversationTraceTreeConnectorStyleProvider>,
-		);
-
-		expect(markup).toContain("data-trace-tree-entry-rail");
-		expect(markup).toContain('data-trace-tree-line-depth="2"');
-		expect(markup).toContain("left:39px");
 	});
 
 	test("continues a dotted rail through non-tree subtree content", () => {
