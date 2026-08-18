@@ -69,7 +69,7 @@ export function getSessionOverviewZoomWindowFromSelection(
 	};
 }
 
-export function centerSessionOverviewZoomWindowAt(
+function centerSessionOverviewZoomWindowAt(
 	window: SessionOverviewZoomWindow,
 	targetRatio: number,
 ) {

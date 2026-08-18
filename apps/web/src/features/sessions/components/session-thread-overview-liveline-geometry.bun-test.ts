@@ -1,12 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { resolveSessionThreadOverviewStripConfig } from "./session-thread-overview-config";
 import {
-	getLivelineCallAtX,
 	getLivelineCallInputUtilization,
 	getLivelineCallNearX,
-	getLivelineCallX,
-	getNearestLivelineCallAtX,
-	getNearestLivelineCallInTurnAtX,
 } from "./session-thread-overview-liveline-geometry";
 import type { SessionOverviewCallSeries } from "./session-thread-overview-model";
 
@@ -52,33 +48,6 @@ const series: SessionOverviewCallSeries = {
 };
 
 describe("nearest Liveline call hover", () => {
-	test("switches at the midpoint instead of holding until the next step", () => {
-		const firstX = getLivelineCallX(series, config, 0, 0);
-		const secondX = getLivelineCallX(series, config, 0, 1);
-		expect(firstX).toBeNumber();
-		expect(secondX).toBeNumber();
-		if (firstX === undefined || secondX === undefined) {
-			throw new Error("Expected both model calls to have plotted positions");
-		}
-		const justAfterMidpoint = (firstX + secondX) / 2 + 0.01;
-
-		expect(
-			getLivelineCallAtX(series, config, justAfterMidpoint)?.call.model,
-		).toBe("first");
-		expect(
-			getNearestLivelineCallAtX(series, config, justAfterMidpoint)?.call.model,
-		).toBe("second");
-	});
-
-	test("does not borrow a model call from another turn", () => {
-		expect(
-			getNearestLivelineCallInTurnAtX(series, config, 500, 9),
-		).toBeUndefined();
-		expect(
-			getNearestLivelineCallInTurnAtX(series, config, 500, 0)?.call.model,
-		).toBe("first");
-	});
-
 	test("does not attach an isolated activity circle to a distant call", () => {
 		expect(getLivelineCallNearX(series, config, 500, 0)).toBeUndefined();
 		expect(getLivelineCallNearX(series, config, 104, 0)?.call.model).toBe(

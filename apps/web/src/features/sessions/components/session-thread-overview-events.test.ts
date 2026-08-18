@@ -51,9 +51,7 @@ describe("buildSessionThreadOverviewTimelineEvents", () => {
 				},
 			],
 		};
-		const chart = buildSessionThreadOverviewChart([
-			{ ...option, reasoningCount: 0, subagentCount: 1 },
-		]);
+		const chart = buildSessionThreadOverviewChart([option]);
 		const events = buildSessionThreadOverviewTimelineEvents(chart, [option]);
 
 		expect(events).toHaveLength(6);

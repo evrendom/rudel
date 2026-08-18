@@ -13,13 +13,8 @@ function createRow(
 ): SessionThreadOverviewChartRow {
 	return {
 		cost: undefined,
-		editCount: 0,
-		errorCount: 0,
 		index: 0,
 		inputTokens: undefined,
-		reasoningCount: 0,
-		skillCount: 0,
-		subagentCount: 0,
 		xEndRatio: 0,
 		xRatio: 0,
 		xStartRatio: 0,

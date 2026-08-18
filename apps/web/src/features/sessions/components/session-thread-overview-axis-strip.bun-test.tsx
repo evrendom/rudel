@@ -162,8 +162,6 @@ describe("SessionOverviewTimelineFooter", () => {
 				...option,
 				memberPreview: option.memberText,
 				preview: "Completed the requested change",
-				reasoningCount: 0,
-				subagentCount: 0,
 			},
 		];
 		const chart = buildSessionThreadOverviewChart(options);

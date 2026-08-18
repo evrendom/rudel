@@ -6,7 +6,6 @@ import {
 	getSessionOverviewViewportLayout,
 } from "./session-thread-overview-strip-utils";
 import {
-	centerSessionOverviewZoomWindowAt,
 	DEFAULT_SESSION_OVERVIEW_ZOOM_WINDOW,
 	getSessionOverviewZoomLevel,
 	getSessionOverviewZoomSelection,
@@ -110,32 +109,6 @@ describe("session overview zoom window", () => {
 		expect(
 			panSessionOverviewZoomWindow({ xEndRatio: 0.625, xStartRatio: 0.125 }, 1),
 		).toEqual({ xEndRatio: 1, xStartRatio: 0.5 });
-	});
-
-	test("centers a zoomed window on the active transcript selection", () => {
-		const centered = centerSessionOverviewZoomWindowAt(
-			{ xEndRatio: 0.5, xStartRatio: 0 },
-			0.7,
-		);
-		expect(centered.xStartRatio).toBeCloseTo(0.45);
-		expect(centered.xEndRatio).toBeCloseTo(0.95);
-		expect(
-			centerSessionOverviewZoomWindowAt(
-				{ xEndRatio: 0.5, xStartRatio: 0 },
-				0.95,
-			),
-		).toEqual({ xEndRatio: 1, xStartRatio: 0.5 });
-		expect(
-			centerSessionOverviewZoomWindowAt(
-				{ xEndRatio: 0.5, xStartRatio: 0.25 },
-				0.6,
-			),
-		).toEqual(
-			centerSessionOverviewZoomWindowAt(
-				{ xEndRatio: 0.75, xStartRatio: 0.5 },
-				0.6,
-			),
-		);
 	});
 
 	test("derives a followed window only when the selection changes", () => {

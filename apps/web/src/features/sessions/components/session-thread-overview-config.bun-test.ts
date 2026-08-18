@@ -1,34 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import type { SessionThreadOverviewChartRow } from "./session-thread-overview-chart";
-import {
-	getSessionThreadOverviewMetricMedian,
-	getSessionThreadOverviewMetricRatio,
-} from "./session-thread-overview-chart";
 import {
 	DEFAULT_SESSION_THREAD_OVERVIEW_STRIP_CONFIG,
 	getSessionThreadOverviewTimelineSettings,
 	resolveSessionThreadOverviewStripConfig,
 } from "./session-thread-overview-config";
 import { buildSessionThreadOverviewTimelineScale } from "./session-thread-overview-timeline";
-
-function createRow(
-	overrides: Partial<SessionThreadOverviewChartRow>,
-): SessionThreadOverviewChartRow {
-	return {
-		cost: undefined,
-		editCount: 0,
-		errorCount: 0,
-		index: 0,
-		inputTokens: undefined,
-		reasoningCount: 0,
-		skillCount: 0,
-		subagentCount: 0,
-		xEndRatio: 0,
-		xRatio: 0,
-		xStartRatio: 0,
-		...overrides,
-	};
-}
 
 const BURSTY_INTERVALS = [
 	{
@@ -53,7 +29,7 @@ describe("resolveSessionThreadOverviewStripConfig", () => {
 	test("merges overrides over defaults without mutating the default", () => {
 		const resolved = resolveSessionThreadOverviewStripConfig({ axisY: 60 });
 		expect(resolved.axisY).toBe(60);
-		expect(resolved.maxBarHeight).toBe(40);
+		expect(resolved.chartWidth).toBe(1_000);
 		expect(DEFAULT_SESSION_THREAD_OVERVIEW_STRIP_CONFIG.axisY).toBe(50);
 	});
 });
@@ -161,45 +137,5 @@ describe("timeline settings threading", () => {
 		expect(scale.breaks).toHaveLength(1);
 		// 4h idle − 2×5m margins = 3h50m removable → 7×30m = 3.5h removed.
 		expect(scale.breaks[0]?.durationMs).toBe(3.5 * 60 * 60 * 1_000);
-	});
-});
-
-describe("getSessionThreadOverviewMetricRatio scale modes", () => {
-	test("sqrt is the default and linear returns the raw proportion", () => {
-		const row = createRow({ cost: 0.25 });
-		expect(getSessionThreadOverviewMetricRatio(row, "cost", 1)).toBe(0.5);
-		expect(getSessionThreadOverviewMetricRatio(row, "cost", 1, "sqrt")).toBe(
-			0.5,
-		);
-		expect(getSessionThreadOverviewMetricRatio(row, "cost", 1, "linear")).toBe(
-			0.25,
-		);
-	});
-});
-
-describe("getSessionThreadOverviewMetricMedian", () => {
-	test("returns the middle value for odd counts, ignoring undefined", () => {
-		const rows = [
-			createRow({ cost: 1, index: 0 }),
-			createRow({ cost: undefined, index: 1 }),
-			createRow({ cost: 5, index: 2 }),
-			createRow({ cost: 3, index: 3 }),
-		];
-		expect(getSessionThreadOverviewMetricMedian(rows, "cost")).toBe(3);
-	});
-
-	test("averages the two middle values for even counts", () => {
-		const rows = [
-			createRow({ cost: 1, index: 0 }),
-			createRow({ cost: 2, index: 1 }),
-			createRow({ cost: 4, index: 2 }),
-			createRow({ cost: 10, index: 3 }),
-		];
-		expect(getSessionThreadOverviewMetricMedian(rows, "cost")).toBe(3);
-	});
-
-	test("returns undefined when no row has a defined value", () => {
-		const rows = [createRow({ index: 0 }), createRow({ index: 1 })];
-		expect(getSessionThreadOverviewMetricMedian(rows, "cost")).toBeUndefined();
 	});
 });

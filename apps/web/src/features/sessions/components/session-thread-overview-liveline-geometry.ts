@@ -1,4 +1,3 @@
-import type { SessionThreadOverviewPathPoint } from "./session-thread-overview-chart";
 import type { SessionThreadOverviewStripConfig } from "./session-thread-overview-config";
 import { resolveLivelineInputTokenLimit } from "./session-thread-overview-context-limits";
 import type {
@@ -8,8 +7,10 @@ import type {
 } from "./session-thread-overview-model";
 import { getChartX } from "./session-thread-overview-strip-utils";
 
-export type SessionOverviewLivelinePoint = SessionThreadOverviewPathPoint & {
+export type SessionOverviewLivelinePoint = {
 	value: number;
+	x: number;
+	y: number;
 };
 
 export type SessionOverviewLivelineSignal = {
@@ -142,28 +143,6 @@ export function getLivelineCallX(
 	return getInteriorCallXs(turn, config)[callIndex];
 }
 
-// Top of the input axis: the largest denominator any call is scaled by,
-// mirroring buildLivelineSignal's per-call maximum resolution. With a single
-// model this is simply its context window.
-export function getLivelineInputAxisMaximum(
-	series: SessionOverviewCallSeries,
-	headroom = 1.12,
-) {
-	const observedMaximum = getObservedInputMaximum(series, headroom);
-	let maximum = 0;
-	for (const turn of series.turns) {
-		for (const call of turn.calls) {
-			maximum = Math.max(
-				maximum,
-				call.modelContextWindow ??
-					resolveLivelineInputTokenLimit(call.model) ??
-					observedMaximum,
-			);
-		}
-	}
-	return maximum;
-}
-
 // The call whose value the drawn step path holds at chart position x: the
 // first call's value applies from the turn's start, each later call's from
 // its own step X, and the hold runs to the turn's end. Outside every turn
@@ -224,7 +203,7 @@ function getNearestLivelineCallFromTurnsAtX(
 	return nearest;
 }
 
-export function getNearestLivelineCallAtX(
+function getNearestLivelineCallAtX(
 	series: SessionOverviewCallSeries,
 	config: SessionThreadOverviewStripConfig,
 	x: number,
@@ -232,7 +211,7 @@ export function getNearestLivelineCallAtX(
 	return getNearestLivelineCallFromTurnsAtX(series.turns, config, x);
 }
 
-export function getNearestLivelineCallInTurnAtX(
+function getNearestLivelineCallInTurnAtX(
 	series: SessionOverviewCallSeries,
 	config: SessionThreadOverviewStripConfig,
 	x: number,

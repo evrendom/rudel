@@ -78,32 +78,18 @@ export function SessionThreadOverviewStrip({
 				chartHeight: 80 * SESSION_OVERVIEW_PLOT_HEIGHT_SCALE,
 				chartWidth: 615,
 				eventY: 68 * SESSION_OVERVIEW_PLOT_HEIGHT_SCALE,
-				maxBarHeight: 70 * SESSION_OVERVIEW_PLOT_HEIGHT_SCALE,
 				plotPadding: 0,
 				...config,
 			}),
 		[config],
 	);
-	const chartOptions = useMemo(
-		() =>
-			options.map((option) => ({
-				...option,
-				reasoningCount: 0,
-				subagentCount: (option.subagentEvents ?? []).reduce(
-					(total, event) => total + event.count,
-					0,
-				),
-			})),
-		[options],
-	);
 	const chart = useMemo(
 		() =>
 			buildSessionThreadOverviewChart(
-				chartOptions,
-				[],
+				options,
 				getSessionThreadOverviewTimelineSettings(baseConfig),
 			),
-		[baseConfig, chartOptions],
+		[baseConfig, options],
 	);
 	const selectedRow = chart.rows.find((row) => row.index === selectedIndex);
 	const selectedRatio = selectedRow?.xRatio;

@@ -7,36 +7,28 @@ import { SessionOverviewZoomSelectionBand } from "./session-thread-overview-zoom
 import { createSessionTurnTestOption } from "./session-turn-test-fixtures";
 
 function buildTimeRangeChart() {
-	const first = {
-		...createSessionTurnTestOption({
-			timing: {
-				durationLabel: "1 min",
-				durationSeconds: 60,
-				endTime: "12:31",
-				endTimestamp: "2026-08-18T12:31:00.000Z",
-				startTime: "12:30",
-				startTimestamp: "2026-08-18T12:30:00.000Z",
-			},
-		}),
-		reasoningCount: 0,
-		subagentCount: 0,
-	};
-	const second = {
-		...createSessionTurnTestOption({
-			key: "turn-2",
-			timing: {
-				durationLabel: "1 min",
-				durationSeconds: 60,
-				endTime: "13:45",
-				endTimestamp: "2026-08-18T13:45:00.000Z",
-				startTime: "13:44",
-				startTimestamp: "2026-08-18T13:44:00.000Z",
-			},
-			turnNumber: 2,
-		}),
-		reasoningCount: 0,
-		subagentCount: 0,
-	};
+	const first = createSessionTurnTestOption({
+		timing: {
+			durationLabel: "1 min",
+			durationSeconds: 60,
+			endTime: "12:31",
+			endTimestamp: "2026-08-18T12:31:00.000Z",
+			startTime: "12:30",
+			startTimestamp: "2026-08-18T12:30:00.000Z",
+		},
+	});
+	const second = createSessionTurnTestOption({
+		key: "turn-2",
+		timing: {
+			durationLabel: "1 min",
+			durationSeconds: 60,
+			endTime: "13:45",
+			endTimestamp: "2026-08-18T13:45:00.000Z",
+			startTime: "13:44",
+			startTimestamp: "2026-08-18T13:44:00.000Z",
+		},
+		turnNumber: 2,
+	});
 	return buildSessionThreadOverviewChart([first, second]);
 }
 
