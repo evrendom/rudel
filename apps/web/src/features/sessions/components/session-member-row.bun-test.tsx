@@ -35,12 +35,13 @@ describe("SessionMemberRow trace rail", () => {
 		expect(markup).toContain("data-trace-content-disclosure-icon");
 		expect(markup).not.toContain('data-trace-disclosure-symbol="chevron"');
 		expect(markup).toContain("data-trace-preview");
-		expect(markup).toContain('aria-label="Expand Member message"');
 		expect(markup).toContain("pl-[1.8125rem]");
 		expect(markup).not.toContain("pl-[3.25rem]");
-		expect(markup.indexOf("data-trace-content-disclosure")).toBeLessThan(
-			markup.indexOf("data-trace-preview"),
-		);
+		const disclosureIndex = markup.indexOf("data-trace-content-disclosure");
+		const disclosureEndIndex = markup.indexOf("</button>", disclosureIndex);
+		expect(markup.indexOf(">Member<")).toBeGreaterThan(disclosureIndex);
+		expect(markup.indexOf(">Member<")).toBeLessThan(disclosureEndIndex);
+		expect(disclosureIndex).toBeLessThan(markup.indexOf("data-trace-preview"));
 		expect(markup).not.toContain("data-trace-tree-motion-panel");
 		expect(markup).toContain("data-trace-tree-subtree-rails");
 		expect(markup).not.toContain('hidden=""');
