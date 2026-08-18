@@ -57,6 +57,7 @@ import {
 	type TraceFocusRequest,
 	traceInteractiveRowClassName,
 	traceRowClassName,
+	useTraceExpansionState,
 	useTraceFocus,
 } from "./expandable-trace-row";
 import { MessageContent } from "./MessageContent";
@@ -559,6 +560,7 @@ export function ConversationTraceDerivedSectionRow({
 	continuesAfter,
 	focus,
 	isFirst,
+	modelDisclosureId,
 	modelHeaderHeight,
 	modelHeaderTerminal,
 	planMode,
@@ -573,6 +575,7 @@ export function ConversationTraceDerivedSectionRow({
 	continuesAfter: boolean;
 	focus?: TraceFocusRequest;
 	isFirst: boolean;
+	modelDisclosureId?: string;
 	modelHeaderHeight?: number;
 	modelHeaderTerminal?: boolean;
 	planMode: boolean;
@@ -581,6 +584,15 @@ export function ConversationTraceDerivedSectionRow({
 	userImageUrl?: string;
 	userLabel?: string;
 }) {
+	const fallbackDisclosureId = useId();
+	const { open: collapsed, setOpen: setCollapsed } = useTraceExpansionState(
+		`${modelDisclosureId ?? fallbackDisclosureId}:model-collapsed`,
+	);
+	const modelOpen = modelDisclosureId === undefined ? undefined : !collapsed;
+	const onModelOpenChange =
+		modelDisclosureId === undefined
+			? undefined
+			: (nextOpen: boolean) => setCollapsed(!nextOpen);
 	const renderedSection = toRenderedSection({
 		agentLabel,
 		agentModel,
@@ -590,6 +602,9 @@ export function ConversationTraceDerivedSectionRow({
 		userLabel,
 	});
 	if (!isFirst) {
+		if (modelOpen === false) {
+			return null;
+		}
 		return (
 			<AgentTraceTreeContinuationSection
 				continuesAfter={continuesAfter}
@@ -609,6 +624,8 @@ export function ConversationTraceDerivedSectionRow({
 					events={[...allEvents]}
 					focus={focus}
 					headerHeight={modelHeaderHeight}
+					onOpenChange={onModelOpenChange}
+					open={modelOpen}
 					planMode={planMode}
 					sections={[renderedSection]}
 					stickyHeader={stickyModelHeader}

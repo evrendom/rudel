@@ -1036,6 +1036,7 @@ function TranscriptRowContent({
 						(model.rowIndex.get(row.id) ?? 0) < model.rows.length - 1
 					}
 					isFirst={payload.isFirst}
+					modelDisclosureId={row.turnId}
 					modelHeaderHeight={modelHeaderData?.renderHeight}
 					modelHeaderTerminal={modelHeaderData?.terminal}
 					planMode={modelHeaderData?.planMode ?? payload.planMode}

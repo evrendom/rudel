@@ -5,6 +5,8 @@ import {
 	type CSSProperties,
 	createContext,
 	type ReactNode,
+	type SetStateAction,
+	useCallback,
 	useContext,
 	useId,
 	useMemo,
@@ -1483,6 +1485,8 @@ export function AgentTraceTreeSection({
 	focus,
 	headerHeight,
 	headerTrailing,
+	onOpenChange,
+	open: controlledOpen,
 	planMode,
 	sections,
 	stickyHeader = true,
@@ -1497,12 +1501,25 @@ export function AgentTraceTreeSection({
 	focus?: TraceFocusRequest;
 	headerHeight?: number;
 	headerTrailing?: ReactNode;
+	onOpenChange?: (open: boolean) => void;
+	open?: boolean;
 	planMode: boolean;
 	sections: readonly AgentTraceTreeRenderedSection[];
 	stickyHeader?: boolean;
 	terminal?: boolean;
 }) {
-	const [open, setOpen] = useState(defaultOpen);
+	const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
+	const open = controlledOpen ?? uncontrolledOpen;
+	const setOpen = useCallback(
+		(next: SetStateAction<boolean>) => {
+			const nextOpen = typeof next === "function" ? next(open) : next;
+			if (controlledOpen === undefined) {
+				setUncontrolledOpen(nextOpen);
+			}
+			onOpenChange?.(nextOpen);
+		},
+		[controlledOpen, onOpenChange, open],
+	);
 	const panelId = useId();
 
 	useTraceFocus(anchorId, focus, setOpen);
