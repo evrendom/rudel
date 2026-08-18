@@ -2,7 +2,7 @@ import {
 	type LanguageSignalMatch,
 	scanLanguageSignals,
 } from "@rudel/language-signals";
-import { type CSSProperties, type ReactNode, useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 
 export const LANGUAGE_SIGNAL_SCAN_CACHE_CAPACITY = 500;
 
@@ -13,23 +13,7 @@ const languageSignalScanCache = new Map<
 >();
 
 const SIGNAL_MARK_CLASS_NAME =
-	"font-sans font-normal text-body-sm bg-brand-subtle text-brand-solid rounded-lg px-1 py-0.5 select-none";
-const SIGNAL_MARK_STYLE = {
-	WebkitBackgroundClip: "border-box",
-	WebkitBoxDecorationBreak: "clone",
-	WebkitTextFillColor: "color(display-p3 0.251 0.573 0.996 / 0.967)",
-	background: "color(display-p3 0.122 0.463 1 / 0.219)",
-	backgroundClip: "border-box",
-	borderRadius: "8px",
-	boxDecorationBreak: "clone",
-	color: "color(display-p3 0.251 0.573 0.996 / 0.967)",
-	display: "inline",
-	fontSize: "13px",
-	fontWeight: 400,
-	lineHeight: "20px",
-	padding: "2px 4px",
-	userSelect: "none",
-} satisfies CSSProperties;
+	"inline rounded-[8px] bg-[color(display-p3_0.122_0.463_1_/_0.219)] px-[4px] py-[2px] font-sans text-[13px] leading-[20px] font-normal text-[color(display-p3_0.251_0.573_0.996_/_0.967)] select-none [box-decoration-break:clone] [-webkit-box-decoration-break:clone]";
 
 const SEARCH_MARK_CLASS_NAME = "bg-yellow-300 text-inherit dark:bg-yellow-700";
 
@@ -131,7 +115,6 @@ function renderDecoratedText(
 					data-signal={match.category}
 					data-text="true"
 					className={SIGNAL_MARK_CLASS_NAME}
-					style={SIGNAL_MARK_STYLE}
 				>
 					{text.slice(cursor, end)}
 				</span>,

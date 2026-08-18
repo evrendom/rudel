@@ -32,21 +32,15 @@ describe("SignalText", () => {
 		const markup = renderToStaticMarkup(<SignalText text="great" />);
 
 		expect(markup).toContain('data-text="true"');
-		expect(markup).toContain("bg-brand-subtle");
-		expect(markup).toContain("text-brand-solid");
-		expect(markup).toContain("text-body-sm");
-		expect(markup).toContain("rounded-lg");
-		expect(markup).toContain("px-1");
-		expect(markup).toContain("py-0.5");
+		expect(markup).toContain("rounded-[8px]");
+		expect(markup).toContain("bg-[color(display-p3_0.122_0.463_1_/_0.219)]");
+		expect(markup).toContain("px-[4px]");
+		expect(markup).toContain("py-[2px]");
+		expect(markup).toContain("text-[13px]");
+		expect(markup).toContain("leading-[20px]");
 		expect(markup).toContain(
-			"background:color(display-p3 0.122 0.463 1 / 0.219)",
+			"text-[color(display-p3_0.251_0.573_0.996_/_0.967)]",
 		);
-		expect(markup).toContain(
-			"color:color(display-p3 0.251 0.573 0.996 / 0.967)",
-		);
-		expect(markup).toContain("background-clip:border-box");
-		expect(markup).toContain("border-radius:8px");
-		expect(markup).toContain("padding:2px 4px");
 		expect(markup).toContain("select-none");
 	});
 
