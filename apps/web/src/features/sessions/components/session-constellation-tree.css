@@ -132,6 +132,10 @@
 	display: block;
 }
 
+.session-constellation-tree-v2 [data-trace-tree-child-entry-rail] {
+	display: block;
+}
+
 .session-constellation-tree-v2
 	[data-trace-tree-item-depth]:has(
 		> [data-trace-tree-row-owner] [data-trace-row-header] [data-trace-icon]

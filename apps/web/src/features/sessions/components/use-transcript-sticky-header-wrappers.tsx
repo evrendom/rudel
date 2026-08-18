@@ -324,6 +324,7 @@ function TranscriptStickyHeaderVisual({
 	);
 	return (
 		<ConversationTraceTreeItem
+			childRailExitLength={group.header.kind === "model" ? 2 : 0}
 			continues={group.header.continues}
 			depth={1}
 			descends={group.header.kind === "model"}

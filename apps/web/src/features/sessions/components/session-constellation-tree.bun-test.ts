@@ -131,6 +131,7 @@ describe("session constellation tree tokens", () => {
 		expect(css).toContain('[data-trace-tree-marker-geometry="dot"]');
 		expect(css).toContain('[data-trace-tree-marker-geometry="icon"]');
 		expect(css).toContain("[data-trace-tree-entry-rail]");
+		expect(css).toContain("[data-trace-tree-child-entry-rail]");
 		expect(css).toContain("display: inline");
 		expect(css).not.toContain("&::after");
 		expect(stickyHeaders).toContain("<ConversationTraceTreeItem");

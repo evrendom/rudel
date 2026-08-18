@@ -570,6 +570,7 @@ function ConversationTraceTreeConnector({
 }
 
 export function ConversationTraceTreeNode({
+	childRailExitLength = 0,
 	children,
 	className,
 	connectorShape = "branch",
@@ -581,6 +582,7 @@ export function ConversationTraceTreeNode({
 	sticky: stickyOverride,
 	stickyTop: stickyTopOverride,
 }: {
+	childRailExitLength?: number;
 	children: ReactNode;
 	className?: string;
 	connectorShape?: ConversationTraceTreeConnectorShape;
@@ -641,6 +643,20 @@ export function ConversationTraceTreeNode({
 				shape={connectorShape}
 				sticky={sticky}
 			/>
+			{childRailExitLength > 0 ? (
+				<span
+					aria-hidden="true"
+					className="pointer-events-none absolute bottom-0 z-10 hidden -translate-x-1/2 bg-[color:var(--conversation-trace-connector-color,var(--session-overview-border))]"
+					data-trace-tree-child-entry-rail
+					data-trace-tree-line
+					data-trace-tree-line-depth={depth + 1}
+					style={{
+						height: `${childRailExitLength}px`,
+						left: `${descendantX}px`,
+						width: "calc(var(--conversation-trace-connector-width, 1) * 1px)",
+					}}
+				/>
+			) : null}
 			{showsDescendantRail ? (
 				<span
 					aria-hidden="true"
@@ -664,6 +680,7 @@ export function ConversationTraceTreeNode({
 }
 
 export function ConversationTraceTreeItem({
+	childRailExitLength = 0,
 	children,
 	className,
 	connectorShape = "branch",
@@ -676,6 +693,7 @@ export function ConversationTraceTreeItem({
 	sticky,
 	subtree,
 }: {
+	childRailExitLength?: number;
 	children: ReactNode;
 	className?: string;
 	connectorShape?: ConversationTraceTreeConnectorShape;
@@ -745,6 +763,7 @@ export function ConversationTraceTreeItem({
 				/>
 				<TraceTreeRowBodySlotContext.Provider value={setRowBody}>
 					<ConversationTraceTreeNode
+						childRailExitLength={childRailExitLength}
 						className={className}
 						connectorShape={connectorShape}
 						continues={continues}
@@ -1524,6 +1543,7 @@ export function AgentTraceTreeSection({
 				)}
 			>
 				<ConversationTraceTreeItem
+					childRailExitLength={open && hasContent ? 2 : 0}
 					continues={continuesAfter}
 					descends={open && hasContent}
 					depth={1}

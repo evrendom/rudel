@@ -226,6 +226,27 @@ describe("ConversationTraceTree connector styles", () => {
 		expect(markup).toContain("left:62px");
 	});
 
+	test("can complete a model header's outgoing child rail above its sticky surface", () => {
+		const markup = renderToStaticMarkup(
+			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
+				<ConversationTraceTreeItem
+					childRailExitLength={2}
+					continues
+					depth={1}
+					rowHeight={40}
+					sticky
+				>
+					<span>Model</span>
+				</ConversationTraceTreeItem>
+			</ConversationTraceTreeConnectorStyleProvider>,
+		);
+
+		expect(markup).toContain("data-trace-tree-child-entry-rail");
+		expect(markup).toContain('data-trace-tree-line-depth="2"');
+		expect(markup).toContain("height:2px");
+		expect(markup).toContain("left:39px");
+	});
+
 	test("continues a dotted rail through non-tree subtree content", () => {
 		const promptMarkup = renderToStaticMarkup(
 			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
