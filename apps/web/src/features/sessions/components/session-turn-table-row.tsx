@@ -1,9 +1,10 @@
-import type { KeyboardEvent } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
 import {
 	TraceIcon,
 	UserTraceAvatar,
 } from "@/components/conversation/conversation-trace-icons";
 import { CONVERSATION_TOOL_ICONS } from "@/components/conversation/conversation-trace-tool-icons";
+import { SignalText } from "@/components/signal-text";
 import { cn } from "@/lib/utils";
 import type { SessionTurnEpisode } from "./session-turn-episodes";
 import type { SessionTurnTableRow } from "./session-turn-table";
@@ -13,11 +14,65 @@ import {
 	SessionTurnEpisodeRow,
 } from "./session-turn-table-rows";
 
+function SessionTurnRelativeMagnitude({
+	columnLabel,
+	value,
+}: {
+	columnLabel: string;
+	value: number;
+}) {
+	const magnitude = Math.min(100, Math.max(0, value));
+	const roundedMagnitude = Math.round(magnitude);
+	const valueText = `${roundedMagnitude}% of the largest ${columnLabel.toLowerCase()} value in this ledger`;
+
+	return (
+		<div
+			aria-label={`${columnLabel} relative magnitude`}
+			aria-valuemax={100}
+			aria-valuemin={0}
+			aria-valuenow={roundedMagnitude}
+			aria-valuetext={valueText}
+			className="relative flex size-4 shrink-0 items-center justify-center"
+			role="progressbar"
+			title={valueText}
+		>
+			<svg
+				aria-hidden="true"
+				className="size-4 shrink-0 overflow-visible fill-none"
+				viewBox="0 0 16 16"
+			>
+				<circle
+					className="stroke-(--session-overview-border)"
+					cx="8"
+					cy="8"
+					r="6.25"
+					strokeWidth="2.5"
+				/>
+				{magnitude > 0 ? (
+					<circle
+						className="stroke-(--session-overview-accent)"
+						cx="8"
+						cy="8"
+						pathLength="100"
+						r="6.25"
+						strokeDasharray={`${magnitude} ${100 - magnitude}`}
+						strokeLinecap="round"
+						strokeWidth="2.5"
+						transform="rotate(-90 8 8)"
+					/>
+				) : null}
+			</svg>
+		</div>
+	);
+}
+
 export function SessionTurnTableRowView({
 	beginsTurn,
 	collapsedEpisodeKeys,
 	columns,
+	emphasized,
 	episode,
+	gridTemplate,
 	inViewport,
 	matchesLens,
 	onEpisodeToggle,
@@ -27,12 +82,15 @@ export function SessionTurnTableRowView({
 	selected,
 	userImageUrl,
 	userLabel,
+	viewed,
 	visibleIndex,
 }: {
 	beginsTurn: boolean;
 	collapsedEpisodeKeys: ReadonlySet<string> | undefined;
 	columns: readonly TurnTableColumn[];
+	emphasized: boolean;
 	episode: SessionTurnEpisode | undefined;
+	gridTemplate: string;
 	inViewport: boolean;
 	matchesLens: boolean;
 	onEpisodeToggle: ((key: string) => void) | undefined;
@@ -45,15 +103,16 @@ export function SessionTurnTableRowView({
 	selected: boolean;
 	userImageUrl: string | undefined;
 	userLabel: string;
+	viewed: boolean;
 	visibleIndex: number;
 }) {
 	const { match } = row;
+	const highlighted = emphasized || viewed;
 	return (
-		<tbody className="[&_tr:last-child]:border-0 [&_tr:has(+_tr:hover)]:border-b-transparent [&_tr:has(+_tr[data-selected])]:border-b-transparent">
+		<>
 			{episode ? (
 				<SessionTurnEpisodeRow
 					collapsed={collapsedEpisodeKeys?.has(episode.key) ?? false}
-					columnCount={columns.length + 1}
 					episode={episode}
 					onToggle={
 						onEpisodeToggle ? () => onEpisodeToggle(episode.key) : undefined
@@ -64,7 +123,6 @@ export function SessionTurnTableRowView({
 				? match.option.compactionsBefore.map((compaction) => (
 						<SessionTurnCompactionRow
 							key={compaction.key}
-							columnCount={columns.length + 1}
 							compaction={compaction}
 						/>
 					))
@@ -72,23 +130,45 @@ export function SessionTurnTableRowView({
 			<tr
 				aria-current={selected ? "true" : undefined}
 				className={cn(
-					"group relative isolate cursor-pointer select-none border-b border-b-(--session-turn-row-hover) outline-none [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md hover:border-b-transparent hover:[&>td]:bg-(--session-turn-row-hover) focus-visible:z-10 focus-visible:rounded-md focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-(--session-overview-accent) data-selected:border-b-transparent",
-					inViewport && "[&>td]:bg-(--session-overview-hover)",
+					"group relative isolate grid h-9 min-w-full cursor-pointer select-none outline-none [grid-template-columns:var(--session-turn-grid-template)] hover:bg-(--session-turn-row-hover) focus-visible:z-10 focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-(--session-overview-accent)",
+					emphasized && "bg-(--session-turn-row-emphasis-fill)",
 					matchesLens &&
 						"[box-shadow:inset_2px_0_0_var(--session-overview-accent)]",
-					selected && "[&>td]:bg-(--session-turn-row-hover)",
 				)}
 				data-visible-index={visibleIndex}
 				data-turn-index={match.index}
 				data-speaker={row.speaker}
 				data-in-viewport={inViewport ? "true" : undefined}
+				data-highlighted={highlighted ? "true" : undefined}
+				data-speaker-emphasized={emphasized ? "true" : undefined}
 				data-selected={selected ? "true" : undefined}
+				data-viewed={viewed ? "true" : undefined}
+				style={
+					{
+						"--session-turn-grid-template": gridTemplate,
+					} as CSSProperties
+				}
 				tabIndex={0}
 				onClick={onSelect}
 				onKeyDown={(event) => onKeyDown(event, visibleIndex)}
 			>
-				<td className="py-1.5 pr-1 pl-2 align-middle">
-					<div className="session-constellation-tree min-w-0">
+				<td
+					aria-label={
+						viewed ? "Visible in transcript" : "Outside transcript viewport"
+					}
+					className="flex h-full items-center justify-center p-0"
+				>
+					<div
+						aria-hidden="true"
+						className="size-full bg-transparent"
+						data-viewed-indicator
+					/>
+				</td>
+				<td
+					aria-label={row.speaker === "member" ? userLabel : "Model tools"}
+					className="flex h-full min-w-0 items-center overflow-hidden py-1.5 pr-1 pl-2"
+				>
+					<div className="session-constellation-tree min-w-0 overflow-hidden">
 						<div
 							className="flex min-w-0 items-center"
 							data-trace-tree-row-content
@@ -145,29 +225,56 @@ export function SessionTurnTableRowView({
 				{columns.map((column) => {
 					const values = column.getValues(row);
 					return (
-						<td key={column.key} className="px-1.5 py-1.5 align-middle">
-							<div className="min-w-0">
+						<td
+							key={column.key}
+							aria-label={column.label}
+							className="flex h-full min-w-0 items-center overflow-hidden px-1.5 py-1.5"
+						>
+							<div className="min-w-0 w-full overflow-hidden">
 								{values.length > 0 ? (
 									<div
 										className={cn(
-											"min-w-0 flex-1",
-											column.appearance === "tag"
-												? "flex flex-wrap gap-1"
-												: "grid gap-0.5",
+											"flex min-w-0 flex-1 items-center overflow-hidden",
+											column.appearance === "tag" ||
+												column.appearance === "signal"
+												? "flex-nowrap gap-1"
+												: "gap-1.5",
 										)}
 									>
 										{values.map((value) => (
 											<div
-												key={`${value.title ?? "value"}:${value.label}`}
+												key={
+													value.key ??
+													`${value.title ?? "value"}:${value.label}`
+												}
 												className={cn(
-													"min-w-0 max-w-full truncate text-(--session-overview-muted)",
+													column.appearance === "signal"
+														? "max-w-full shrink-0"
+														: "min-w-0 max-w-full text-(--session-overview-muted)",
+													value.relativeMagnitude === undefined &&
+														column.appearance !== "signal" &&
+														"truncate",
 													column.appearance === "tag"
 														? "rounded-full bg-(--session-overview-surface) px-1.5 py-0.5 text-xs font-medium tracking-[-0.01em]"
-														: "text-xs",
+														: "text-xs tabular-nums",
 												)}
 												title={value.title}
 											>
-												{value.label}
+												{column.appearance === "signal" ? (
+													<SignalText text={value.label} />
+												) : value.relativeMagnitude === undefined ? (
+													value.label
+												) : (
+													<div className="flex min-w-0 items-center gap-1.5">
+														<SessionTurnRelativeMagnitude
+															columnLabel={column.label}
+															value={value.relativeMagnitude}
+														/>
+														<span className="min-w-0 truncate">
+															{value.label}
+														</span>
+													</div>
+												)}
 											</div>
 										))}
 									</div>
@@ -179,6 +286,6 @@ export function SessionTurnTableRowView({
 					);
 				})}
 			</tr>
-		</tbody>
+		</>
 	);
 }

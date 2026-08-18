@@ -7,6 +7,7 @@ import {
 	DEFAULT_SESSION_THREAD_OVERVIEW_STRIP_CONFIG,
 	type SessionThreadOverviewStripConfig,
 } from "./session-thread-overview-config";
+import type { SessionOverviewLivelineCallHit } from "./session-thread-overview-liveline-geometry";
 import type { SessionTurnOption } from "./session-turn-option";
 import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
 
@@ -16,10 +17,24 @@ export type SessionOverviewMetricDefinition = {
 	title: string;
 };
 
-export type SessionOverviewHover = {
-	index: number;
-	xRatio: number;
-};
+export type SessionOverviewHover =
+	| {
+			hit: SessionOverviewLivelineCallHit;
+			index: number;
+			kind: "call";
+			xRatio: number;
+	  }
+	| {
+			activityXRatio: number;
+			index: number;
+			kind: "activity";
+			xRatio: number;
+	  }
+	| {
+			index: number;
+			kind: "timeline";
+			xRatio: number;
+	  };
 
 export type SessionOverviewEventKind = "edit" | "skill" | "subagent";
 

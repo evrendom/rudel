@@ -139,6 +139,16 @@ export function getSessionTurnMemberText(turn: SessionTurn) {
 		.join("\n");
 }
 
+export function getSessionTurnMemberCharacterCount(turn: SessionTurn) {
+	return turn.userItems.reduce(
+		(characterCount, item) =>
+			item.kind === "user"
+				? characterCount + userContentText(item.content).length
+				: characterCount,
+		0,
+	);
+}
+
 export function getSessionTurnMemberPreview(turn: SessionTurn) {
 	const memberText = getSessionTurnMemberText(turn);
 	return compactPreview(memberText, 240) || "No member message";

@@ -28,7 +28,6 @@ const baseSession: SessionAnalytics = {
 	subagent_types: [],
 	subagent_count: 2,
 	success_score: 80,
-	total_interactions: 7,
 	total_tokens: 10_000,
 	used_plan_mode: false,
 	user_id: "user-1",

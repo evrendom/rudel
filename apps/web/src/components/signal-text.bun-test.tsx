@@ -5,6 +5,7 @@ import {
 	getLanguageSignalScanCacheSize,
 	LANGUAGE_SIGNAL_SCAN_CACHE_CAPACITY,
 	SignalText,
+	SignalTextSearchQueryProvider,
 	scanLanguageSignalsCached,
 } from "./signal-text";
 
@@ -78,6 +79,21 @@ describe("SignalText", () => {
 	test("lets a search match split a signal without nesting marks", () => {
 		const markup = renderToStaticMarkup(
 			<SignalText searchQuery="rea" text="great" />,
+		);
+		const searchMark = markup.match(
+			/<mark[^>]*data-search-highlight="true"[^>]*>rea<\/mark>/u,
+		)?.[0];
+
+		expect(searchMark).toBeDefined();
+		expect(searchMark).not.toContain("data-signal");
+		expect(markup.match(/data-signal="positive"/gu)).toHaveLength(2);
+	});
+
+	test("inherits the transcript search query and keeps search visually dominant", () => {
+		const markup = renderToStaticMarkup(
+			<SignalTextSearchQueryProvider query="rea">
+				<SignalText text="great" />
+			</SignalTextSearchQueryProvider>,
 		);
 		const searchMark = markup.match(
 			/<mark[^>]*data-search-highlight="true"[^>]*>rea<\/mark>/u,

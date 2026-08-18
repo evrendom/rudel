@@ -10,14 +10,27 @@ describe("session continuous turn viewport store", () => {
 		});
 
 		expect(store.getSnapshot().visibleRange).toBeUndefined();
-		store.publishViewport(2, [2, 7]);
+		const firstViewedSelections = [
+			{ index: 2, speaker: "model" as const },
+			{ index: 3, speaker: "member" as const },
+		];
+		store.publishViewport(
+			{ index: 2, speaker: "model" },
+			[2, 7],
+			firstViewedSelections,
+		);
 		expect(store.getSnapshot()).toEqual({
 			activeSelection: { index: 2, speaker: "model" },
+			viewedSelections: firstViewedSelections,
 			visibleRange: [2, 7],
 		});
 		expect(notificationCount).toBe(1);
 
-		store.publishViewport(2, [2, 7]);
+		store.publishViewport(
+			{ index: 2, speaker: "model" },
+			[2, 7],
+			firstViewedSelections,
+		);
 		expect(notificationCount).toBe(1);
 
 		store.publishSelection({ index: 2, speaker: "member" });
@@ -27,15 +40,28 @@ describe("session continuous turn viewport store", () => {
 		});
 		expect(notificationCount).toBe(2);
 
-		store.publishViewport(3, [3, 8]);
+		const nextViewedSelections = [
+			{ index: 3, speaker: "model" as const },
+			{ index: 3, speaker: "member" as const },
+		];
+		store.publishViewport(
+			{ index: 3, speaker: "model" },
+			[3, 8],
+			nextViewedSelections,
+		);
 		expect(store.getSnapshot()).toEqual({
-			activeSelection: { index: 3, speaker: "member" },
+			activeSelection: { index: 3, speaker: "model" },
+			viewedSelections: nextViewedSelections,
 			visibleRange: [3, 8],
 		});
 		expect(notificationCount).toBe(3);
 
 		unsubscribe();
-		store.publishViewport(5, [5, 9]);
+		store.publishViewport(
+			{ index: 5, speaker: "member" },
+			[5, 9],
+			[{ index: 5, speaker: "member" }],
+		);
 		expect(notificationCount).toBe(3);
 	});
 });

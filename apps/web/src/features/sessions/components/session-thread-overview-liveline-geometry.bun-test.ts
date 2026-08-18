@@ -2,8 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { resolveSessionThreadOverviewStripConfig } from "./session-thread-overview-config";
 import {
 	getLivelineCallAtX,
+	getLivelineCallInputUtilization,
+	getLivelineCallNearX,
 	getLivelineCallX,
 	getNearestLivelineCallAtX,
+	getNearestLivelineCallInTurnAtX,
 } from "./session-thread-overview-liveline-geometry";
 import type { SessionOverviewCallSeries } from "./session-thread-overview-model";
 
@@ -65,5 +68,36 @@ describe("nearest Liveline call hover", () => {
 		expect(
 			getNearestLivelineCallAtX(series, config, justAfterMidpoint)?.call.model,
 		).toBe("second");
+	});
+
+	test("does not borrow a model call from another turn", () => {
+		expect(
+			getNearestLivelineCallInTurnAtX(series, config, 500, 9),
+		).toBeUndefined();
+		expect(
+			getNearestLivelineCallInTurnAtX(series, config, 500, 0)?.call.model,
+		).toBe("first");
+	});
+
+	test("does not attach an isolated activity circle to a distant call", () => {
+		expect(getLivelineCallNearX(series, config, 500, 0)).toBeUndefined();
+		expect(getLivelineCallNearX(series, config, 104, 0)?.call.model).toBe(
+			"first",
+		);
+	});
+
+	test("reports the same context utilization used to position a call", () => {
+		const call = series.turns[0]?.calls[0];
+		if (!call) {
+			throw new Error("Expected a model call");
+		}
+
+		expect(
+			getLivelineCallInputUtilization(series, {
+				...call,
+				inputTotal: 100,
+				modelContextWindow: 400,
+			}),
+		).toEqual({ maximum: 400, percentage: 25 });
 	});
 });

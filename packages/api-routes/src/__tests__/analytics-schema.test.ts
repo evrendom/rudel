@@ -69,6 +69,17 @@ describe("analytics input schemas", () => {
 		).toBe(false);
 	});
 
+	test("rejects deprecated interaction-count metrics", () => {
+		for (const metric of ["avg_interactions", "total_interactions"]) {
+			expect(
+				DimensionAnalysisInputSchema.safeParse({
+					dimension: "user_id",
+					metric,
+				}).success,
+			).toBe(false);
+		}
+	});
+
 	test("limit capped at 1000 on developer sessions", () => {
 		expect(
 			DeveloperSessionsInputSchema.safeParse({

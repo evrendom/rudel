@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import type { ComponentType, ReactNode } from "react";
 import type { Root } from "react-dom/client";
+import type { TranscriptStickyHeaderGroup } from "@/features/sessions/components/use-transcript-sticky-header-wrappers";
 import type { TraceEvent, TraceItem } from "./conversation-trace";
 import type { ConversationTraceDerivedSection } from "./conversation-trace-sections";
 
@@ -57,6 +58,7 @@ let TraceExpansionStoreProvider: ComponentType<{
 let createTraceExpansionStore: typeof import("./expandable-trace-row").createTraceExpansionStore;
 let deriveConversationTraceSections: typeof import("./conversation-trace-sections").deriveConversationTraceSections;
 let splitAgentSectionByEstimatedHeight: typeof import("@/features/sessions/components/session-transcript-section-budget").splitAgentSectionByEstimatedHeight;
+let TranscriptStickyHeaderWrappers: typeof import("@/features/sessions/components/use-transcript-sticky-header-wrappers").TranscriptStickyHeaderWrappers;
 
 beforeAll(async () => {
 	dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -98,6 +100,9 @@ beforeAll(async () => {
 	));
 	({ splitAgentSectionByEstimatedHeight } = await import(
 		"@/features/sessions/components/session-transcript-section-budget"
+	));
+	({ TranscriptStickyHeaderWrappers } = await import(
+		"@/features/sessions/components/use-transcript-sticky-header-wrappers"
 	));
 });
 
@@ -180,6 +185,109 @@ test("the model disclosure collapses every budget-split continuation chunk", asy
 	expect(mountPoint.textContent).toContain("first chunk");
 	expect(mountPoint.textContent).toContain("second chunk");
 	expect(mountPoint.textContent).toContain("third chunk");
+
+	await act(async () => root.unmount());
+	mountPoint.remove();
+});
+
+test("the sticky model header mirrors hover disclosure and collapsed activity", async () => {
+	const events: TraceEvent[] = [
+		{
+			id: "reasoning-0",
+			kind: "reasoning",
+			text: "reasoning content",
+			timestamp: "2026-08-18T10:00:00.000Z",
+		},
+		{
+			content: "message content",
+			id: "message-1",
+			kind: "message",
+			text: "message content",
+			timestamp: "2026-08-18T10:00:01.000Z",
+		},
+	];
+	const item: TraceItem = {
+		events,
+		executionMode: "unknown",
+		id: "agent-sticky",
+		kind: "agent",
+		timestamp: "2026-08-18T10:00:00.000Z",
+	};
+	const section = deriveConversationTraceSections({ items: [item] })
+		.sections[0];
+	assert(section?.kind === "agent");
+
+	const group: TranscriptStickyHeaderGroup = {
+		endRowIndex: 0,
+		header: {
+			agentLabel: "Claude Fable 5",
+			agentModel: "claude-fable-5",
+			continues: false,
+			events,
+			kind: "model",
+			planMode: false,
+			terminal: true,
+		},
+		headerRowIndex: 0,
+		ownerKey: "turn-sticky:model:0",
+		startRowIndex: 0,
+		turnId: "turn-sticky",
+	};
+	const mountPoint = document.createElement("div");
+	document.body.append(mountPoint);
+	let root!: Root;
+	await act(async () => {
+		root = createRoot(mountPoint);
+		root.render(
+			createElement(TraceExpansionStoreProvider, {
+				children: createElement(
+					"div",
+					null,
+					createElement(ConversationTraceDerivedSectionRow, {
+						agentLabel: "Claude Fable 5",
+						agentModel: "claude-fable-5",
+						allEvents: events,
+						continuesAfter: false,
+						isFirst: true,
+						modelDisclosureId: "turn-sticky",
+						planMode: false,
+						section,
+					}),
+					createElement(TranscriptStickyHeaderWrappers, {
+						placements: [{ extent: 400, group, start: 0 }],
+						registerWrapper: () => {},
+					}),
+				),
+				store: createTraceExpansionStore(),
+			}),
+		);
+	});
+
+	const sticky = mountPoint.querySelector<HTMLElement>(
+		"[data-transcript-sticky-header]",
+	);
+	assert(sticky);
+	const stickyTrigger = sticky.querySelector<HTMLButtonElement>("button");
+	assert(stickyTrigger);
+	expect(stickyTrigger.className).toContain("group");
+	expect(sticky.querySelector("[data-trace-collapsed-flow]")).toBeNull();
+
+	await act(async () => stickyTrigger.click());
+
+	const realTrigger = mountPoint.querySelector<HTMLButtonElement>(
+		'[data-transcript-model-header-source="row"] button',
+	);
+	assert(realTrigger);
+	expect(realTrigger.getAttribute("aria-expanded")).toBe("false");
+	const collapsedFlow = sticky.querySelector<HTMLElement>(
+		"[data-trace-collapsed-flow]",
+	);
+	assert(collapsedFlow);
+	expect(collapsedFlow.className).toContain("flex");
+	expect(collapsedFlow.className).not.toContain("flex-wrap");
+	expect(
+		sticky.querySelectorAll("[data-trace-collapsed-flow-step]"),
+	).toHaveLength(2);
 
 	await act(async () => root.unmount());
 	mountPoint.remove();

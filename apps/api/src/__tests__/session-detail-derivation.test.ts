@@ -127,6 +127,96 @@ function createCodexTranscript() {
 	].join("\n");
 }
 
+function createContextTranscript() {
+	return [
+		line({
+			message: { content: "Inspect the context", role: "user" },
+			sessionId: "session-1",
+			timestamp: "2026-08-16T08:00:00.000Z",
+			type: "user",
+			uuid: "user-context",
+		}),
+		line({
+			message: {
+				content: [
+					{
+						id: "read-1",
+						input: { file_path: "/repo/src/read.ts" },
+						name: "Read",
+						type: "tool_use",
+					},
+					{
+						id: "write-1",
+						input: { file_path: "/repo/src/created.ts" },
+						name: "Write",
+						type: "tool_use",
+					},
+					{
+						id: "edit-1",
+						input: { file_path: "/repo/src/edited.ts" },
+						name: "Edit",
+						type: "tool_use",
+					},
+					{
+						id: "bash-1",
+						input: { command: "exit 1" },
+						name: "Bash",
+						type: "tool_use",
+					},
+					{
+						id: "agent-1",
+						input: { description: "Review changes" },
+						name: "Agent",
+						type: "tool_use",
+					},
+				],
+				role: "assistant",
+			},
+			sessionId: "session-1",
+			timestamp: "2026-08-16T08:00:01.000Z",
+			type: "assistant",
+			uuid: "assistant-context",
+		}),
+		line({
+			message: {
+				content: [
+					{
+						content: "Read successfully",
+						tool_use_id: "read-1",
+						type: "tool_result",
+					},
+					{
+						content: "File written successfully",
+						tool_use_id: "write-1",
+						type: "tool_result",
+					},
+					{
+						content: "File updated successfully",
+						tool_use_id: "edit-1",
+						type: "tool_result",
+					},
+					{
+						content: "Error: command failed",
+						is_error: true,
+						tool_use_id: "bash-1",
+						type: "tool_result",
+					},
+					{
+						content: "Review complete",
+						tool_use_id: "agent-1",
+						type: "tool_result",
+					},
+				],
+				role: "user",
+			},
+			sessionId: "session-1",
+			timestamp: "2026-08-16T08:00:02.000Z",
+			type: "user",
+			uuid: "results-context",
+		}),
+	].join("\n");
+}
+
 function snapshot(
 	content: string,
 	revision = "2026-08-16T08:30:00.123Z",
@@ -152,7 +242,6 @@ function snapshot(
 		slashCommands: [],
 		source: "claude_code",
 		subagents: {},
-		totalInteractions: 112,
 		totalTokens: 1_200,
 	};
 }
@@ -162,6 +251,89 @@ function responseBytes(value: unknown) {
 }
 
 describe("session detail derivation", () => {
+	test("derives bounded file and error tags without loading turn bodies", () => {
+		const derivation = deriveSessionDetail(snapshot(createContextTranscript()));
+
+		expect(derivation.overviewBase.context).toEqual({
+			errors: [{ count: 1, label: "Bash" }],
+			files: [
+				{ operation: "read", path: "/repo/src/read.ts" },
+				{ operation: "created", path: "/repo/src/created.ts" },
+				{ operation: "edited", path: "/repo/src/edited.ts" },
+			],
+		});
+		expect(derivation.turnSummaries[0]?.fileEvents).toEqual([
+			{
+				at: "2026-08-16T08:00:01.000Z",
+				count: 1,
+				eventId: "assistant-context-0",
+				operation: "read",
+				path: "/repo/src/read.ts",
+			},
+			{
+				at: "2026-08-16T08:00:01.000Z",
+				count: 1,
+				eventId: "assistant-context-1",
+				operation: "created",
+				path: "/repo/src/created.ts",
+			},
+			{
+				at: "2026-08-16T08:00:01.000Z",
+				count: 1,
+				eventId: "assistant-context-2",
+				operation: "edited",
+				path: "/repo/src/edited.ts",
+			},
+		]);
+		expect(derivation.turnSummaries[0]?.subagentEvents).toEqual([
+			{
+				at: "2026-08-16T08:00:01.000Z",
+				count: 1,
+			},
+		]);
+	});
+
+	test("includes subagent usage in the owning turn without double-counting the session", () => {
+		const input = snapshot(createTranscript(2));
+		input.subagents = {
+			"agent-1": [
+				line({
+					message: { content: "Start subagent", role: "user" },
+					timestamp: "2026-08-16T08:00:00.500Z",
+					type: "user",
+				}),
+				line({
+					message: {
+						content: [],
+						id: "subagent-assistant-1",
+						model: "claude-fable-5",
+						usage: {
+							cache_read_input_tokens: 1_000_000,
+							input_tokens: 0,
+							output_tokens: 0,
+						},
+					},
+					timestamp: "2026-08-16T08:00:01.500Z",
+					type: "assistant",
+				}),
+			].join("\n"),
+		};
+		const baseline = deriveSessionDetail(snapshot(createTranscript(2)));
+		const derivation = deriveSessionDetail(input);
+		const baselineFirstCost = baseline.turnSummaries[0]?.estimatedCost;
+		const firstCost = derivation.turnSummaries[0]?.estimatedCost;
+		const turnCostTotal = derivation.turnSummaries.reduce(
+			(total, turn) => total + (turn.estimatedCost ?? 0),
+			0,
+		);
+
+		expect(firstCost).toBeCloseTo((baselineFirstCost ?? 0) + 1);
+		expect(derivation.overviewBase.subagents[0]?.estimatedCost).toBe(1);
+		expect(turnCostTotal).toBeCloseTo(
+			derivation.overviewBase.session.estimatedCost ?? 0,
+		);
+	});
+
 	test("keeps the measured 56-turn baseline profile under 250 KB", () => {
 		const derivation = deriveSessionDetail(snapshot(createTranscript(56, 2)));
 		const overview = getSessionDetailOverviewPage({
@@ -192,6 +364,7 @@ describe("session detail derivation", () => {
 		expect(SessionDetailOverviewSchema.parse(overview)).toEqual(overview);
 		expect(overview.session.source).toBe("codex");
 		expect(turn?.turnId).toMatch(/^codex-/u);
+		expect(turn?.userCharacterCount).toBe("Inspect the Codex session".length);
 		expect(turn?.userPreview).toBe("Inspect the Codex session");
 		expect(turn?.responsePreview).toBe("Codex session inspected");
 		expect(turn?.usageCalls[0]).toMatchObject({

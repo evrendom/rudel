@@ -63,7 +63,7 @@ export function SessionOverviewMetricButton({
 			className={cn(
 				"flex h-7 shrink-0 items-center gap-1.5 rounded-md py-1 pr-2 pl-1 outline-none hover:bg-(--session-overview-hover) focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-(--session-overview-accent)",
 				active &&
-					"bg-[color-mix(in_srgb,var(--session-overview-accent)_10%,var(--session-overview-surface))] text-(--session-overview-text)",
+					"bg-[color-mix(in_srgb,var(--session-overview-accent)_10%,var(--session-overview-chart-surface))] text-(--session-overview-text)",
 			)}
 			onClick={() => onChange(definition.metric)}
 		>

@@ -4,47 +4,37 @@ import type {
 	SessionTurnTableSpeaker,
 } from "./session-turn-table";
 import type { SessionTurnTableSortKey } from "./session-turn-table-filters";
+import {
+	formatCompactTurnDuration,
+	formatCompactTurnTokens,
+	formatTotalTurnDuration,
+	formatTurnCost,
+	getMaximumRowValue,
+	getRelativeMagnitude,
+	getRowTotal,
+} from "./session-turn-table-metrics";
 
 type TurnTableValue = {
+	key?: string;
 	label: string;
+	relativeMagnitude: number | undefined;
 	title: string | undefined;
 };
 
+type TurnTableSummary = {
+	label: string;
+	title: string;
+};
+
 export type TurnTableColumn = {
-	appearance: "plain" | "tag";
+	appearance: "plain" | "signal" | "tag";
 	getValues: (row: SessionTurnTableRow) => readonly TurnTableValue[];
 	key: string;
 	label: string;
 	sortKey: SessionTurnTableSortKey | undefined;
+	summary: TurnTableSummary | undefined;
 	widthClassName: string;
 };
-
-const turnCostFormatter = new Intl.NumberFormat("en-US", {
-	currency: "USD",
-	maximumFractionDigits: 2,
-	minimumFractionDigits: 2,
-	style: "currency",
-});
-
-function formatCompactTurnTokens(value: number) {
-	if (value < 1_000) {
-		return Math.round(value).toLocaleString();
-	}
-
-	if (value < 1_000_000) {
-		return `${(value / 1_000).toFixed(value < 10_000 ? 1 : 0)}k`;
-	}
-
-	return `${(value / 1_000_000).toFixed(value < 10_000_000 ? 1 : 0)}m`;
-}
-
-function formatCompactTurnDuration(label: string) {
-	return label
-		.replace(/\s*minutes?\b/gi, "m")
-		.replace(/\s*mins?\b/gi, "m")
-		.replace(/\s*seconds?\b/gi, "s")
-		.replace(/\s*secs?\b/gi, "s");
-}
 
 function buildIndexedColumns({
 	count,
@@ -76,6 +66,7 @@ function buildIndexedColumns({
 		key: `${key}-${index}`,
 		label: index === 0 ? label : `${label} ${index + 1}`,
 		sortKey,
+		summary: undefined,
 		widthClassName,
 	}));
 }
@@ -83,8 +74,14 @@ function buildIndexedColumns({
 export function buildSessionTurnTableColumns(
 	options: readonly SessionTurnTableOption[],
 	primarySpeaker: SessionTurnTableSpeaker,
+	rows: readonly SessionTurnTableRow[] = [],
 ): TurnTableColumn[] {
 	if (primarySpeaker === "member") {
+		const maximumCharacterCount = getMaximumRowValue(
+			rows,
+			(row) => row.characterCount,
+		);
+		const totalCharacterCount = getRowTotal(rows, (row) => row.characterCount);
 		return [
 			{
 				appearance: "plain",
@@ -94,20 +91,40 @@ export function buildSessionTurnTableColumns(
 						: [
 								{
 									label: row.characterCount.toLocaleString(),
+									relativeMagnitude: getRelativeMagnitude(
+										row.characterCount,
+										maximumCharacterCount,
+									),
 									title: `${row.characterCount.toLocaleString()} characters`,
 								},
 							],
 				key: "characters",
 				label: "Characters",
 				sortKey: undefined,
+				summary:
+					totalCharacterCount === undefined
+						? undefined
+						: {
+								label: totalCharacterCount.toLocaleString(),
+								title: `${totalCharacterCount.toLocaleString()} total characters`,
+							},
 				widthClassName: "w-28",
 			},
 			{
-				appearance: "plain",
-				getValues: () => [],
-				key: "negative-signals",
-				label: "Negative signals",
+				appearance: "signal",
+				getValues: (row) =>
+					row.speaker === "member"
+						? row.sentimentWords.map((word, index) => ({
+								key: `${row.key}:sentiment:${index}`,
+								label: word,
+								relativeMagnitude: undefined,
+								title: "Detected in user message",
+							}))
+						: [],
+				key: "sentiment-words",
+				label: "Sentiment words",
 				sortKey: undefined,
+				summary: undefined,
 				widthClassName: "w-32",
 			},
 		];
@@ -117,6 +134,56 @@ export function buildSessionTurnTableColumns(
 		0,
 		...options.map((option) => option.slashCommands.length),
 	);
+	const modelRows = rows.filter((row) => row.speaker === "model");
+	const maximums = {
+		cost: getMaximumRowValue(
+			modelRows,
+			(row) => row.match.option.metrics.estimatedCost,
+		),
+		duration: getMaximumRowValue(
+			modelRows,
+			(row) => row.match.option.timing.durationSeconds,
+		),
+		input: getMaximumRowValue(
+			modelRows,
+			(row) => row.match.option.metrics.inputTokens,
+		),
+		output: getMaximumRowValue(
+			modelRows,
+			(row) => row.match.option.metrics.outputTokens,
+		),
+	};
+	const totals = {
+		cost: getRowTotal(
+			modelRows,
+			(row) => row.match.option.metrics.estimatedCost,
+		),
+		duration: getRowTotal(
+			modelRows,
+			(row) => row.match.option.timing.durationSeconds,
+		),
+		errors: getRowTotal(
+			modelRows,
+			(row) => row.match.option.metrics.errorCount,
+		),
+		files: getRowTotal(
+			modelRows,
+			(row) => row.match.option.metrics.editedFiles.length,
+		),
+		input: getRowTotal(
+			modelRows,
+			(row) => row.match.option.metrics.inputTokens,
+		),
+		output: getRowTotal(
+			modelRows,
+			(row) => row.match.option.metrics.outputTokens,
+		),
+		skills: getRowTotal(
+			modelRows,
+			(row) => row.match.option.metrics.skills.length,
+		),
+		tools: getRowTotal(modelRows, (row) => row.match.option.toolCallCount),
+	};
 	const scalarColumns: TurnTableColumn[] = [
 		{
 			appearance: "plain",
@@ -126,6 +193,7 @@ export function buildSessionTurnTableColumns(
 					: [
 							{
 								label: row.match.option.timing.startTime || "—",
+								relativeMagnitude: undefined,
 								title: row.match.option.timing.startTime
 									? "Turn start time"
 									: "Start time unavailable",
@@ -134,6 +202,7 @@ export function buildSessionTurnTableColumns(
 			key: "time",
 			label: "Time",
 			sortKey: "time",
+			summary: undefined,
 			widthClassName: "w-18",
 		},
 		{
@@ -147,6 +216,10 @@ export function buildSessionTurnTableColumns(
 							label: formatCompactTurnDuration(
 								row.match.option.timing.durationLabel,
 							),
+							relativeMagnitude: getRelativeMagnitude(
+								row.match.option.timing.durationSeconds,
+								maximums.duration,
+							),
 							title: "Prompt to final assistant message",
 						}
 					: undefined;
@@ -155,6 +228,13 @@ export function buildSessionTurnTableColumns(
 			key: "duration",
 			label: "Duration",
 			sortKey: "duration",
+			summary:
+				totals.duration === undefined
+					? undefined
+					: {
+							label: formatTotalTurnDuration(totals.duration),
+							title: `${totals.duration.toLocaleString()} total seconds`,
+						},
 			widthClassName: "w-16",
 		},
 		{
@@ -170,6 +250,10 @@ export function buildSessionTurnTableColumns(
 										: formatCompactTurnTokens(
 												row.match.option.metrics.inputTokens,
 											),
+								relativeMagnitude: getRelativeMagnitude(
+									row.match.option.metrics.inputTokens,
+									maximums.input,
+								),
 								title:
 									row.match.option.metrics.inputTokens === undefined
 										? "Input tokens unavailable"
@@ -179,6 +263,13 @@ export function buildSessionTurnTableColumns(
 			key: "input",
 			label: "Input",
 			sortKey: "input",
+			summary:
+				totals.input === undefined
+					? undefined
+					: {
+							label: formatCompactTurnTokens(totals.input),
+							title: `${totals.input.toLocaleString()} total input tokens`,
+						},
 			widthClassName: "w-16",
 		},
 		{
@@ -194,6 +285,10 @@ export function buildSessionTurnTableColumns(
 										: formatCompactTurnTokens(
 												row.match.option.metrics.outputTokens,
 											),
+								relativeMagnitude: getRelativeMagnitude(
+									row.match.option.metrics.outputTokens,
+									maximums.output,
+								),
 								title:
 									row.match.option.metrics.outputTokens === undefined
 										? "Output tokens unavailable"
@@ -203,6 +298,13 @@ export function buildSessionTurnTableColumns(
 			key: "output",
 			label: "Output",
 			sortKey: "output",
+			summary:
+				totals.output === undefined
+					? undefined
+					: {
+							label: formatCompactTurnTokens(totals.output),
+							title: `${totals.output.toLocaleString()} total output tokens`,
+						},
 			widthClassName: "w-16",
 		},
 		{
@@ -215,9 +317,11 @@ export function buildSessionTurnTableColumns(
 								label:
 									row.match.option.metrics.estimatedCost === undefined
 										? "—"
-										: turnCostFormatter.format(
-												row.match.option.metrics.estimatedCost,
-											),
+										: formatTurnCost(row.match.option.metrics.estimatedCost),
+								relativeMagnitude: getRelativeMagnitude(
+									row.match.option.metrics.estimatedCost,
+									maximums.cost,
+								),
 								title:
 									row.match.option.metrics.estimatedCost === undefined
 										? "Estimated turn cost unavailable"
@@ -227,7 +331,14 @@ export function buildSessionTurnTableColumns(
 			key: "cost",
 			label: "Cost",
 			sortKey: "cost",
-			widthClassName: "w-16",
+			summary:
+				totals.cost === undefined
+					? undefined
+					: {
+							label: formatTurnCost(totals.cost),
+							title: "Total estimated cost",
+						},
+			widthClassName: "w-24",
 		},
 		{
 			appearance: "plain",
@@ -236,13 +347,24 @@ export function buildSessionTurnTableColumns(
 					return [];
 				}
 				return [
-					{ label: String(row.match.option.toolCallCount), title: undefined },
+					{
+						label: String(row.match.option.toolCallCount),
+						relativeMagnitude: undefined,
+						title: undefined,
+					},
 				];
 			},
 			key: "tools",
 			label: "Tools",
 			sortKey: "tools",
-			widthClassName: "w-14",
+			summary:
+				totals.tools === undefined
+					? undefined
+					: {
+							label: totals.tools.toLocaleString(),
+							title: "Total tool calls",
+						},
+			widthClassName: "w-12",
 		},
 		{
 			appearance: "plain",
@@ -256,6 +378,7 @@ export function buildSessionTurnTableColumns(
 				return [
 					{
 						label: String(row.match.option.metrics.errorCount),
+						relativeMagnitude: undefined,
 						title: undefined,
 					},
 				];
@@ -263,7 +386,14 @@ export function buildSessionTurnTableColumns(
 			key: "errors",
 			label: "Errors",
 			sortKey: "errors",
-			widthClassName: "w-14",
+			summary:
+				totals.errors === undefined
+					? undefined
+					: {
+							label: totals.errors.toLocaleString(),
+							title: "Total errors",
+						},
+			widthClassName: "w-12",
 		},
 		{
 			appearance: "plain",
@@ -273,13 +403,21 @@ export function buildSessionTurnTableColumns(
 					: [
 							{
 								label: String(row.match.option.metrics.editedFiles.length),
+								relativeMagnitude: undefined,
 								title: undefined,
 							},
 						],
 			key: "files",
 			label: "Files",
 			sortKey: "files",
-			widthClassName: "w-14",
+			summary:
+				totals.files === undefined
+					? undefined
+					: {
+							label: totals.files.toLocaleString(),
+							title: "Total edited files across turns",
+						},
+			widthClassName: "w-12",
 		},
 		{
 			appearance: "plain",
@@ -289,13 +427,21 @@ export function buildSessionTurnTableColumns(
 					: [
 							{
 								label: String(row.match.option.metrics.skills.length),
+								relativeMagnitude: undefined,
 								title: undefined,
 							},
 						],
 			key: "skills",
 			label: "Skills",
 			sortKey: "skills",
-			widthClassName: "w-14",
+			summary:
+				totals.skills === undefined
+					? undefined
+					: {
+							label: totals.skills.toLocaleString(),
+							title: "Total skills across turns",
+						},
+			widthClassName: "w-12",
 		},
 	];
 	const commandColumns = buildIndexedColumns({
@@ -305,6 +451,7 @@ export function buildSessionTurnTableColumns(
 			return command
 				? {
 						label: command.startsWith("/") ? command : `/${command}`,
+						relativeMagnitude: undefined,
 						title: "Slash command",
 					}
 				: undefined;

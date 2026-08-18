@@ -238,7 +238,6 @@ const SESSION_METADATA_COLUMNS = `
 	sa.skills AS skills,
 	sa.slash_commands AS slash_commands,
 	sa.subagent_types AS subagent_types,
-	sa.total_interactions AS total_interactions,
 	sa.actual_duration_min AS actual_duration_min,
 	sa.avg_period_sec AS avg_period_sec,
 	sa.median_period_sec AS median_period_sec,

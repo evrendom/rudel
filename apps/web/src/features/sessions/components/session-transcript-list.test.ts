@@ -22,9 +22,21 @@ function virtualItem(index: number, start: number, end: number): VirtualItem {
 describe("virtual transcript viewport", () => {
 	test("preserves the continuous-thread start and end edge semantics", () => {
 		const turnItems = [
-			{ item: virtualItem(0, 0, 300), turnIndex: 0 },
-			{ item: virtualItem(1, 300, 700), turnIndex: 1 },
-			{ item: virtualItem(2, 700, 1_000), turnIndex: 2 },
+			{
+				item: virtualItem(0, 0, 300),
+				speaker: "member" as const,
+				turnIndex: 0,
+			},
+			{
+				item: virtualItem(1, 300, 700),
+				speaker: "model" as const,
+				turnIndex: 1,
+			},
+			{
+				item: virtualItem(2, 700, 1_000),
+				speaker: "model" as const,
+				turnIndex: 2,
+			},
 		];
 		expect(
 			getTranscriptVirtualViewport({
@@ -34,7 +46,15 @@ describe("virtual transcript viewport", () => {
 				turnItems: turnItems.slice(0, 2),
 				turnTotal: 3,
 			}),
-		).toEqual({ activeTurn: 0, visibleRange: [0, 1] });
+		).toEqual({
+			activeSelection: { index: 0, speaker: "member" },
+			activeTurn: 0,
+			viewedSelections: [
+				{ index: 0, speaker: "member" },
+				{ index: 1, speaker: "model" },
+			],
+			visibleRange: [0, 1],
+		});
 		expect(
 			getTranscriptVirtualViewport({
 				clientHeight: 500,
@@ -43,7 +63,57 @@ describe("virtual transcript viewport", () => {
 				turnItems: turnItems.slice(1),
 				turnTotal: 3,
 			}),
-		).toEqual({ activeTurn: 2, visibleRange: [1, 2] });
+		).toEqual({
+			activeSelection: { index: 2, speaker: "model" },
+			activeTurn: 2,
+			viewedSelections: [
+				{ index: 1, speaker: "model" },
+				{ index: 2, speaker: "model" },
+			],
+			visibleRange: [1, 2],
+		});
+	});
+
+	test("classifies User and Model rows independently within one turn", () => {
+		const turnItems = [
+			{
+				item: virtualItem(0, 0, 220),
+				speaker: "member" as const,
+				turnIndex: 0,
+			},
+			{
+				item: virtualItem(1, 220, 620),
+				speaker: "model" as const,
+				turnIndex: 0,
+			},
+		];
+		expect(
+			getTranscriptVirtualViewport({
+				clientHeight: 400,
+				scrollHeight: 1_000,
+				scrollTop: 50,
+				turnItems,
+				turnTotal: 1,
+			}),
+		).toMatchObject({
+			activeSelection: { index: 0, speaker: "member" },
+			viewedSelections: [
+				{ index: 0, speaker: "member" },
+				{ index: 0, speaker: "model" },
+			],
+		});
+		expect(
+			getTranscriptVirtualViewport({
+				clientHeight: 400,
+				scrollHeight: 1_000,
+				scrollTop: 220,
+				turnItems,
+				turnTotal: 1,
+			}),
+		).toMatchObject({
+			activeSelection: { index: 0, speaker: "model" },
+			viewedSelections: [{ index: 0, speaker: "model" }],
+		});
 	});
 
 	test("lets a giant section spanning the focus line own the active turn", () => {
@@ -53,12 +123,25 @@ describe("virtual transcript viewport", () => {
 				scrollHeight: 2_400,
 				scrollTop: 400,
 				turnItems: [
-					{ item: virtualItem(4, 300, 1_200), turnIndex: 7 },
-					{ item: virtualItem(5, 1_200, 1_500), turnIndex: 8 },
+					{
+						item: virtualItem(4, 300, 1_200),
+						speaker: "model",
+						turnIndex: 7,
+					},
+					{
+						item: virtualItem(5, 1_200, 1_500),
+						speaker: "member",
+						turnIndex: 8,
+					},
 				],
 				turnTotal: 10,
 			}),
-		).toEqual({ activeTurn: 7, visibleRange: [7, 8] });
+		).toEqual({
+			activeSelection: { index: 7, speaker: "model" },
+			activeTurn: 7,
+			viewedSelections: [{ index: 7, speaker: "model" }],
+			visibleRange: [7, 8],
+		});
 	});
 });
 

@@ -31,6 +31,44 @@ export function getSessionOverviewZoomAnchor(
 	return selectedRatio ?? (window.xStartRatio + window.xEndRatio) / 2;
 }
 
+export function getSessionOverviewZoomSelection(
+	startRatio: number,
+	endRatio: number,
+): SessionOverviewZoomWindow {
+	const xStartRatio = clamp(Math.min(startRatio, endRatio), 0, 1);
+	const xEndRatio = clamp(Math.max(startRatio, endRatio), 0, 1);
+	return { xEndRatio, xStartRatio };
+}
+
+export function getSessionOverviewZoomWindowFromSelection(
+	selection: SessionOverviewZoomWindow,
+): SessionOverviewZoomWindow {
+	const boundedSelection = getSessionOverviewZoomSelection(
+		selection.xStartRatio,
+		selection.xEndRatio,
+	);
+	const requestedSpan =
+		boundedSelection.xEndRatio - boundedSelection.xStartRatio;
+	if (requestedSpan <= 0) {
+		return DEFAULT_SESSION_OVERVIEW_ZOOM_WINDOW;
+	}
+	if (requestedSpan >= MINIMUM_ZOOM_SPAN) {
+		return boundedSelection;
+	}
+
+	const center =
+		(boundedSelection.xStartRatio + boundedSelection.xEndRatio) / 2;
+	const xStartRatio = clamp(
+		center - MINIMUM_ZOOM_SPAN / 2,
+		0,
+		1 - MINIMUM_ZOOM_SPAN,
+	);
+	return {
+		xEndRatio: xStartRatio + MINIMUM_ZOOM_SPAN,
+		xStartRatio,
+	};
+}
+
 export function centerSessionOverviewZoomWindowAt(
 	window: SessionOverviewZoomWindow,
 	targetRatio: number,

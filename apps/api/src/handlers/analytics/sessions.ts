@@ -24,7 +24,7 @@ import {
 	throwSessionDetailWindowError,
 } from "./session-detail-errors.js";
 
-const sortByMap: Record<string, "date" | "duration" | "interactions"> = {
+const sortByMap: Record<string, "date" | "duration"> = {
 	session_date: "date",
 	duration_min: "duration",
 	total_tokens: "date",

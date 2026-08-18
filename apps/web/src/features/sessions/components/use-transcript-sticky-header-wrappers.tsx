@@ -4,7 +4,9 @@ import {
 	ConversationTraceTreeItem,
 	TraceTextDisclosureIcon,
 } from "@/components/conversation/ConversationTrace";
+import type { TraceEvent } from "@/components/conversation/conversation-trace";
 import { UserTraceAvatar } from "@/components/conversation/conversation-trace-icons";
+import { AgentCollapsedTraceIcons } from "@/components/conversation/conversation-trace-tree";
 import { useTraceExpansionState } from "@/components/conversation/expandable-trace-row";
 import {
 	ModelSectionHeader,
@@ -29,6 +31,7 @@ export type TranscriptMemberHeaderData = TranscriptStickyHeaderGeometry & {
 
 export type TranscriptModelHeaderData = ModelSectionHeaderData &
 	TranscriptStickyHeaderGeometry & {
+		events: readonly TraceEvent[] | undefined;
 		kind: "model";
 	};
 
@@ -144,6 +147,7 @@ export function deriveTranscriptStickyHeaderGroups(input: {
 						? formatModelDisplayLabel(agentModel)
 						: "Agent",
 					agentModel,
+					events: row.section.payload.allEvents.events,
 					kind: "model",
 					planMode: row.section.payload.planMode,
 					renderHeight: input.headerHeights?.model,
@@ -284,6 +288,15 @@ export function useTranscriptStickyHeaderWrappers(input: {
 			});
 			const current = placementsRef.current;
 			if (haveSamePlacementMembership(current, next)) {
+				if (
+					current.some(
+						(placement, index) => placement.group !== next[index]?.group,
+					)
+				) {
+					placementsRef.current = next;
+					setPlacements(next);
+					return;
+				}
 				for (const [index, placement] of current.entries()) {
 					const nextPlacement = next[index];
 					if (!nextPlacement) {
@@ -322,6 +335,8 @@ function TranscriptStickyHeaderVisual({
 	const { open: memberExpanded } = useTraceExpansionState(
 		`${group.turnId}:member:heading`,
 	);
+	const { open: modelCollapsed, setOpen: setModelCollapsed } =
+		useTraceExpansionState(`${group.turnId}:model-collapsed`);
 	return (
 		<ConversationTraceTreeItem
 			childRailExitLength={group.header.kind === "model" ? 2 : 0}
@@ -356,9 +371,20 @@ function TranscriptStickyHeaderVisual({
 						</div>
 					</>
 				) : (
-					<div className="flex min-h-10 min-w-0 flex-1 items-center gap-2 text-left">
-						<ModelSectionHeader data={group.header} expanded />
-					</div>
+					<button
+						className="group pointer-events-auto flex min-h-10 min-w-0 flex-1 items-center gap-2 text-left"
+						onClick={() => setModelCollapsed((collapsed) => !collapsed)}
+						tabIndex={-1}
+						type="button"
+					>
+						<ModelSectionHeader
+							collapsedContent={
+								<AgentCollapsedTraceIcons events={group.header.events ?? []} />
+							}
+							data={group.header}
+							expanded={!modelCollapsed}
+						/>
+					</button>
 				)}
 			</div>
 		</ConversationTraceTreeItem>

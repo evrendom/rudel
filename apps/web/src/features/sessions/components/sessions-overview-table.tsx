@@ -163,7 +163,7 @@ export function SessionsOverviewTable({
 			<div className="relative min-h-0 min-w-0 flex-1">
 				<div
 					ref={setTableScrollContainer}
-					className="isolate h-full min-h-0 min-w-0 touch-pan-x touch-pan-y overflow-auto overscroll-none [overflow-anchor:none] [scrollbar-color:rgba(16,17,18,0.2)_transparent] [scrollbar-gutter:stable]"
+					className="isolate h-full min-h-0 min-w-0 touch-pan-x touch-pan-y overflow-auto overscroll-none [overflow-anchor:none] [scrollbar-gutter:stable]"
 					data-slot="sessions-overview-scroll-container"
 					onScroll={() =>
 						setIsFrozenEdgeShadowVisible(

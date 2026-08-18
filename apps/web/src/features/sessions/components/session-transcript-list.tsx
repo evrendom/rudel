@@ -40,6 +40,7 @@ import type {
 	SessionTranscriptRow,
 	SessionTranscriptRowModel,
 } from "./session-transcript-sections";
+import type { SessionTurnSelection } from "./session-turn-table-selection";
 import {
 	markTranscriptMeasure,
 	publishTranscriptDebugSnapshot,
@@ -532,25 +533,6 @@ export const SessionTranscriptList = forwardRef<
 					);
 				}
 				markTranscriptMeasure("anchor", "end", debugEnabled);
-				for (let frame = 0; frame < 12; frame += 1) {
-					if (scrollOwnerEpochRef.current !== ownerEpoch) {
-						return false;
-					}
-					const target = Array.from(
-						scrollContainerRef.current?.querySelectorAll<HTMLElement>(
-							"[data-transcript-turn-id]",
-						) ?? [],
-					).find((element) => element.dataset.transcriptTurnId === turnId);
-					if (target) {
-						target.focus({ preventScroll: true });
-						if (document.activeElement === target) {
-							break;
-						}
-					}
-					await new Promise<void>((resolve) =>
-						window.requestAnimationFrame(() => resolve()),
-					);
-				}
 				return true;
 			},
 		}),
@@ -608,7 +590,15 @@ export const SessionTranscriptList = forwardRef<
 				const turnIndex = row
 					? indexedModel.rowTurnIndex.get(row.id)
 					: undefined;
-				return turnIndex === undefined ? [] : [{ item, turnIndex }];
+				return turnIndex === undefined || !row
+					? []
+					: [
+							{
+								item,
+								speaker: row.kind === "member" ? "member" : "model",
+								turnIndex,
+							} satisfies TranscriptViewportItem,
+						];
 			});
 			const visibleTurnIds = [
 				...new Set(
@@ -628,8 +618,9 @@ export const SessionTranscriptList = forwardRef<
 			if (viewport && scrollModeRef.current.kind === "free-scrolling") {
 				feederInputRef.current.onVisibleTurnIds?.(visibleTurnIds);
 				viewportStore.publishViewport(
-					viewport.activeTurn,
+					viewport.activeSelection,
 					viewport.visibleRange,
+					viewport.viewedSelections,
 				);
 			}
 			const virtualContentBottom = Math.min(
@@ -917,7 +908,6 @@ const TranscriptVirtualRow = memo(function TranscriptVirtualRow({
 			data-transcript-row-kind={row.kind}
 			data-transcript-turn-id={"turnId" in row ? row.turnId : undefined}
 			style={style}
-			tabIndex={"turnId" in row ? -1 : undefined}
 		>
 			{debugEnabled ? (
 				<span
@@ -1164,11 +1154,17 @@ function TranscriptRowDebugBadge({
 	);
 }
 
+type TranscriptViewportItem = {
+	item: VirtualItem;
+	speaker: SessionTurnSelection["speaker"];
+	turnIndex: number;
+};
+
 export function getTranscriptVirtualViewport(input: {
 	clientHeight: number;
 	scrollHeight: number;
 	scrollTop: number;
-	turnItems: readonly { item: VirtualItem; turnIndex: number }[];
+	turnItems: readonly TranscriptViewportItem[];
 	turnTotal: number;
 }) {
 	if (input.turnItems.length === 0 || input.turnTotal === 0) {
@@ -1183,26 +1179,56 @@ export function getTranscriptVirtualViewport(input: {
 			input.clientHeight * ACTIVE_TURN_FOCUS_RATIO,
 			ACTIVE_TURN_MAX_FOCUS_OFFSET_PX,
 		);
-	let activeTurn = visibleTurns[0] ?? 0;
+	let activeEntry = input.turnItems[0];
 	for (const entry of input.turnItems) {
 		if (entry.item.start <= focusLine) {
-			activeTurn = entry.turnIndex;
+			activeEntry = entry;
 		}
 		if (entry.item.start <= focusLine && entry.item.end > focusLine) {
-			activeTurn = entry.turnIndex;
+			activeEntry = entry;
 			break;
 		}
 	}
 	if (input.scrollTop <= 2) {
-		activeTurn = 0;
+		activeEntry =
+			input.turnItems.find((entry) => entry.turnIndex === 0) ?? activeEntry;
 	} else if (input.scrollHeight - input.clientHeight - input.scrollTop <= 2) {
-		activeTurn = input.turnTotal - 1;
+		for (let index = input.turnItems.length - 1; index >= 0; index -= 1) {
+			const entry = input.turnItems[index];
+			if (entry?.turnIndex === input.turnTotal - 1) {
+				activeEntry = entry;
+				break;
+			}
+		}
 	}
+	const activeSelection = {
+		index: activeEntry?.turnIndex ?? visibleTurns[0] ?? 0,
+		speaker: activeEntry?.speaker ?? "model",
+	} as const;
+	const viewedSelections = Array.from(
+		new Map(
+			input.turnItems
+				.filter(
+					(entry) =>
+						entry.item.end > input.scrollTop &&
+						entry.item.start < input.scrollTop + input.clientHeight,
+				)
+				.map((entry) => {
+					const selection = {
+						index: entry.turnIndex,
+						speaker: entry.speaker,
+					} as const;
+					return [`${selection.index}:${selection.speaker}`, selection];
+				}),
+		).values(),
+	);
 	return {
-		activeTurn,
+		activeSelection,
+		activeTurn: activeSelection.index,
+		viewedSelections,
 		visibleRange: [
-			visibleTurns[0] ?? activeTurn,
-			visibleTurns.at(-1) ?? activeTurn,
+			visibleTurns[0] ?? activeSelection.index,
+			visibleTurns.at(-1) ?? activeSelection.index,
 		] as const,
 	};
 }

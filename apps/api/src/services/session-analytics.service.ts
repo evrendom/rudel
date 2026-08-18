@@ -23,7 +23,6 @@ export interface SessionAnalyticsRaw {
 	package_name: string;
 
 	// Interaction timing metrics
-	total_interactions: number;
 	avg_period_sec: number;
 	median_period_sec: number;
 	quick_responses: number;
@@ -59,13 +58,7 @@ export interface SessionAnalyticsRaw {
 	used_plan_mode: number;
 }
 
-export interface SessionAnalyticsSummary extends SessionAnalyticsSummaryBase {
-	total_interactions: number;
-	avg_interactions_per_session: number;
-	median_response_time_sec: number;
-	quick_response_rate: number;
-	long_pause_rate: number;
-}
+export type SessionAnalyticsSummary = SessionAnalyticsSummaryBase;
 
 /**
  * Get session analytics from the materialized view
@@ -82,7 +75,7 @@ export async function getSessionAnalytics(
 		source?: string;
 		limit?: number;
 		offset?: number;
-		sort_by?: "date" | "duration" | "interactions";
+		sort_by?: "date" | "duration";
 		sort_order?: "asc" | "desc";
 	} = {},
 ): Promise<SessionAnalytics[]> {
@@ -143,11 +136,7 @@ export async function getSessionAnalytics(
 	addOptionalStringEqFilter(filters, query_params, "source", "source", source);
 
 	const sortColumn =
-		sort_by === "duration"
-			? "actual_duration_min"
-			: sort_by === "interactions"
-				? "total_interactions"
-				: "sa.session_date";
+		sort_by === "duration" ? "actual_duration_min" : "sa.session_date";
 	const sortDirection = sort_order === "asc" ? "ASC" : "DESC";
 	const usage = await getUsageAnalyticsQueryContext(orgId, {
 		sourceParam: source ? "source" : undefined,
@@ -165,7 +154,6 @@ export async function getSessionAnalytics(
       sa.organization_id AS organization_id,
       git_remote,
       package_name,
-      total_interactions,
       avg_period_sec,
       median_period_sec,
       quick_responses,
@@ -216,7 +204,6 @@ export async function getSessionAnalytics(
 			output_tokens: row.output_tokens,
 			estimated_cost: row.estimated_cost,
 			success_score: row.success_score,
-			total_interactions: row.total_interactions,
 			avg_period_sec: row.avg_period_sec,
 			subagent_types: row.subagent_types,
 			skills: row.skills,
@@ -265,13 +252,8 @@ export async function getSessionAnalyticsSummary(
     WITH totals AS (
       SELECT
         COUNT(*) as cnt_sessions,
-        SUM(total_interactions) as sum_interactions,
-        SUM(quick_responses) as sum_quick_responses,
-        SUM(long_pauses) as sum_long_pauses,
         ifNull(AVG(actual_duration_min), 0) as avg_duration,
-        ifNull(AVG(total_interactions), 0) as avg_interactions,
         ifNull(AVG(avg_period_sec), 0) as avg_response,
-        ifNull(AVG(median_period_sec), 0) as med_response,
         countIf(length(subagent_types) > 0) as cnt_subagents,
         countIf(length(skills) > 0) as cnt_skills,
         countIf(length(slash_commands) > 0) as cnt_slash
@@ -282,13 +264,8 @@ export async function getSessionAnalyticsSummary(
     )
     SELECT
       cnt_sessions as total_sessions,
-      sum_interactions as total_interactions,
       ifNull(round(avg_duration, 2), 0) as avg_session_duration_min,
-      ifNull(round(avg_interactions, 2), 0) as avg_interactions_per_session,
       ifNull(round(avg_response, 2), 0) as avg_response_time_sec,
-      ifNull(round(med_response, 2), 0) as median_response_time_sec,
-      round(sum_quick_responses * 100.0 / if(sum_interactions > 0, sum_interactions, 1), 2) as quick_response_rate,
-      round(sum_long_pauses * 100.0 / if(sum_interactions > 0, sum_interactions, 1), 2) as long_pause_rate,
       round(cnt_subagents * 100.0 / if(cnt_sessions > 0, cnt_sessions, 1), 2) as subagents_adoption_rate,
       round(cnt_skills * 100.0 / if(cnt_sessions > 0, cnt_sessions, 1), 2) as skills_adoption_rate,
       round(cnt_slash * 100.0 / if(cnt_sessions > 0, cnt_sessions, 1), 2) as slash_commands_adoption_rate
@@ -302,13 +279,8 @@ export async function getSessionAnalyticsSummary(
 
 	const defaults: SessionAnalyticsSummary = {
 		total_sessions: 0,
-		total_interactions: 0,
 		avg_session_duration_min: 0,
-		avg_interactions_per_session: 0,
 		avg_response_time_sec: 0,
-		median_response_time_sec: 0,
-		quick_response_rate: 0,
-		long_pause_rate: 0,
 		subagents_adoption_rate: 0,
 		skills_adoption_rate: 0,
 		slash_commands_adoption_rate: 0,
@@ -445,93 +417,6 @@ export async function getSessionAnalyticsSummaryComparison(
 }
 
 /**
- * Get interaction timing distribution
- */
-export async function getInteractionTimingDistribution(
-	orgId: string,
-	params: {
-		days?: number;
-		user_id?: string;
-		project_path?: string;
-	} = {},
-): Promise<Array<{ bucket: string; count: number; percentage: number }>> {
-	const { days = 30, user_id, project_path } = params;
-	const d = Number(days);
-	const query_params: Record<string, unknown> = {
-		days: d,
-		orgId,
-	};
-	const filters: string[] = [];
-	addOptionalStringEqFilter(
-		filters,
-		query_params,
-		"user_id",
-		"userId",
-		user_id,
-	);
-	addOptionalStringEqFilter(
-		filters,
-		query_params,
-		"project_path",
-		"projectPath",
-		project_path,
-	);
-	const filterSql =
-		filters.length > 0 ? `AND ${filters.join("\n        AND ")}` : "";
-	const repeatedFilterSql =
-		filters.length > 0 ? `AND ${filters.join("\n      AND ")}` : "";
-
-	const query = `
-    WITH total AS (
-      SELECT SUM(total_interactions) as total_count
-      FROM rudel.session_analytics FINAL
-      WHERE ${buildDateFilter("days")}
-        AND organization_id = {orgId:String}
-        ${filterSql}
-    )
-    SELECT
-      'Instant (< 5s)' as bucket,
-      SUM(quick_responses) as count,
-      round(SUM(quick_responses) * 100.0 / (SELECT total_count FROM total), 2) as percentage
-    FROM rudel.session_analytics FINAL
-    WHERE ${buildDateFilter("days")}
-      AND organization_id = {orgId:String}
-      ${repeatedFilterSql}
-
-    UNION ALL
-
-    SELECT
-      'Normal (5-60s)' as bucket,
-      SUM(normal_responses) as count,
-      round(SUM(normal_responses) * 100.0 / (SELECT total_count FROM total), 2) as percentage
-    FROM rudel.session_analytics FINAL
-    WHERE ${buildDateFilter("days")}
-      AND organization_id = {orgId:String}
-      ${repeatedFilterSql}
-
-    UNION ALL
-
-    SELECT
-      'Long Pause (> 5m)' as bucket,
-      SUM(long_pauses) as count,
-      round(SUM(long_pauses) * 100.0 / (SELECT total_count FROM total), 2) as percentage
-    FROM rudel.session_analytics FINAL
-    WHERE ${buildDateFilter("days")}
-      AND organization_id = {orgId:String}
-      ${repeatedFilterSql}
-
-    ORDER BY count DESC
-  `;
-
-	return queryClickhouse<{ bucket: string; count: number; percentage: number }>(
-		{
-			query,
-			query_params,
-		},
-	);
-}
-
-/**
  * Get flexible dimension analysis with optional split-by for stacked charts
  */
 
@@ -540,8 +425,6 @@ const METRIC_EXPRESSIONS: Record<DimensionAnalysisInput["metric"], string> = {
 	session_count: "COUNT(*)",
 	avg_duration: "round(AVG(actual_duration_min), 2)",
 	total_duration: "round(SUM(actual_duration_min) / 60, 2)",
-	avg_interactions: "round(AVG(total_interactions), 2)",
-	total_interactions: "SUM(total_interactions)",
 	avg_response_time: "round(AVG(avg_period_sec), 2)",
 	median_response_time: "round(AVG(median_period_sec), 2)",
 	avg_tokens: "round(AVG(total_tokens), 0)",
@@ -737,7 +620,6 @@ export async function getSessionDetail(
 	  ${estimatedCostSql} AS estimated_cost,
       sa.success_score,
       dateDiff('second', sa.session_date, sa.last_interaction_date) / 60.0 as duration_min,
-      sa.total_interactions,
       sa.model_used
 	FROM ${usage.sessionsRelation} AS sa
     WHERE sa.organization_id = {orgId:String}

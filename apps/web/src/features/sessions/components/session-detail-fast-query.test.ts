@@ -39,7 +39,6 @@ function overviewFixture() {
 			skills: ["testing-bun"],
 			slashCommands: [],
 			source: "codex",
-			totalInteractions: 56,
 			totalTokens: 1_200,
 			userId: "owner-1",
 		},

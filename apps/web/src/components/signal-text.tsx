@@ -2,7 +2,7 @@ import {
 	type LanguageSignalMatch,
 	scanLanguageSignals,
 } from "@rudel/language-signals";
-import { type ReactNode, useMemo } from "react";
+import { createContext, type ReactNode, useContext, useMemo } from "react";
 
 export const LANGUAGE_SIGNAL_SCAN_CACHE_CAPACITY = 500;
 
@@ -25,6 +25,9 @@ const SIGNAL_MARK_CATEGORY_CLASS_NAMES: Readonly<
 };
 
 const SEARCH_MARK_CLASS_NAME = "bg-yellow-300 text-inherit dark:bg-yellow-700";
+const SignalTextSearchQueryContext = createContext<string | undefined>(
+	undefined,
+);
 
 interface SignalTextProps {
 	readonly searchQuery?: string;
@@ -36,11 +39,27 @@ interface TextRange {
 	readonly end: number;
 }
 
+export function SignalTextSearchQueryProvider({
+	children,
+	query,
+}: {
+	readonly children: ReactNode;
+	readonly query: string;
+}) {
+	return (
+		<SignalTextSearchQueryContext value={query}>
+			{children}
+		</SignalTextSearchQueryContext>
+	);
+}
+
 export function SignalText({ searchQuery, text }: SignalTextProps) {
+	const inheritedSearchQuery = useContext(SignalTextSearchQueryContext);
+	const effectiveSearchQuery = searchQuery ?? inheritedSearchQuery;
 	const matches = useMemo(() => scanLanguageSignalsCached(text), [text]);
 	const searchRanges = useMemo(
-		() => findSearchHighlightRanges(text, searchQuery),
-		[searchQuery, text],
+		() => findSearchHighlightRanges(text, effectiveSearchQuery),
+		[effectiveSearchQuery, text],
 	);
 
 	if (matches.length === 0 && searchRanges.length === 0) {

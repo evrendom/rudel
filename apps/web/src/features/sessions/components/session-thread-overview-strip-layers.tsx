@@ -1,16 +1,8 @@
 // biome-ignore-all lint/nursery/noExcessiveLinesPerFile: Timeline chrome, event markers, and interaction layers share one rendering contract.
 
-import {
-	domAnimation,
-	LazyMotion,
-	type MotionValue,
-	useMotionValue,
-	useReducedMotion,
-	useSpring,
-	useTransform,
-} from "motion/react";
+import { domAnimation, LazyMotion, useReducedMotion } from "motion/react";
 import * as motion from "motion/react-m";
-import { type PointerEvent, type ReactNode, useRef } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import type {
 	SessionThreadOverviewChart,
@@ -21,7 +13,6 @@ import type {
 import type { SessionThreadOverviewStripConfig } from "./session-thread-overview-config";
 import { getLivelineInputAxisMaximum } from "./session-thread-overview-liveline-geometry";
 import type { SessionOverviewCallSeries } from "./session-thread-overview-model";
-import { transformSessionOverviewRulerScale } from "./session-thread-overview-ruler-scale";
 import { SessionOverviewMetricButton } from "./session-thread-overview-strip-parts";
 import {
 	formatCost,
@@ -33,7 +24,7 @@ import {
 	SESSION_OVERVIEW_METRICS,
 } from "./session-thread-overview-strip-utils";
 import {
-	formatTimelineFooterTick,
+	formatTimelineMoment,
 	formatTimelineTick,
 } from "./session-thread-overview-time-format";
 import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
@@ -170,7 +161,7 @@ export function SessionOverviewLivelineAxisLabels({
 }
 
 // The orange selection marker follows the transcript's observed active turn.
-// It overlays the chart and extends to the ruler baseline.
+// It overlays the chart and extends to the timeline footer baseline.
 export function SessionOverviewCallMarker({
 	config,
 	selectedXRatio,
@@ -257,7 +248,7 @@ export function SessionOverviewMaxMarker({
 	return (
 		<g>
 			<circle
-				className="fill-(--session-overview-accent) stroke-(--session-overview-surface)"
+				className="fill-(--session-overview-accent) stroke-(--session-overview-chart-surface)"
 				cx={x}
 				cy={config.axisY - barHeight}
 				r="2"
@@ -328,193 +319,47 @@ export function SessionOverviewTickLabels({
 }
 
 export function SessionOverviewTimelineFooter({
-	config,
-	rulerTicks,
+	onResetZoom,
 	ticks,
 }: {
-	config: SessionThreadOverviewStripConfig;
-	rulerTicks: readonly SessionThreadOverviewTick[];
+	onResetZoom?: () => void;
 	ticks: readonly SessionThreadOverviewTick[];
 }) {
-	const proximityLayerRef = useRef<HTMLDivElement>(null);
-	const pointerX = useMotionValue(-1_000);
-	const stripWidth = useMotionValue(0);
-	const reduceMotion = useReducedMotion() ?? false;
 	const lastTick = ticks.at(-1);
 	const firstTick = ticks[0];
-	const rangeDurationMs =
-		lastTick && firstTick ? lastTick.timestamp - firstTick.timestamp : 0;
-	const lastTickLabel = lastTick
-		? formatTimelineFooterTick(
-				lastTick.timestamp,
-				firstTick?.timestamp,
-				rangeDurationMs,
-			)
-		: undefined;
-	const majorTickRatios = ticks.map((tick) => tick.xRatio);
-	const minimumOverlapRatio = 1 / Math.max(config.chartWidth, 1);
-	const minorTicks = rulerTicks.filter(
-		(tick) =>
-			!majorTickRatios.some(
-				(xRatio) => Math.abs(xRatio - tick.xRatio) < minimumOverlapRatio,
-			),
-	);
-
-	function updateProximity(event: PointerEvent<HTMLDivElement>) {
-		const bounds = proximityLayerRef.current?.getBoundingClientRect();
-		if (!bounds || bounds.width <= 0) {
-			return;
-		}
-		stripWidth.set(bounds.width);
-		pointerX.set(event.clientX - bounds.left);
-	}
-
 	return (
-		<LazyMotion features={domAnimation}>
-			<div
-				className="flex h-10 shrink-0 flex-col gap-0.5 border-t-[0.5px] border-(--session-overview-border) px-3 pt-1.5 pb-2"
-				data-session-overview-axis-strip
-				onPointerEnter={updateProximity}
-				onPointerLeave={() => pointerX.set(-1_000)}
-				onPointerMove={updateProximity}
-			>
-				<div
-					ref={proximityLayerRef}
-					className="relative h-2 shrink-0"
-					aria-hidden="true"
-				>
-					{minorTicks.map((tick) => (
-						<SessionOverviewProximityTick
-							key={`minor-${tick.timestamp}-${tick.xRatio}`}
-							config={config}
-							kind="minor"
-							pointerX={pointerX}
-							reduceMotion={reduceMotion}
-							stripWidth={stripWidth}
-							tick={tick}
-						/>
-					))}
-					{ticks.map((tick) => (
-						<SessionOverviewProximityTick
-							key={`major-${tick.timestamp}-${tick.xRatio}`}
-							config={config}
-							kind="major"
-							pointerX={pointerX}
-							reduceMotion={reduceMotion}
-							stripWidth={stripWidth}
-							tick={tick}
-						/>
-					))}
-				</div>
-				<div className="relative min-h-4 flex-1" aria-hidden="true">
-					{ticks.slice(0, -1).map((tick) => {
-						const x = getChartX(tick.xRatio, config);
-						return (
-							<span
-								key={tick.timestamp}
-								className={cn(
-									"absolute top-0 font-sans text-[0.625rem] leading-4 font-normal whitespace-nowrap text-(--session-overview-subtle) tabular-nums",
-									tick.xRatio <= 0.02 ? "translate-x-0" : "-translate-x-1/2",
-								)}
-								style={{ left: `${(x / config.chartWidth) * 100}%` }}
-							>
-								{formatTimelineFooterTick(
-									tick.timestamp,
-									firstTick?.timestamp,
-									rangeDurationMs,
-								)}
-							</span>
-						);
-					})}
-					{lastTick && lastTickLabel ? (
-						<span
-							className="absolute top-0 -translate-x-full font-sans text-[0.625rem] leading-4 font-normal whitespace-nowrap text-(--session-overview-subtle) tabular-nums"
-							data-session-overview-axis-end
-							style={{
-								left: `${(getChartX(lastTick.xRatio, config) / config.chartWidth) * 100}%`,
-							}}
-						>
-							{lastTickLabel}
-						</span>
-					) : null}
-				</div>
+		<div
+			className="h-6 shrink-0 border-t-[0.5px] border-(--session-overview-border) px-3 py-1"
+			data-session-overview-axis-strip
+		>
+			<div className="grid h-4 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 font-sans text-[0.625rem] leading-4 font-normal text-(--session-overview-subtle) tabular-nums">
+				{firstTick ? (
+					<span className="truncate whitespace-nowrap">
+						{formatTimelineMoment(firstTick.timestamp)}
+					</span>
+				) : null}
+				{onResetZoom ? (
+					<button
+						type="button"
+						aria-label="Reset timeline zoom"
+						className="h-5 rounded px-1.5 text-[0.625rem] font-medium text-(--session-overview-text) outline-none hover:bg-(--session-overview-hover) focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-(--session-overview-accent)"
+						onClick={onResetZoom}
+					>
+						Reset zoom
+					</button>
+				) : (
+					<span />
+				)}
+				{lastTick && lastTick.timestamp !== firstTick?.timestamp ? (
+					<span
+						className="justify-self-end truncate whitespace-nowrap"
+						data-session-overview-axis-end
+					>
+						{formatTimelineMoment(lastTick.timestamp)}
+					</span>
+				) : null}
 			</div>
-		</LazyMotion>
-	);
-}
-
-function useSessionOverviewProximityScale({
-	config,
-	intensity,
-	pointerX,
-	reduceMotion,
-	stripWidth,
-	xRatio,
-}: {
-	config: SessionThreadOverviewStripConfig;
-	intensity: number;
-	pointerX: MotionValue<number>;
-	reduceMotion: boolean;
-	stripWidth: MotionValue<number>;
-	xRatio: number;
-}) {
-	const targetScale = useTransform(() => {
-		if (reduceMotion) {
-			return 1;
-		}
-		const width = stripWidth.get();
-		const cursor = pointerX.get();
-		const tickX = (getChartX(xRatio, config) / config.chartWidth) * width;
-		return transformSessionOverviewRulerScale(tickX - cursor, intensity);
-	});
-	return useSpring(targetScale, {
-		damping: 45,
-		mass: 0.35,
-		stiffness: 600,
-	});
-}
-
-function SessionOverviewProximityTick({
-	config,
-	kind,
-	pointerX,
-	reduceMotion,
-	stripWidth,
-	tick,
-}: {
-	config: SessionThreadOverviewStripConfig;
-	kind: "major" | "minor";
-	pointerX: MotionValue<number>;
-	reduceMotion: boolean;
-	stripWidth: MotionValue<number>;
-	tick: SessionThreadOverviewTick;
-}) {
-	const scaleY = useSessionOverviewProximityScale({
-		config,
-		intensity: kind === "major" ? 0.35 : 0.75,
-		pointerX,
-		reduceMotion,
-		stripWidth,
-		xRatio: tick.xRatio,
-	});
-
-	return (
-		<motion.span
-			aria-hidden="true"
-			className={cn(
-				"absolute bottom-0 w-[0.5px] -translate-x-1/2 origin-bottom",
-				kind === "major"
-					? "h-[10.6667px] bg-[color-mix(in_srgb,var(--session-overview-text)_44%,var(--session-overview-surface))]"
-					: "h-2 bg-[color-mix(in_srgb,var(--session-overview-text)_24%,var(--session-overview-surface))]",
-			)}
-			data-session-overview-ruler-tick
-			data-ruler-kind={kind}
-			data-timestamp={new Date(tick.timestamp).toISOString()}
-			style={{
-				left: `${(getChartX(tick.xRatio, config) / config.chartWidth) * 100}%`,
-				scaleY,
-			}}
-		/>
+		</div>
 	);
 }
 
@@ -538,7 +383,7 @@ export function SessionOverviewTurnHitTargets({
 	selectedIndex: number;
 }) {
 	return (
-		<div className="absolute inset-0 z-10">
+		<div className="absolute inset-0 z-10 cursor-crosshair">
 			{rows.map((row) => {
 				const option = options[row.index];
 				if (!option) {
@@ -553,7 +398,8 @@ export function SessionOverviewTurnHitTargets({
 						}
 						aria-label={`Select ${getTurnLabel(option)}`}
 						aria-pressed={row.index === selectedIndex}
-						className="absolute inset-y-0 w-5 -translate-x-1/2 rounded-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-(--session-overview-accent)"
+						className="absolute inset-y-0 w-5 -translate-x-1/2 cursor-crosshair rounded-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-(--session-overview-accent)"
+						data-session-overview-turn-hit-target
 						style={{
 							left: `${(getChartX(row.xRatio, config) / config.chartWidth) * 100}%`,
 						}}

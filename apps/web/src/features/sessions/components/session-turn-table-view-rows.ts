@@ -1,27 +1,28 @@
+import { scanLanguageSignals } from "@rudel/language-signals";
 import { getToolPresentation } from "@/components/conversation/conversation-tools";
-import { userContentText } from "@/components/conversation/conversation-trace";
 import type {
 	SessionTurnTableRow,
 	SessionTurnTableSpeaker,
 	SessionTurnTableToolCallGroup,
 } from "./session-turn-table";
 import type { SessionTurnTablePaneMatch } from "./session-turn-table-pane";
+import {
+	getSessionTurnMemberCharacterCount,
+	getSessionTurnMemberText,
+} from "./session-turns";
 
 function getMemberCharacterCount(match: SessionTurnTablePaneMatch) {
 	const turn = match.option.turn;
 	if (!turn) {
+		if (match.option.memberCharacterCount !== undefined) {
+			return match.option.memberCharacterCount;
+		}
 		return match.option.turnNumber === undefined
 			? undefined
 			: match.option.memberPreview.length;
 	}
 
-	return turn.userItems.reduce(
-		(characterCount, item) =>
-			item.kind === "user"
-				? characterCount + userContentText(item.content).length
-				: characterCount,
-		0,
-	);
+	return getSessionTurnMemberCharacterCount(turn);
 }
 
 function hasMemberMessage(match: SessionTurnTablePaneMatch) {
@@ -36,11 +37,19 @@ function hasMemberMessage(match: SessionTurnTablePaneMatch) {
 	);
 }
 
+function getMemberSentimentWords(match: SessionTurnTablePaneMatch) {
+	const memberText = match.option.turn
+		? getSessionTurnMemberText(match.option.turn)
+		: match.option.memberPreview;
+	return scanLanguageSignals(memberText).map((signal) => signal.matchedText);
+}
+
 function buildMemberRow(match: SessionTurnTablePaneMatch): SessionTurnTableRow {
 	return {
 		characterCount: getMemberCharacterCount(match),
 		key: `${match.option.key}:member`,
 		match,
+		sentimentWords: getMemberSentimentWords(match),
 		speaker: "member",
 		toolCallGroups: [],
 	};
@@ -103,6 +112,7 @@ function buildModelRow(match: SessionTurnTablePaneMatch): SessionTurnTableRow {
 		characterCount: undefined,
 		key: `${match.option.key}:model`,
 		match,
+		sentimentWords: [],
 		speaker: "model",
 		toolCallGroups: getToolCallGroups(match),
 	};
@@ -111,20 +121,48 @@ function buildModelRow(match: SessionTurnTablePaneMatch): SessionTurnTableRow {
 export function buildSessionTurnTableViewRows(
 	matches: readonly SessionTurnTablePaneMatch[],
 	visibleSpeakers: ReadonlySet<SessionTurnTableSpeaker>,
-	primarySpeaker: SessionTurnTableSpeaker,
+	_primarySpeaker: SessionTurnTableSpeaker,
 ): SessionTurnTableRow[] {
-	const orderedSpeakers: readonly SessionTurnTableSpeaker[] =
-		primarySpeaker === "model" ? ["model", "member"] : ["member", "model"];
+	return matches.flatMap((match) => {
+		const rows: SessionTurnTableRow[] = [];
+		if (visibleSpeakers.has("member") && hasMemberMessage(match)) {
+			rows.push(buildMemberRow(match));
+		}
+		if (visibleSpeakers.has("model")) {
+			rows.push(buildModelRow(match));
+		}
 
-	return matches.flatMap((match) =>
-		orderedSpeakers.flatMap((speaker) => {
-			if (!visibleSpeakers.has(speaker)) {
-				return [];
+		return rows.sort((left, right) => {
+			const leftTimestamp = getSpeakerTimestamp(match, left.speaker);
+			const rightTimestamp = getSpeakerTimestamp(match, right.speaker);
+			if (leftTimestamp !== undefined && rightTimestamp !== undefined) {
+				return leftTimestamp - rightTimestamp;
 			}
-			if (speaker === "member") {
-				return hasMemberMessage(match) ? [buildMemberRow(match)] : [];
-			}
-			return [buildModelRow(match)];
-		}),
-	);
+			return left.speaker === "member" ? -1 : 1;
+		});
+	});
+}
+
+function getSpeakerTimestamp(
+	match: SessionTurnTablePaneMatch,
+	speaker: SessionTurnTableSpeaker,
+) {
+	const turn = match.option.turn;
+	if (!turn) {
+		return undefined;
+	}
+
+	const timestamps =
+		speaker === "member"
+			? turn.userItems.map((item) => item.timestamp)
+			: turn.responseItems.map((item) => item.timestamp);
+	const milliseconds = timestamps
+		.filter((timestamp): timestamp is string => typeof timestamp === "string")
+		.map((timestamp) => Date.parse(timestamp))
+		.filter((timestamp) => !Number.isNaN(timestamp));
+	if (milliseconds.length === 0) {
+		return undefined;
+	}
+
+	return Math.min(...milliseconds);
 }

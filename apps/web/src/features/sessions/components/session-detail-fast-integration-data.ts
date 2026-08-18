@@ -33,7 +33,6 @@ export function buildSessionDetailFastIntegrationOverview() {
 			skills: ["testing-bun"],
 			slashCommands: [],
 			source: "claude_code",
-			totalInteractions: SESSION_DETAIL_INTEGRATION_TURN_COUNT,
 			totalTokens: 1_380_000,
 			userId: "integration-user",
 		},
@@ -105,6 +104,7 @@ function range(start: number, length: number) {
 }
 
 function buildTurnSummary(index: number) {
+	const userPreview = `Investigate integration behavior for turn ${index + 1}`;
 	return {
 		activityResolution: "exact" as const,
 		durationSeconds: 90,
@@ -135,7 +135,8 @@ function buildTurnSummary(index: number) {
 				outputTokens: 1_000 + index * 10,
 			},
 		],
-		userPreview: `Investigate integration behavior for turn ${index + 1}`,
+		userCharacterCount: userPreview.length,
+		userPreview,
 	};
 }
 

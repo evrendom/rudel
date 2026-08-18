@@ -19,7 +19,6 @@ import {
 } from "./session-detail-overview-model";
 import type { SessionTurnTableVirtualizerHandle } from "./session-turn-table";
 import type { SessionTurnSelection } from "./session-turn-table-selection";
-import { useSessionDetailSearchLoader } from "./use-session-detail-search-loader";
 
 const columnBottomPaddingClassName =
 	"pb-[calc(5rem+env(safe-area-inset-bottom))]";
@@ -51,6 +50,10 @@ export function SessionDetailFastContent({
 		readonly SessionDetailOverview[]
 	>([]);
 	const [pageLoad, setPageLoad] = useState<PageLoadState>({ status: "idle" });
+	const [selectedActivityAnchor, setSelectedActivityAnchor] = useState<{
+		eventId: string | undefined;
+		requestId: number;
+	}>(() => ({ eventId: undefined, requestId: 0 }));
 	const [selection, setSelection] = useState<SessionTurnSelection>(() => ({
 		index: Math.max(
 			firstOverview.turnPage.items.findIndex(
@@ -91,7 +94,10 @@ export function SessionDetailFastContent({
 				?.activityResolution === "bucketed",
 	);
 
-	function handleSelection(nextSelection: SessionTurnSelection) {
+	function handleSelection(
+		nextSelection: SessionTurnSelection,
+		activityEventId: string | undefined = undefined,
+	) {
 		if (selectedOption) {
 			void queryClient.cancelQueries({
 				exact: true,
@@ -102,6 +108,10 @@ export function SessionDetailFastContent({
 				}),
 			});
 		}
+		setSelectedActivityAnchor((current) => ({
+			eventId: activityEventId,
+			requestId: current.requestId + 1,
+		}));
 		setSelection(nextSelection);
 		const nextTurnId = options[nextSelection.index]?.turnId;
 		if (nextTurnId) {
@@ -165,17 +175,8 @@ export function SessionDetailFastContent({
 			setPageLoad({ error, status: "error" });
 		}
 	}
-	const searchLoader = useSessionDetailSearchLoader({
-		firstOverview,
-		latestPage,
-		loadPage,
-		onPagesLoaded: setAdditionalPages,
-		onStaleRevision: handleStaleRevision,
-		pages,
-	});
-
 	return (
-		<div className="grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] overflow-hidden bg-(--session-overview-surface) [--session-overview-accent:#266df0] [--session-overview-border:#eeeff1] [--session-overview-hover:#f6f7f7] [--session-overview-muted:rgba(0,0,0,0.63)] [--session-overview-subtle:rgba(0,0,0,0.5)] [--session-overview-surface:#fff] [--session-overview-text:#101112] [font-family:Inter,sans-serif] dark:[--session-overview-border:rgba(255,255,255,0.08)] dark:[--session-overview-hover:rgba(255,255,255,0.05)] dark:[--session-overview-muted:rgba(255,255,255,0.65)] dark:[--session-overview-subtle:rgba(255,255,255,0.5)] dark:[--session-overview-surface:#111827] dark:[--session-overview-text:#f8fafc]">
+		<div className="grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] overflow-hidden bg-(--session-overview-surface) [--session-overview-accent:#266df0] [--session-overview-border:#eeeff1] [--session-overview-hover:#f6f7f7] [--session-overview-muted:rgba(0,0,0,0.63)] [--session-overview-subtle:rgba(0,0,0,0.5)] [--session-overview-surface:#fcfcfc] [--session-overview-text:#101112] [font-family:Inter,sans-serif] dark:[--session-overview-border:rgba(255,255,255,0.08)] dark:[--session-overview-hover:rgba(255,255,255,0.05)] dark:[--session-overview-muted:rgba(255,255,255,0.65)] dark:[--session-overview-subtle:rgba(255,255,255,0.5)] dark:[--session-overview-surface:#111827] dark:[--session-overview-text:#f8fafc]">
 			<div className="flex min-h-0 flex-col">
 				{hasBucketedActivity ? (
 					<output className="border-b border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs text-(--session-overview-text)">
@@ -188,23 +189,25 @@ export function SessionDetailFastContent({
 					options={options}
 					responsePane={({ viewportStore }) => (
 						<SessionDetailFastResponsePane
+							anchorEventId={selectedActivityAnchor.eventId}
+							anchorEventRequestId={selectedActivityAnchor.requestId}
 							anchorTurnId={selectedTurnId}
 							bottomPaddingClassName={columnBottomPaddingClassName}
-							onCancelSearchLoad={searchLoader.cancel}
 							onApproachEnd={() => {
 								if (nextCursor) {
 									void handleLoadNextPage();
 								}
 							}}
-							onSearchFocus={searchLoader.focus}
-							onSearchHit={(index) =>
-								handleSelection({ index, speaker: "model" })
-							}
+							onSelectTurn={({ eventId, turnIndex }) => {
+								handleSelection(
+									{ index: turnIndex, speaker: "model" },
+									eventId,
+								);
+							}}
 							onStaleRevision={handleStaleRevision}
 							options={options}
 							responseScrollRef={responseScrollRef}
 							revision={firstOverview.revision}
-							searchLoad={searchLoader.loadState}
 							selection={selection}
 							sessionId={firstOverview.session.sessionId}
 							subagents={firstOverview.subagents}

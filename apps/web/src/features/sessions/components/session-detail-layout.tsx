@@ -14,6 +14,7 @@ import {
 	useStoredPaneSize,
 } from "@/components/ui/horizontal-resize-handle";
 import { clampPaneSize } from "@/components/ui/horizontal-resize-utils";
+import { formatRoundedDuration } from "@/lib/format";
 import {
 	createSessionContinuousTurnViewportStore,
 	type SessionContinuousTurnViewportStore,
@@ -21,7 +22,6 @@ import {
 	useSessionContinuousTurnVisibleRange,
 } from "./session-continuous-turn-viewport-store";
 import type { buildSessionDetailViewModel } from "./session-detail-view-model";
-import { SessionOverviewSummaryStrip } from "./session-overview-summary-strip";
 import { SessionThreadOverviewStrip } from "./session-thread-overview-strip";
 import type { SessionTurnTableVirtualizerHandle } from "./session-turn-table";
 import {
@@ -139,7 +139,6 @@ export function SessionDetailLayout({
 
 	return (
 		<div className="flex h-full min-h-0 min-w-0 flex-col">
-			<SessionOverviewSummaryStrip options={options} viewModel={viewModel} />
 			<SessionThreadOverviewViewportStrip
 				onSelect={handleSelection}
 				options={options}
@@ -154,13 +153,16 @@ export function SessionDetailLayout({
 				<section
 					ref={turnTableSectionRef}
 					aria-label="Turn table"
-					className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-(--session-overview-surface)"
+					className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-(--session-turn-table-surface) [--session-overview-surface:#fff] [--session-turn-row-emphasis-fill:#fefeff] [--session-turn-table-surface:#fcfcfc] dark:[--session-overview-surface:#111827] dark:[--session-turn-row-emphasis-fill:var(--session-overview-hover)] dark:[--session-turn-table-surface:var(--session-overview-surface)]"
 				>
 					<SessionTurnTablePane
 						model={viewModel.safeModelUsed}
 						onSelect={handleSelection}
 						options={options}
 						selection={selection}
+						sessionDurationLabel={formatRoundedDuration(
+							viewModel.safeDurationMin,
+						)}
 						userImageUrl={userImageUrl}
 						userLabel={viewModel.safeUserDisplayName}
 						viewportStore={continuousTurnViewportStore}

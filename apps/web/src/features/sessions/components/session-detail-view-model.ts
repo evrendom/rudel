@@ -69,7 +69,6 @@ type SessionDetailViewModelSource = Partial<
 		| "source"
 		| "subagents"
 		| "success_score"
-		| "total_interactions"
 		| "total_tokens"
 		| "user_id",
 		unknown
@@ -234,10 +233,6 @@ export function buildSessionDetailViewModel(
 		session.duration_min === undefined
 			? undefined
 			: toNumber(session.duration_min);
-	const safeTotalInteractions =
-		session.total_interactions === undefined
-			? undefined
-			: toNumber(session.total_interactions);
 	const safeSkills = toStringArray(session.skills);
 	const safeSlashCommands = toStringArray(session.slash_commands);
 	const safeSubagents = toSubagentMap(session.subagents);
@@ -286,7 +281,6 @@ export function buildSessionDetailViewModel(
 		safeSubagents,
 		safeSuccessScore,
 		safeTotalTokens,
-		safeTotalInteractions,
 		safeUserDisplayName,
 		safeUserId,
 		subagentNames,

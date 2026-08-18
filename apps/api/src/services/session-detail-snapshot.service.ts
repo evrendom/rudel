@@ -35,7 +35,6 @@ type SnapshotRow = {
 	slash_commands: string[];
 	source: Source;
 	subagents: Record<string, string>;
-	total_interactions: number;
 	total_tokens: number;
 	user_id: string;
 };
@@ -130,7 +129,6 @@ export function buildSessionDetailRawSnapshotSql() {
           input_tokens,
           output_tokens,
           total_tokens,
-          total_interactions,
           actual_duration_min,
           model_used,
           skills,
@@ -162,11 +160,10 @@ export function buildSessionDetailRawSnapshotSql() {
     tupleElement(analytics.snapshot, 2) AS input_tokens,
     tupleElement(analytics.snapshot, 3) AS output_tokens,
     tupleElement(analytics.snapshot, 4) AS total_tokens,
-    tupleElement(analytics.snapshot, 5) AS total_interactions,
-    tupleElement(analytics.snapshot, 6) AS duration_minutes,
-    tupleElement(analytics.snapshot, 7) AS model_used,
-    tupleElement(analytics.snapshot, 8) AS skills,
-    tupleElement(analytics.snapshot, 9) AS slash_commands
+    tupleElement(analytics.snapshot, 5) AS duration_minutes,
+    tupleElement(analytics.snapshot, 6) AS model_used,
+    tupleElement(analytics.snapshot, 7) AS skills,
+    tupleElement(analytics.snapshot, 8) AS slash_commands
   FROM latest_raw AS raw
   LEFT ANY JOIN latest_analytics AS analytics
     ON tupleElement(analytics.snapshot, 1) = tupleElement(raw.snapshot, 7)`;
@@ -237,7 +234,6 @@ export async function getSessionDetailRawSnapshot(
 		slashCommands: row.slash_commands,
 		source: row.source,
 		subagents: row.subagents,
-		totalInteractions: Number(row.total_interactions),
 		totalTokens: Number(row.total_tokens),
 	};
 }

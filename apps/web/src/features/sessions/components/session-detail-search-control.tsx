@@ -17,20 +17,23 @@ export function SessionDetailSearchControl({
 	loadState,
 	onCancel,
 	onFocus,
+	onQueryChange,
 	onSelectResult,
 	options,
+	query,
 }: {
 	index: SessionDetailSearchIndex;
 	loadState: SessionDetailSearchLoadState;
 	onCancel: () => void;
 	onFocus: () => void;
+	onQueryChange: (query: string) => void;
 	onSelectResult: (index: number) => void;
 	options: readonly SessionDetailOverviewTurnOption[];
+	query: string;
 }) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [focused, setFocused] = useState(false);
-	const [query, setQuery] = useState("");
 	const deferredQuery = useDeferredValue(query);
 	const results = useMemo(
 		() => searchSessionDetailTurns({ index, options, query: deferredQuery }),
@@ -53,14 +56,14 @@ export function SessionDetailSearchControl({
 	return (
 		<div
 			ref={containerRef}
-			className="relative ml-auto flex min-w-0 items-center gap-2"
+			className="relative ml-auto flex min-w-0 flex-1 items-center justify-end gap-2"
 			onBlurCapture={(event) => {
 				if (!containerRef.current?.contains(event.relatedTarget)) {
 					setFocused(false);
 				}
 			}}
 		>
-			<div className="relative w-52 min-w-0 sm:w-64">
+			<div className="relative min-w-24 flex-1 sm:max-w-64">
 				<SearchIcon
 					aria-hidden="true"
 					className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-(--session-overview-subtle)"
@@ -72,7 +75,7 @@ export function SessionDetailSearchControl({
 					placeholder="Search transcript"
 					type="search"
 					value={query}
-					onChange={(event) => setQuery(event.currentTarget.value)}
+					onChange={(event) => onQueryChange(event.currentTarget.value)}
 					onFocus={() => {
 						setFocused(true);
 						onFocus();
@@ -81,7 +84,7 @@ export function SessionDetailSearchControl({
 			</div>
 			<SearchLoadProgress loadState={loadState} onCancel={onCancel} />
 			{focused && normalizedQuery ? (
-				<div className="absolute top-[calc(100%+0.375rem)] right-0 z-40 max-h-80 w-[min(28rem,calc(100vw-2rem))] overflow-y-auto rounded-md border border-(--session-overview-border) bg-(--session-overview-surface) p-1 shadow-lg">
+				<div className="absolute top-[calc(100%+0.375rem)] right-0 z-40 max-h-80 w-[min(28rem,calc(100vw-2rem),calc(var(--session-turn-table-pane-width)-1.5rem))] overflow-y-auto rounded-md border border-(--session-overview-border) bg-(--session-overview-surface) p-1 shadow-lg">
 					{results.length === 0 ? (
 						<p className="px-3 py-4 text-center text-xs text-(--session-overview-muted)">
 							{loadState.status === "loading"

@@ -140,6 +140,13 @@ describe("session detail payload contracts", () => {
 
 	test("validates a bounded overview without transcript bodies", () => {
 		const overview = {
+			context: {
+				errors: [{ count: 1, label: "Bash" }],
+				files: [
+					{ operation: "read", path: "src/a.ts" },
+					{ operation: "edited", path: "src/b.ts" },
+				],
+			},
 			revision: "2026-08-16T08:30:00.123Z",
 			session: {
 				durationMinutes: 1,
@@ -157,7 +164,6 @@ describe("session detail payload contracts", () => {
 				skills: ["testing-bun"],
 				slashCommands: [],
 				source: "claude_code",
-				totalInteractions: 1,
 				totalTokens: 150,
 				userId: "user-1",
 			},
@@ -199,6 +205,7 @@ describe("session detail payload contracts", () => {
 								outputTokens: 30,
 							},
 						],
+						userCharacterCount: 16,
 						userPreview: "Please change it",
 					},
 				],
@@ -208,8 +215,17 @@ describe("session detail payload contracts", () => {
 		};
 
 		const parsedOverview = SessionDetailOverviewSchema.parse(overview);
+		expect(parsedOverview.context.errors[0]?.label).toBe("Bash");
+		expect(parsedOverview.context.files[0]?.operation).toBe("read");
 		expect(parsedOverview.revision).toBe(overview.revision);
+		expect(parsedOverview.turnPage.items[0]?.userCharacterCount).toBe(16);
 		expect(parsedOverview.turnPage.items[0]?.usageCalls).toHaveLength(1);
+		expect(
+			SessionDetailOverviewSchema.safeParse({
+				...overview,
+				session: { ...overview.session, totalInteractions: 1 },
+			}).success,
+		).toBe(false);
 		expect(
 			SessionDetailOverviewSchema.safeParse({
 				...overview,

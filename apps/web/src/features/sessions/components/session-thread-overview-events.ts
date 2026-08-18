@@ -1,14 +1,33 @@
+import type { SessionDetailTurnSummary } from "@rudel/api-routes";
 import type { SessionThreadOverviewChart } from "./session-thread-overview-chart";
 import type { SessionTurnTableOption } from "./session-turn-table";
+
+export type SessionThreadOverviewTimelineEventKind =
+	| "error"
+	| "file-edit"
+	| "file-read"
+	| "file-write"
+	| "skill"
+	| "subagent";
 
 export type SessionThreadOverviewTimelineEvent = {
 	count: number;
 	key: string;
-	kind: "error" | "skill";
+	kind: SessionThreadOverviewTimelineEventKind;
 	label: string;
 	timestamp: number | undefined;
+	turnIndex?: number;
 	xRatio: number;
 };
+
+interface SessionThreadOverviewTimelineOption extends SessionTurnTableOption {
+	fileEvents?: ReadonlyArray<
+		NonNullable<SessionDetailTurnSummary["fileEvents"]>[number]
+	>;
+	subagentEvents?: ReadonlyArray<
+		NonNullable<SessionDetailTurnSummary["subagentEvents"]>[number]
+	>;
+}
 
 function parseEventTimestamp(timestamp: string | undefined) {
 	if (!timestamp) {
@@ -31,7 +50,7 @@ function getEventXRatio(
 
 export function buildSessionThreadOverviewTimelineEvents(
 	chart: SessionThreadOverviewChart,
-	options: readonly SessionTurnTableOption[],
+	options: readonly SessionThreadOverviewTimelineOption[],
 ): readonly SessionThreadOverviewTimelineEvent[] {
 	return options.flatMap((option, turnIndex) => {
 		const row = chart.rows[turnIndex];
@@ -52,6 +71,7 @@ export function buildSessionThreadOverviewTimelineEvents(
 							kind: "error" as const,
 							label: "Error",
 							timestamp,
+							turnIndex,
 							xRatio: getEventXRatio(chart, timestamp, row.xRatio),
 						};
 					})
@@ -63,6 +83,7 @@ export function buildSessionThreadOverviewTimelineEvents(
 								kind: "error" as const,
 								label: `${option.metrics.errorCount.toLocaleString()} ${option.metrics.errorCount === 1 ? "error" : "errors"}`,
 								timestamp: fallbackTimestamp,
+								turnIndex,
 								xRatio: getEventXRatio(chart, fallbackTimestamp, row.xRatio),
 							},
 						]
@@ -77,6 +98,7 @@ export function buildSessionThreadOverviewTimelineEvents(
 							kind: "skill" as const,
 							label: `Skill: ${event.skill}`,
 							timestamp,
+							turnIndex,
 							xRatio: getEventXRatio(chart, timestamp, row.xRatio),
 						};
 					})
@@ -86,9 +108,48 @@ export function buildSessionThreadOverviewTimelineEvents(
 						kind: "skill" as const,
 						label: `Skill: ${skill}`,
 						timestamp: fallbackTimestamp,
+						turnIndex,
 						xRatio: getEventXRatio(chart, fallbackTimestamp, row.xRatio),
 					}));
+		const fileEvents = (option.fileEvents ?? []).map((event, eventIndex) => {
+			const timestamp = parseEventTimestamp(event.at);
+			const label =
+				event.operation === "read"
+					? "File read"
+					: event.operation === "created"
+						? "File write"
+						: "File edit";
+			const kind =
+				event.operation === "read"
+					? ("file-read" as const)
+					: event.operation === "created"
+						? ("file-write" as const)
+						: ("file-edit" as const);
+			return {
+				count: event.count,
+				key: `${option.key}-${kind}-${eventIndex}`,
+				kind,
+				label,
+				timestamp,
+				turnIndex,
+				xRatio: getEventXRatio(chart, timestamp, row.xRatio),
+			};
+		});
+		const subagentEvents = (option.subagentEvents ?? []).map(
+			(event, eventIndex) => {
+				const timestamp = parseEventTimestamp(event.at);
+				return {
+					count: event.count,
+					key: `${option.key}-subagent-${eventIndex}`,
+					kind: "subagent" as const,
+					label: "Subagent",
+					timestamp,
+					turnIndex,
+					xRatio: getEventXRatio(chart, timestamp, row.xRatio),
+				};
+			},
+		);
 
-		return [...errorEvents, ...skillEvents];
+		return [...errorEvents, ...skillEvents, ...fileEvents, ...subagentEvents];
 	});
 }

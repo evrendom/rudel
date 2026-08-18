@@ -31,7 +31,12 @@ export function SiteHeader({
 	return (
 		<DashboardHeader
 			showDivider={!isSessionDetail}
-			className={cn("gap-2", isSessionDetail ? "px-2" : "px-3 sm:px-4 lg:px-6")}
+			className={cn(
+				"gap-2",
+				isSessionDetail
+					? "px-3 [--dashboard-header-inset:4px]"
+					: "px-3 sm:px-4 lg:px-6",
+			)}
 		>
 			{showSidebarTrigger ? (
 				<>

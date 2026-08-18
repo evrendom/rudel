@@ -6,6 +6,7 @@ const revision = "2026-08-16T08:30:00.123Z";
 
 function overview(nextCursor: string | null): SessionDetailOverview {
 	return {
+		context: { errors: [], files: [] },
 		revision,
 		session: {
 			durationMinutes: null,
@@ -23,7 +24,6 @@ function overview(nextCursor: string | null): SessionDetailOverview {
 			skills: [],
 			slashCommands: [],
 			source: "claude_code",
-			totalInteractions: null,
 			totalTokens: 0,
 			userId: "owner-1",
 		},

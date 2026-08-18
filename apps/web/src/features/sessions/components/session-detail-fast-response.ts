@@ -286,11 +286,6 @@ function normalizeOverviewSession(
 			[],
 		),
 		source: optionalField(overviewSessionShape.source, raw.source, null),
-		totalInteractions: optionalField(
-			overviewSessionShape.totalInteractions,
-			raw.totalInteractions,
-			null,
-		),
 		totalTokens: optionalField(
 			overviewSessionShape.totalTokens,
 			raw.totalTokens,
@@ -351,6 +346,7 @@ function normalizeOverviewTurn(raw: Record<string, unknown>) {
 			raw.errorEvents,
 			[],
 		),
+		fileEvents: optionalField(overviewTurnShape.fileEvents, raw.fileEvents, []),
 		estimatedCost: optionalField(
 			overviewTurnShape.estimatedCost,
 			raw.estimatedCost,
@@ -385,6 +381,11 @@ function normalizeOverviewTurn(raw: Record<string, unknown>) {
 			[],
 		),
 		startedAt: optionalField(overviewTurnShape.startedAt, raw.startedAt, null),
+		subagentEvents: optionalField(
+			overviewTurnShape.subagentEvents,
+			raw.subagentEvents,
+			[],
+		),
 		toolCallCount: optionalField(
 			overviewTurnShape.toolCallCount,
 			raw.toolCallCount,
@@ -392,6 +393,11 @@ function normalizeOverviewTurn(raw: Record<string, unknown>) {
 		),
 		turnId: turnIdResult.data,
 		usageCalls: optionalField(overviewTurnShape.usageCalls, raw.usageCalls, []),
+		userCharacterCount: optionalField(
+			overviewTurnShape.userCharacterCount,
+			raw.userCharacterCount,
+			undefined,
+		),
 		userPreview: optionalField(
 			overviewTurnShape.userPreview,
 			raw.userPreview,

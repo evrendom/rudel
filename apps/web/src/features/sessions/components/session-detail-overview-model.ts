@@ -43,7 +43,6 @@ export function buildSessionDetailOverviewViewModel(
 			slash_commands: session.slashCommands,
 			source: session.source ?? undefined,
 			subagents: {},
-			total_interactions: session.totalInteractions ?? undefined,
 			total_tokens: session.totalTokens,
 			user_id: session.userId,
 		},
@@ -101,8 +100,10 @@ function buildTurnOption(
 	const memberText = item.userPreview ?? "";
 	return {
 		compactionsBefore: [],
+		fileEvents: item.fileEvents ?? [],
 		hasBody: item.hasBody,
 		key: item.turnId,
+		memberCharacterCount: item.userCharacterCount,
 		memberPreview: memberText || "No member message",
 		memberText,
 		metrics: {
@@ -126,6 +127,7 @@ function buildTurnOption(
 		},
 		preview: item.responsePreview ?? "No assistant message",
 		slashCommands: item.slashCommands,
+		subagentEvents: item.subagentEvents ?? [],
 		timing: {
 			durationLabel: formatTurnDuration(item.durationSeconds),
 			durationSeconds: item.durationSeconds ?? undefined,

@@ -1,9 +1,9 @@
 import {
 	buildConversationTrace,
 	extractSessionCompactionMetadata,
-	extractSessionTurnMetrics,
-	extractTranscriptUsageMetrics,
+	extractSessionTurnMetricBreakdown,
 	getSessionTurnId,
+	getSessionTurnMemberCharacterCount,
 	getSessionTurnMemberText,
 	getSessionTurnPreview,
 	getSessionTurnTiming,
@@ -12,6 +12,8 @@ import {
 	parseSlashCommand,
 	resolveRepoIdentity,
 	SESSION_DETAIL_ACTIVITY_POINT_LIMIT,
+	SESSION_DETAIL_CONTEXT_ERROR_LIMIT,
+	SESSION_DETAIL_CONTEXT_FILE_LIMIT,
 	SESSION_DETAIL_PREVIEW_CODE_POINT_LIMIT,
 	SESSION_DETAIL_WINDOW_INITIAL_TURNS,
 	SESSION_DETAIL_WINDOW_MAX_RAW_BYTES,
@@ -60,11 +62,14 @@ export interface SessionDetailRawSnapshot {
 	slashCommands: string[];
 	source: Source;
 	subagents: Record<string, string>;
-	totalInteractions: number | null;
 	totalTokens: number;
 }
 
 type TurnSummary = SessionDetailOverview["turnPage"]["items"][number];
+type TurnFileEvent = NonNullable<TurnSummary["fileEvents"]>[number];
+type TurnSubagentEvent = NonNullable<TurnSummary["subagentEvents"]>[number];
+type SessionDetailContext = SessionDetailOverview["context"];
+type SessionDetailContextFile = SessionDetailContext["files"][number];
 
 export interface SessionDetailDerivation {
 	byteSize: number;
@@ -224,7 +229,124 @@ export function bucketSessionDetailUsageCalls(
 	});
 }
 
-function createActivitySummary(metrics: SessionTurnMetrics, limit: number) {
+function isSubagentLaunchTool(toolName: string) {
+	const normalizedName = toolName.split(/\.|__/u).at(-1)?.toLowerCase();
+	return (
+		normalizedName === "agent" ||
+		normalizedName === "task" ||
+		normalizedName === "spawn_agent"
+	);
+}
+
+function collectTurnActivityEvents(turn: SessionTurn) {
+	const fileEvents: TurnFileEvent[] = [];
+	const fileEventKeys = new Set<string>();
+	const subagentEvents: TurnSubagentEvent[] = [];
+
+	for (const item of turn.responseItems) {
+		if (item.kind !== "agent") {
+			continue;
+		}
+		for (const event of item.events) {
+			if (event.kind !== "tool" || event.result?.isError === true) {
+				continue;
+			}
+
+			for (const file of getToolFileActivities(event.toolName, event.input)) {
+				const eventKey = `${event.id}\0${file.operation}\0${file.path}`;
+				if (fileEventKeys.has(eventKey)) {
+					continue;
+				}
+				fileEventKeys.add(eventKey);
+				fileEvents.push({
+					at: event.timestamp,
+					count: 1,
+					eventId: event.id,
+					operation: file.operation,
+					path: file.path,
+				});
+			}
+
+			if (isSubagentLaunchTool(event.toolName)) {
+				subagentEvents.push({
+					at: event.timestamp,
+					count: 1,
+				});
+			}
+		}
+	}
+
+	return { fileEvents, subagentEvents };
+}
+
+function bucketSessionDetailFileEvents(
+	fileEvents: readonly TurnFileEvent[],
+	limit: number,
+): TurnFileEvent[] {
+	if (fileEvents.length <= limit) {
+		return [...fileEvents];
+	}
+	if (limit <= 0) {
+		return [];
+	}
+
+	const groupedEvents = new Map<TurnFileEvent["operation"], TurnFileEvent[]>();
+	for (const event of fileEvents) {
+		const group = groupedEvents.get(event.operation) ?? [];
+		group.push(event);
+		groupedEvents.set(event.operation, group);
+	}
+
+	const groups = [...groupedEvents.values()];
+	let remainingSlots = limit;
+	return groups.flatMap((group, groupIndex) => {
+		const remainingGroups = groups.length - groupIndex;
+		const groupLimit = Math.max(
+			1,
+			Math.floor(remainingSlots / remainingGroups),
+		);
+		remainingSlots -= groupLimit;
+		return bucketByIndex(group, groupLimit).flatMap((bucket) => {
+			const first = bucket[0];
+			const eventIds = new Set(bucket.map((event) => event.eventId));
+			const paths = new Set(bucket.map((event) => event.path));
+			return first
+				? [
+						{
+							...first,
+							count: bucket.reduce((total, event) => total + event.count, 0),
+							eventId: eventIds.size === 1 ? first.eventId : undefined,
+							path: paths.size === 1 ? first.path : undefined,
+						},
+					]
+				: [];
+		});
+	});
+}
+
+function bucketSessionDetailSubagentEvents(
+	subagentEvents: readonly TurnSubagentEvent[],
+	limit: number,
+): TurnSubagentEvent[] {
+	return bucketByIndex(subagentEvents, limit).flatMap((bucket) => {
+		const first = bucket[0];
+		return first
+			? [
+					{
+						...first,
+						count: bucket.reduce((total, event) => total + event.count, 0),
+					},
+				]
+			: [];
+	});
+}
+
+function createActivitySummary(
+	metrics: SessionTurnMetrics,
+	fileEvents: readonly TurnFileEvent[],
+	subagentEvents: readonly TurnSubagentEvent[],
+	limit: number,
+) {
 	const usageCalls = bucketSessionDetailUsageCalls(metrics.usageEvents, limit);
 	const errorEvents = bucketByIndex(metrics.errorEvents, limit).flatMap(
 		(bucket) => (bucket[0] ? [{ at: bucket[0].at }] : []),
@@ -232,15 +354,24 @@ function createActivitySummary(metrics: SessionTurnMetrics, limit: number) {
 	const skillEvents = bucketByIndex(metrics.skillEvents, limit).flatMap(
 		(bucket) => (bucket[0] ? [{ ...bucket[0] }] : []),
 	);
+	const summarizedFileEvents = bucketSessionDetailFileEvents(fileEvents, limit);
+	const summarizedSubagentEvents = bucketSessionDetailSubagentEvents(
+		subagentEvents,
+		limit,
+	);
 	return {
 		activityResolution:
 			usageCalls.length < metrics.usageEvents.length ||
 			errorEvents.length < metrics.errorEvents.length ||
-			skillEvents.length < metrics.skillEvents.length
+			skillEvents.length < metrics.skillEvents.length ||
+			summarizedFileEvents.length < fileEvents.length ||
+			summarizedSubagentEvents.length < subagentEvents.length
 				? ("bucketed" as const)
 				: ("exact" as const),
 		errorEvents,
+		fileEvents: summarizedFileEvents,
 		skillEvents,
+		subagentEvents: summarizedSubagentEvents,
 		usageCalls,
 	};
 }
@@ -252,8 +383,14 @@ function createTurnSummary(
 	activityLimit = SESSION_DETAIL_ACTIVITY_POINT_LIMIT,
 ): TurnSummary {
 	const timing = getSessionTurnTiming(turn);
+	const { fileEvents, subagentEvents } = collectTurnActivityEvents(turn);
 	return {
-		...createActivitySummary(metrics, activityLimit),
+		...createActivitySummary(
+			metrics,
+			fileEvents,
+			subagentEvents,
+			activityLimit,
+		),
 		durationSeconds: timing.durationSeconds ?? null,
 		editedFiles: [...metrics.editedFiles],
 		endedAt: timing.endTimestamp ?? null,
@@ -269,6 +406,7 @@ function createTurnSummary(
 		startedAt: timing.startTimestamp ?? null,
 		toolCallCount: countToolCalls(turn.responseItems),
 		turnId: getSessionTurnId(turn),
+		userCharacterCount: getSessionTurnMemberCharacterCount(turn),
 		userPreview: truncateSessionDetailPreview(getSessionTurnMemberText(turn)),
 	};
 }
@@ -287,6 +425,158 @@ function unique(values: readonly string[]) {
 	return [...new Set(values)];
 }
 
+function getToolInputString(
+	input: Readonly<Record<string, unknown>>,
+	keys: readonly string[],
+) {
+	for (const key of keys) {
+		const value = input[key];
+		if (typeof value === "string" && value.trim()) {
+			return value.trim();
+		}
+	}
+	return undefined;
+}
+
+function getApplyPatchFiles(
+	input: Readonly<Record<string, unknown>>,
+): SessionDetailContextFile[] {
+	const patch = getToolInputString(input, ["input", "patch", "arguments"]);
+	if (!patch) {
+		return [];
+	}
+
+	return Array.from(
+		patch.matchAll(/^\*\*\* (Add|Delete|Update) File: (.+)$/gmu),
+	).flatMap((match) => {
+		const directive = match[1];
+		const path = match[2]?.trim();
+		if (!path) {
+			return [];
+		}
+		return [
+			{
+				operation: directive === "Add" ? "created" : "edited",
+				path,
+			},
+		];
+	});
+}
+
+function getToolFileActivities(
+	toolName: string,
+	input: Readonly<Record<string, unknown>>,
+): SessionDetailContextFile[] {
+	const normalizedName = toolName.split(".").at(-1)?.toLowerCase();
+	if (normalizedName === "apply_patch") {
+		return getApplyPatchFiles(input);
+	}
+
+	const path = getToolInputString(input, [
+		"file_path",
+		"notebook_path",
+		"path",
+	]);
+	if (!path) {
+		return [];
+	}
+
+	if (normalizedName === "read" || normalizedName === "view_image") {
+		return [{ operation: "read", path }];
+	}
+	if (normalizedName === "write") {
+		return [{ operation: "created", path }];
+	}
+	if (
+		normalizedName === "edit" ||
+		normalizedName === "multiedit" ||
+		normalizedName === "notebookedit"
+	) {
+		return [{ operation: "edited", path }];
+	}
+
+	return [];
+}
+
+function collectSessionDetailContext(
+	trace: readonly TraceItem[],
+	turnMetrics: readonly SessionTurnMetrics[],
+): SessionDetailContext {
+	const files: SessionDetailContextFile[] = [];
+	const fileKeys = new Set<string>();
+	const errorCounts = new Map<string, number>();
+
+	function addFile(file: SessionDetailContextFile) {
+		const key = `${file.operation}\0${file.path}`;
+		if (
+			fileKeys.has(key) ||
+			files.length >= SESSION_DETAIL_CONTEXT_FILE_LIMIT
+		) {
+			return;
+		}
+		fileKeys.add(key);
+		files.push(file);
+	}
+
+	function addError(label: string, count = 1) {
+		const normalizedLabel = label.trim() || "Other";
+		errorCounts.set(
+			normalizedLabel,
+			(errorCounts.get(normalizedLabel) ?? 0) + count,
+		);
+	}
+
+	for (const item of trace) {
+		if (item.kind !== "agent") {
+			continue;
+		}
+		for (const event of item.events) {
+			if (event.kind === "tool") {
+				if (event.result?.isError === true) {
+					addError(event.toolName);
+					continue;
+				}
+				for (const file of getToolFileActivities(event.toolName, event.input)) {
+					addFile(file);
+				}
+				continue;
+			}
+			if (event.kind === "orphan-result" && event.result.isError) {
+				addError("Tool result");
+			}
+		}
+	}
+
+	for (const path of unique(
+		turnMetrics.flatMap((metrics) => metrics.editedFiles),
+	)) {
+		if (fileKeys.has(`created\0${path}`)) {
+			continue;
+		}
+		addFile({ operation: "edited", path });
+	}
+
+	const recordedErrorCount = turnMetrics.reduce(
+		(total, metrics) => total + metrics.errorCount,
+		0,
+	);
+	const identifiedErrorCount = Array.from(errorCounts.values()).reduce(
+		(total, count) => total + count,
+		0,
+	);
+	if (recordedErrorCount > identifiedErrorCount) {
+		addError("Other", recordedErrorCount - identifiedErrorCount);
+	}
+
+	return {
+		errors: Array.from(errorCounts, ([label, count]) => ({
+			count,
+			label,
+		})).slice(0, SESSION_DETAIL_CONTEXT_ERROR_LIMIT),
+		files,
+	};
+}
+
 export function deriveSessionDetail(
 	snapshot: SessionDetailRawSnapshot,
 ): SessionDetailDerivation {
@@ -295,15 +585,19 @@ export function deriveSessionDetail(
 		parseConversations(snapshot.content),
 	).filter((item) => !compactionMetadata.hiddenTraceItemIds.has(item.id));
 	const turns = groupTraceIntoTurns(trace);
-	const turnMetrics = extractSessionTurnMetrics(snapshot.content, {
+	const {
+		primaryTurnMetrics,
+		subagentMetrics: extractedSubagentMetrics,
+		turnMetrics,
+	} = extractSessionTurnMetricBreakdown(snapshot.content, {
 		fallbackModel: snapshot.modelUsed || undefined,
 		subagents: snapshot.subagents,
 		turns,
 	});
-	const subagentMetrics = Object.entries(snapshot.subagents).map(
-		([subagentId, content]) => ({
-			content,
-			metrics: extractTranscriptUsageMetrics(content, undefined),
+	const subagentMetrics = extractedSubagentMetrics.map(
+		({ metrics, subagentId }) => ({
+			content: snapshot.subagents[subagentId] ?? "",
+			metrics,
 			subagentId,
 		}),
 	);
@@ -344,12 +638,13 @@ export function deriveSessionDetail(
 		projectPath: snapshot.projectPath,
 	}).repoLabel;
 	const overviewBase: Omit<SessionDetailOverview, "turnPage"> = {
+		context: collectSessionDetailContext(trace, turnMetrics),
 		revision: snapshot.revision,
 		session: {
 			durationMinutes: snapshot.durationMinutes,
 			estimatedCost: sumSessionRequestCosts(
 				getSessionCostEntries(
-					turnMetrics,
+					primaryTurnMetrics,
 					subagentMetrics.map((entry) => entry.metrics),
 				),
 			),
@@ -366,7 +661,6 @@ export function deriveSessionDetail(
 			skills: unique(snapshot.skills),
 			slashCommands: unique(snapshot.slashCommands),
 			source: snapshot.source,
-			totalInteractions: snapshot.totalInteractions,
 			totalTokens: snapshot.totalTokens,
 			userId: snapshot.ownerId,
 		},

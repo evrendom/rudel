@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
 	type SessionRequestUsageEvent,
 	summarizeSessionRequestUsage,
+	sumSessionRequestCosts,
 } from "../session-request-pricing.js";
 import { isCodexFormat } from "./conversation-schema.js";
 import {
@@ -287,6 +288,8 @@ function extractClaudeTurnMetadata(
 	fallbackModel: string | undefined,
 	editsOnly: boolean,
 ) {
+	let earliestTimestamp: string | undefined;
+	let earliestTimestampValue = Number.POSITIVE_INFINITY;
 	let previousAssistantId: string | undefined;
 	const pendingFileEdits = new Map<string, PendingFileEdit>();
 
@@ -301,6 +304,16 @@ function extractClaudeTurnMetadata(
 		}
 
 		const line = result.data;
+		if (line.timestamp) {
+			const timestampValue = Date.parse(line.timestamp);
+			if (
+				!Number.isNaN(timestampValue) &&
+				timestampValue < earliestTimestampValue
+			) {
+				earliestTimestamp = line.timestamp;
+				earliestTimestampValue = timestampValue;
+			}
+		}
 		const turnIndex = getTurnIndex(line.timestamp, anchors);
 		const builder = turnIndex === undefined ? undefined : builders[turnIndex];
 		if (!builder) {
@@ -372,6 +385,8 @@ function extractClaudeTurnMetadata(
 			);
 		}
 	}
+
+	return earliestTimestamp;
 }
 
 function getCodexSkillCommand(argumentsJson: string | undefined) {
@@ -556,6 +571,37 @@ function finalizeTurnMetrics(builder: TurnMetricsBuilder): SessionTurnMetrics {
 	};
 }
 
+function addSubagentUsageTotals(
+	turnMetrics: SessionTurnMetrics,
+	subagentMetrics: readonly SessionTurnMetrics[],
+) {
+	const usageMetrics = [turnMetrics, ...subagentMetrics].filter(
+		(metrics) => metrics.usageEvents.length > 0,
+	);
+	if (usageMetrics.length === 0) {
+		return turnMetrics;
+	}
+
+	return {
+		...turnMetrics,
+		estimatedCost:
+			sumSessionRequestCosts(
+				usageMetrics.map((metrics) => ({
+					estimatedCost: metrics.estimatedCost ?? null,
+					usageEventCount: metrics.usageEvents.length,
+				})),
+			) ?? undefined,
+		inputTokens: usageMetrics.reduce(
+			(total, metrics) => total + (metrics.inputTokens ?? 0),
+			0,
+		),
+		outputTokens: usageMetrics.reduce(
+			(total, metrics) => total + (metrics.outputTokens ?? 0),
+			0,
+		),
+	};
+}
+
 export function extractTranscriptUsageMetrics(
 	content: string,
 	fallbackModel: string | undefined,
@@ -586,6 +632,13 @@ export function extractSessionTurnMetrics(
 	content: string,
 	options: SessionTurnMetadataOptions,
 ) {
+	return extractSessionTurnMetricBreakdown(content, options).turnMetrics;
+}
+
+export function extractSessionTurnMetricBreakdown(
+	content: string,
+	options: SessionTurnMetadataOptions,
+) {
 	const anchors = options.turns.map(getTurnAnchorTimestamp);
 	const builders = createTurnMetricsBuilders(options.turns.length);
 
@@ -599,16 +652,38 @@ export function extractSessionTurnMetrics(
 			options.fallbackModel,
 			false,
 		);
-		for (const subagentContent of Object.values(options.subagents ?? {})) {
-			extractClaudeTurnMetadata(
+	}
+
+	const primaryTurnMetrics = builders.map(finalizeTurnMetrics);
+	const subagentMetrics = Object.entries(options.subagents ?? {}).map(
+		([subagentId, subagentContent]) => {
+			const startedAt = extractClaudeTurnMetadata(
 				subagentContent,
 				builders,
 				anchors,
 				options.fallbackModel,
 				true,
 			);
-		}
-	}
+			const metrics = extractTranscriptUsageMetrics(subagentContent, undefined);
+			const turnIndex = getTurnIndex(startedAt, anchors);
+			return { metrics, subagentId, turnIndex };
+		},
+	);
+	const turnMetrics = builders.map((builder, turnIndex) =>
+		addSubagentUsageTotals(
+			finalizeTurnMetrics(builder),
+			subagentMetrics.flatMap((subagent) =>
+				subagent.turnIndex === turnIndex ? [subagent.metrics] : [],
+			),
+		),
+	);
 
-	return builders.map(finalizeTurnMetrics);
+	return {
+		primaryTurnMetrics,
+		subagentMetrics: subagentMetrics.map(({ metrics, subagentId }) => ({
+			metrics,
+			subagentId,
+		})),
+		turnMetrics,
+	};
 }

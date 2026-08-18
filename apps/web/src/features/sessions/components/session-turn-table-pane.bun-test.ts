@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import type { SessionTurnTableSpeaker } from "./session-turn-table";
 import { buildSessionTurnTableColumns } from "./session-turn-table-columns";
 import { sortSessionTurnTableOptions } from "./session-turn-table-filters";
+import { SessionTurnTableFooter } from "./session-turn-table-footer";
 import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
 import {
 	getSessionTurnTableSelectedRowKey,
@@ -57,6 +60,7 @@ const options: readonly SessionTurnTablePaneOption[] = [
 	{
 		compactionsBefore: [compaction],
 		key: "turn-2",
+		memberCharacterCount: 1_200,
 		memberPreview: "Beta member request",
 		metrics: {
 			editedFiles: [],
@@ -262,17 +266,17 @@ describe("session turn table views", () => {
 		{ index: 1, option: options[1] },
 	];
 
-	test("uses fixed character and negative-signal columns for Member", () => {
+	test("uses fixed character and sentiment-word columns for Member", () => {
 		const rows = buildSessionTurnTableViewRows(
 			matches,
 			USER_SPEAKERS,
 			"member",
 		);
-		const columns = buildSessionTurnTableColumns(options, "member");
+		const columns = buildSessionTurnTableColumns(options, "member", rows);
 
 		expect(columns.map((column) => column.label)).toEqual([
 			"Characters",
-			"Negative signals",
+			"Sentiment words",
 		]);
 		const memberRow = rows[0];
 		if (!memberRow) {
@@ -282,32 +286,115 @@ describe("session turn table views", () => {
 		expect(
 			columns[0]?.getValues(memberRow).map((value) => value.label),
 		).toEqual(["9"]);
+		expect(columns[0]?.getValues(memberRow)[0]?.relativeMagnitude).toBeCloseTo(
+			(9 / 1_200) * 100,
+		);
+		expect(rows[1]?.characterCount).toBe(1_200);
+		expect(rows[1] ? columns[0]?.getValues(rows[1])[0]?.label : undefined).toBe(
+			"1,200",
+		);
+		expect(columns[0]?.summary).toEqual({
+			label: "1,209",
+			title: "1,209 total characters",
+		});
 		expect(columns[1]?.getValues(memberRow)).toEqual([]);
 	});
 
-	test("adds user rows below model rows while leaving model columns empty for users", () => {
+	test("derives each mini chart from its raw value relative to the visible column maximum", () => {
+		const halfMagnitudeOption: SessionTurnTablePaneOption = {
+			...options[0],
+			key: "turn-half-magnitude",
+			metrics: {
+				...options[0].metrics,
+				inputTokens: 600,
+			},
+			turnNumber: 2,
+		};
+		const magnitudeOptions = [options[0], halfMagnitudeOption];
+		const magnitudeRows = buildSessionTurnTableViewRows(
+			magnitudeOptions.map((option, index) => ({ index, option })),
+			MODEL_SPEAKERS,
+			"model",
+		);
+		const columns = buildSessionTurnTableColumns(
+			magnitudeOptions,
+			"model",
+			magnitudeRows,
+		);
+		const inputColumn = columns.find((column) => column.key === "input");
+		const timeColumn = columns.find((column) => column.key === "time");
+		const plainNumberColumns = columns.filter((column) =>
+			["tools", "errors", "files", "skills"].includes(column.key),
+		);
+		if (!inputColumn || !timeColumn || plainNumberColumns.length !== 4) {
+			throw new Error("Expected charted and uncharted numeric columns");
+		}
+
+		expect(
+			magnitudeRows.map(
+				(row) => inputColumn.getValues(row)[0]?.relativeMagnitude,
+			),
+		).toEqual([100, 50]);
+		expect(
+			magnitudeRows.map(
+				(row) => timeColumn.getValues(row)[0]?.relativeMagnitude,
+			),
+		).toEqual([undefined, undefined]);
+		expect(
+			plainNumberColumns.every((column) =>
+				magnitudeRows.every((row) =>
+					column
+						.getValues(row)
+						.every((value) => value.relativeMagnitude === undefined),
+				),
+			),
+		).toBe(true);
+		expect(inputColumn.summary).toEqual({
+			label: "1.8k",
+			title: "1,800 total input tokens",
+		});
+		const footerMarkup = renderToStaticMarkup(
+			createElement(
+				"table",
+				null,
+				createElement(SessionTurnTableFooter, {
+					columns,
+					gridTemplate: "3.5rem 4.5rem 4rem",
+					sessionDurationLabel: "2h 5m",
+					turnCount: 2,
+				}),
+			),
+		);
+		expect(footerMarkup).toContain("Visible turn totals");
+		expect(footerMarkup).toContain("sticky bottom-0");
+		expect(footerMarkup).toContain("2x");
+		expect(footerMarkup).toContain("2h 5m");
+		expect(footerMarkup).toContain("$0.08");
+	});
+
+	test("keeps user and model rows chronological while leaving model columns empty for users", () => {
 		const rows = buildSessionTurnTableViewRows(matches, ALL_SPEAKERS, "model");
 		const modelColumns = buildSessionTurnTableColumns(options, "model");
 		const visibleColumns = buildSessionTurnTableColumns(options, "model");
 
 		expect(rows.map((row) => `${row.match.index}:${row.speaker}`)).toEqual([
-			"0:model",
 			"0:member",
-			"1:model",
+			"0:model",
 			"1:member",
+			"1:model",
 		]);
 		expect(visibleColumns.map((column) => column.label)).toEqual(
 			modelColumns.map((column) => column.label),
 		);
-		const memberRow = rows[1];
+		const memberRow = rows[0];
 		expect(memberRow).toBeDefined();
 		expect(
 			visibleColumns.every(
 				(column) => memberRow && column.getValues(memberRow).length === 0,
 			),
 		).toBe(true);
-		expect(rows[1]?.toolCallGroups).toEqual([]);
-		expect(rows[0]?.toolCallGroups).toEqual([
+		expect(rows[0]?.toolCallGroups).toEqual([]);
+		expect(rows[1]?.toolCallGroups).toEqual([
 			{ count: 2, icon: "file", names: ["Read", "Read"], tone: "tomato" },
 			{ count: 1, icon: "terminal", names: ["Bash"], tone: "amber" },
 		]);
@@ -330,7 +417,7 @@ describe("session turn table views", () => {
 		).toBe("turn-1:member");
 	});
 
-	test("puts user values first when User is the primary speaker", () => {
+	test("keeps chronological rows when the User column classification is active", () => {
 		const rows = buildSessionTurnTableViewRows(matches, ALL_SPEAKERS, "member");
 		const columns = buildSessionTurnTableColumns(options, "member");
 
@@ -342,7 +429,7 @@ describe("session turn table views", () => {
 		]);
 		expect(columns.map((column) => column.label)).toEqual([
 			"Characters",
-			"Negative signals",
+			"Sentiment words",
 		]);
 	});
 

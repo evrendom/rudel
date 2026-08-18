@@ -361,7 +361,7 @@ describe("extractSessionTurnMetrics", () => {
 		expect(first.editedFiles).toEqual(["src/retried.ts"]);
 	});
 
-	test("attributes subagent edits without adding its usage or errors", () => {
+	test("attributes subagent edits and usage without adding its errors or skills", () => {
 		const turns = [
 			turn("user-1", "2026-08-10T10:00:00.000Z"),
 			turn("user-2", "2026-08-10T10:01:00.000Z"),
@@ -477,9 +477,11 @@ describe("extractSessionTurnMetrics", () => {
 
 		expect(first.editedFiles).toEqual(["src/subagent-one.ts"]);
 		expect(second.editedFiles).toEqual(["src/subagent-two.ts"]);
-		expect(first.inputTokens).toBe(baselineFirst.inputTokens);
-		expect(first.outputTokens).toBe(baselineFirst.outputTokens);
-		expect(first.estimatedCost).toBe(baselineFirst.estimatedCost);
+		expect(first.inputTokens).toBe((baselineFirst.inputTokens ?? 0) + 900);
+		expect(first.outputTokens).toBe((baselineFirst.outputTokens ?? 0) + 90);
+		expect(first.estimatedCost).toBeGreaterThan(
+			baselineFirst.estimatedCost ?? 0,
+		);
 		expect(first.errorCount).toBe(baselineFirst.errorCount);
 		expect(first.skills).toEqual(baselineFirst.skills);
 	});

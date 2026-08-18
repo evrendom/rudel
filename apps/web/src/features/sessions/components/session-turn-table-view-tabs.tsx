@@ -6,7 +6,6 @@ import {
 import { cn } from "@/lib/utils";
 import type { SessionTurnTableSpeaker } from "./session-turn-table";
 import {
-	focusSessionTurnTableSpeaker,
 	type SessionTurnTableSpeakerSelection,
 	toggleSessionTurnTableSpeakerVisibility,
 } from "./session-turn-table-speaker-visibility";
@@ -140,51 +139,33 @@ export function SessionTurnTableSpeakerFocusToggle({
 	onPrimarySpeakerChange,
 	primarySpeaker,
 	userImageUrl,
-	visibleSpeakers,
 }: {
 	className: string | undefined;
 	model: string | undefined;
 	onPrimarySpeakerChange: (speaker: SessionTurnTableSpeaker) => void;
 	primarySpeaker: SessionTurnTableSpeaker;
 	userImageUrl: string | undefined;
-	visibleSpeakers: ReadonlySet<SessionTurnTableSpeaker>;
 }) {
 	return (
 		<fieldset className={cn("flex items-center justify-center", className)}>
-			<legend className="sr-only">Focused turn table speaker</legend>
+			<legend className="sr-only">Turn table column titles</legend>
 			<div className="flex items-center gap-0.5 rounded-md bg-(--session-overview-hover) p-0.5">
 				{SESSION_TURN_TABLE_SPEAKERS.map((option) => {
-					const available = visibleSpeakers.has(option.value);
 					const primary = primarySpeaker === option.value;
 
 					return (
 						<button
 							type="button"
 							key={option.value}
-							aria-label={`Focus ${option.label} rows and values`}
+							aria-label={`Show ${option.label} column titles`}
 							aria-pressed={primary}
 							className={cn(
 								"relative flex size-6 items-center justify-center rounded-sm outline-none focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-(--session-overview-accent)",
 								primary && "bg-(--session-overview-surface)",
-								available
-									? "opacity-100 hover:bg-(--session-overview-surface)"
-									: "cursor-not-allowed opacity-25",
+								"opacity-100 hover:bg-(--session-overview-surface)",
 							)}
-							disabled={!available}
-							title={
-								available
-									? `Show ${option.label} rows first and use their values`
-									: `Show ${option.label} rows to enable this focus option`
-							}
-							onClick={() =>
-								onPrimarySpeakerChange(
-									focusSessionTurnTableSpeaker({
-										primarySpeaker,
-										speaker: option.value,
-										visibleSpeakers,
-									}).primarySpeaker,
-								)
-							}
+							title={`Show ${option.label} column titles`}
+							onClick={() => onPrimarySpeakerChange(option.value)}
 						>
 							<SessionTurnTableSpeakerIcon
 								model={model}

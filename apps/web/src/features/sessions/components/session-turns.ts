@@ -1,5 +1,6 @@
 export {
 	getSessionTurnId,
+	getSessionTurnMemberCharacterCount,
 	getSessionTurnMemberPreview,
 	getSessionTurnMemberText,
 	getSessionTurnPreview,

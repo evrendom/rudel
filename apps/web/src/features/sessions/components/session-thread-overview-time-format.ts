@@ -6,22 +6,6 @@ function formatTimelineClock(timestamp: number) {
 	});
 }
 
-function formatTimelineFooterClock(timestamp: number, includeSeconds: boolean) {
-	const date = new Date(timestamp);
-	return includeSeconds
-		? date.toLocaleTimeString("en-US", {
-				hour: "numeric",
-				hour12: true,
-				minute: "2-digit",
-				second: "2-digit",
-			})
-		: date.toLocaleTimeString("en-US", {
-				hour: "numeric",
-				hour12: true,
-				minute: "2-digit",
-			});
-}
-
 export function formatTimelineMoment(timestamp: number) {
 	const date = new Date(timestamp);
 	return `${date.toLocaleDateString([], {
@@ -59,34 +43,4 @@ export function formatTimelineTick(
 	return date.getHours() === 0 && date.getMinutes() === 0
 		? dateLabel
 		: `${dateLabel} ${formatTimelineClock(timestamp)}`;
-}
-
-export function formatTimelineFooterTick(
-	timestamp: number,
-	firstTimestamp: number | undefined,
-	rangeDurationMs: number,
-) {
-	const timeLabel = formatTimelineFooterClock(
-		timestamp,
-		rangeDurationMs < 10 * 60 * 1_000,
-	);
-	if (firstTimestamp === undefined) {
-		return timeLabel;
-	}
-	const firstDate = new Date(firstTimestamp);
-	const date = new Date(timestamp);
-	const firstDay = Date.UTC(
-		firstDate.getFullYear(),
-		firstDate.getMonth(),
-		firstDate.getDate(),
-	);
-	const currentDay = Date.UTC(
-		date.getFullYear(),
-		date.getMonth(),
-		date.getDate(),
-	);
-	const dayOffset = Math.round(
-		(currentDay - firstDay) / (24 * 60 * 60 * 1_000),
-	);
-	return dayOffset > 0 ? `${timeLabel} (+${dayOffset}d)` : timeLabel;
 }

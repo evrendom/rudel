@@ -1,7 +1,9 @@
+import type { SessionDetailTurnSummary } from "@rudel/api-routes";
 import { type Ref, useMemo, useState } from "react";
 import {
 	type SessionContinuousTurnViewportStore,
 	useSessionContinuousTurnTrailingActiveSelection,
+	useSessionContinuousTurnViewedSelections,
 	useSessionContinuousTurnVisibleRange,
 } from "./session-continuous-turn-viewport-store";
 import {
@@ -21,9 +23,16 @@ import type { SessionTurn } from "./session-turns";
 import { useSessionTurnTableControls } from "./use-session-turn-table-controls";
 
 export interface SessionTurnTablePaneOption extends SessionTurnTableOption {
+	fileEvents?: ReadonlyArray<
+		NonNullable<SessionDetailTurnSummary["fileEvents"]>[number]
+	>;
 	hasBody?: boolean;
+	memberCharacterCount?: number;
 	memberPreview: string;
 	preview: string;
+	subagentEvents?: ReadonlyArray<
+		NonNullable<SessionDetailTurnSummary["subagentEvents"]>[number]
+	>;
 	turn?: SessionTurn;
 }
 
@@ -35,6 +44,7 @@ export function SessionTurnTablePane({
 	onSelect,
 	options,
 	selection,
+	sessionDurationLabel,
 	userImageUrl,
 	userLabel,
 	viewportStore,
@@ -44,6 +54,7 @@ export function SessionTurnTablePane({
 	onSelect: (selection: SessionTurnSelection) => void;
 	options: readonly SessionTurnTablePaneOption[];
 	selection: SessionTurnSelection;
+	sessionDurationLabel: string;
 	userImageUrl: string | undefined;
 	userLabel: string;
 	viewportStore: SessionContinuousTurnViewportStore;
@@ -52,22 +63,20 @@ export function SessionTurnTablePane({
 	const activeSelection =
 		useSessionContinuousTurnTrailingActiveSelection(viewportStore);
 	const viewportRange = useSessionContinuousTurnVisibleRange(viewportStore);
+	const viewedSelections =
+		useSessionContinuousTurnViewedSelections(viewportStore);
 	const effectiveSelection = activeSelection ?? selection;
 	const [primarySpeaker, setPrimarySpeaker] =
 		useState<SessionTurnTableSpeaker>("model");
 	const [visibleSpeakers, setVisibleSpeakers] = useState<
 		ReadonlySet<SessionTurnTableSpeaker>
-	>(() => new Set(["model"]));
+	>(() => new Set(["member", "model"]));
 	const { effectiveVisibleColumnKeys, handleSort, sort, visibleMatches } =
 		useSessionTurnTableControls({ options });
 	const tableRows = useMemo(
 		() =>
-			buildSessionTurnTableViewRows(
-				visibleMatches,
-				visibleSpeakers,
-				primarySpeaker,
-			),
-		[primarySpeaker, visibleMatches, visibleSpeakers],
+			buildSessionTurnTableViewRows(visibleMatches, visibleSpeakers, "model"),
+		[visibleMatches, visibleSpeakers],
 	);
 
 	function handleVisibleSpeakersChange(
@@ -106,12 +115,14 @@ export function SessionTurnTablePane({
 					primarySpeaker={primarySpeaker}
 					rows={tableRows}
 					selection={effectiveSelection}
+					sessionDurationLabel={sessionDurationLabel}
+					showSpeakerHighlights={visibleSpeakers.size > 1}
 					sort={sort}
 					userImageUrl={userImageUrl}
 					userLabel={userLabel}
 					visibleColumnKeys={effectiveVisibleColumnKeys}
 					visibleOptions={visibleMatches}
-					visibleSpeakers={visibleSpeakers}
+					viewedSelections={viewedSelections}
 					viewportRange={viewportRange}
 					virtualizerRef={virtualizerRef}
 				/>

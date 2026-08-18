@@ -1106,7 +1106,11 @@ export function AgentTraceRequestDisplay({
 	);
 }
 
-function AgentCollapsedTraceIcons({ events }: { events: TraceEvent[] }) {
+export function AgentCollapsedTraceIcons({
+	events,
+}: {
+	events: readonly TraceEvent[];
+}) {
 	const steps: {
 		Icon: ComponentType<{ className?: string }>;
 		collapseConsecutive: boolean;

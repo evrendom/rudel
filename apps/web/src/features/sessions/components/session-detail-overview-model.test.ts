@@ -25,7 +25,6 @@ describe("session detail overview client model", () => {
 				skills: [],
 				slashCommands: [],
 				source: "codex",
-				totalInteractions: 1,
 				totalTokens: 1_200,
 				userId: "owner-1",
 			},

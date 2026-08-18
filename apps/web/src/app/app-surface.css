@@ -15,7 +15,7 @@ body:has(.dashboard-01-preview),
 	--dashboard-01-font-heading: var(--app-font-heading);
 	--dashboard-01-font-roster-display: var(--app-font-heading);
 	--dashboard-01-font-roster-mono: "Geist Mono", ui-monospace, monospace;
-	--dashboard-01-content-background: #fefefe;
+	--dashboard-01-content-background: #fcfcfc;
 	--dashboard-01-rail-icon: #a4a7a7;
 	--dashboard-01-rail-icon-active: #121517;
 	--dashboard-01-rail-hover: rgba(0, 0, 0, 0.02);

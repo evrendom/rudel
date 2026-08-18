@@ -295,6 +295,7 @@ export function ConversationTraceEventRow({
 		);
 		return (
 			<ExpandableTraceRow
+				anchorId={`trace-event-${event.id}`}
 				compact
 				collapsedBody={
 					<p
@@ -325,6 +326,7 @@ export function ConversationTraceEventRow({
 		);
 		return (
 			<ExpandableTraceRow
+				anchorId={`trace-event-${event.id}`}
 				compact
 				collapsedBody={
 					collapsedPreviewText ? (
@@ -350,6 +352,7 @@ export function ConversationTraceEventRow({
 		const resultText = toolResultText(event.result.content);
 		return (
 			<ExpandableTraceRow
+				anchorId={`trace-event-${event.id}`}
 				compact
 				fullPreviewText={resultText}
 				label={<p className={conversationTraceLabelClassName}>Result</p>}
@@ -387,6 +390,7 @@ export function ConversationTraceEventRow({
 	if (shellCommand) {
 		return (
 			<ExpandableTraceRow
+				anchorId={`trace-event-${event.id}`}
 				compact
 				fullPreviewText={undefined}
 				label={
@@ -433,6 +437,7 @@ export function ConversationTraceEventRow({
 
 		return (
 			<ExpandableTraceRow
+				anchorId={`trace-event-${event.id}`}
 				compact
 				fullPreviewText={undefined}
 				label={
@@ -476,6 +481,7 @@ export function ConversationTraceEventRow({
 
 	return (
 		<ExpandableTraceRow
+			anchorId={`trace-event-${event.id}`}
 			compact
 			fullPreviewText={undefined}
 			label={

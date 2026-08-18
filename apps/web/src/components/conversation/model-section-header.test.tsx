@@ -10,6 +10,7 @@ test("the model row and overlay render identical section-header DOM", () => {
 		agentLabel: "GPT 5.2",
 		agentModel: "gpt-5.2",
 		continues: true,
+		events: [],
 		kind: "model" as const,
 		planMode: true,
 		terminal: false,

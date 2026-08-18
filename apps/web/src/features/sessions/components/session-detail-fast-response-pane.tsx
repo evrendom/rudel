@@ -29,6 +29,7 @@ import { ConversationTrace } from "@/components/conversation/ConversationTrace";
 import { buildConversationTrace } from "@/components/conversation/conversation-trace";
 import { parseConversations } from "@/lib/conversation-schema";
 import type { SessionContinuousTurnViewportStore } from "./session-continuous-turn-viewport-store";
+import { SessionDetailActivityStrip } from "./session-detail-activity-strip";
 import {
 	fetchSessionDetailSubagent,
 	fetchSessionDetailTurn,
@@ -51,8 +52,6 @@ import {
 	attachSessionDetailTurnBody,
 	buildSessionDetailOverviewTurnOptions,
 } from "./session-detail-overview-model";
-import type { SessionDetailSearchLoadState } from "./session-detail-search";
-import { SessionDetailSearchControl } from "./session-detail-search-control";
 import {
 	applySessionDetailSkeletonDebugMode,
 	getSessionDetailSkeletonDebugKey,
@@ -83,20 +82,17 @@ type SessionDetailWindowLoader = (
 	request: SessionDetailWindowRequest,
 	signal: AbortSignal,
 ) => Promise<SessionDetailWindow>;
-const EMPTY_SEARCH_INDEX = new Map<string, readonly string[]>();
-
 export function SessionDetailFastResponsePane({
+	anchorEventId,
+	anchorEventRequestId,
 	anchorTurnId,
 	bottomPaddingClassName,
-	onCancelSearchLoad,
 	onApproachEnd,
-	onSearchFocus,
-	onSearchHit,
+	onSelectTurn,
 	onStaleRevision,
 	options,
 	responseScrollRef,
 	revision,
-	searchLoad,
 	selection,
 	sessionId,
 	subagents,
@@ -104,17 +100,19 @@ export function SessionDetailFastResponsePane({
 	viewModel,
 	viewportStore,
 }: {
+	anchorEventId: string | undefined;
+	anchorEventRequestId: number;
 	anchorTurnId: string | undefined;
 	bottomPaddingClassName: string;
-	onCancelSearchLoad: () => void;
 	onApproachEnd: () => void;
-	onSearchFocus: () => void;
-	onSearchHit: (index: number) => void;
+	onSelectTurn: (target: {
+		eventId: string | undefined;
+		turnIndex: number;
+	}) => void;
 	onStaleRevision: (error: unknown) => void;
 	options: readonly SessionDetailOverviewTurnOption[];
 	responseScrollRef: RefObject<HTMLDivElement | null>;
 	revision: string;
-	searchLoad: SessionDetailSearchLoadState;
 	selection: SessionTurnSelection;
 	sessionId: string;
 	subagents: readonly SubagentSummary[];
@@ -200,6 +198,9 @@ export function SessionDetailFastResponsePane({
 		retry: shouldRetrySessionDetailFastQuery,
 		staleTime: SESSION_DETAIL_IMMUTABLE_STALE_TIME_MS,
 	});
+	const hasStaleInitialWindow =
+		initialWindowQuery.error !== null &&
+		isSessionDetailStaleRevisionError(initialWindowQuery.error);
 	useEffect(() => {
 		if (
 			initialWindowQuery.data &&
@@ -229,19 +230,7 @@ export function SessionDetailFastResponsePane({
 
 	return (
 		<div className="flex h-full min-h-0 min-w-0 flex-col">
-			<header className="flex min-h-12 shrink-0 items-center gap-3 border-b border-(--session-overview-border) bg-(--session-overview-surface) px-3">
-				<h2 className="min-w-0 truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-text) sm:text-sm">
-					Session Detail
-				</h2>
-				<SessionDetailSearchControl
-					index={"index" in searchLoad ? searchLoad.index : EMPTY_SEARCH_INDEX}
-					loadState={searchLoad}
-					onCancel={onCancelSearchLoad}
-					onFocus={onSearchFocus}
-					onSelectResult={onSearchHit}
-					options={options}
-				/>
-			</header>
+			<SessionDetailActivityStrip onJump={onSelectTurn} options={options} />
 			<section
 				ref={responseScrollRef}
 				aria-label="Conversation thread"
@@ -250,8 +239,10 @@ export function SessionDetailFastResponsePane({
 				data-session-constellation-version={usesConstellationV2 ? "v2" : "v1"}
 				data-session-trace-presentation="constellation-tree-branch-dots-no-horizontal"
 			>
-				{initialWindowQuery.isPending ? <TurnBodySkeleton /> : null}
-				{initialWindowQuery.error ? (
+				{initialWindowQuery.isPending || hasStaleInitialWindow ? (
+					<TurnBodySkeleton />
+				) : null}
+				{initialWindowQuery.error && !hasStaleInitialWindow ? (
 					<PaneMessage
 						actionLabel="Retry transcript"
 						message="The transcript window could not be loaded."
@@ -262,6 +253,8 @@ export function SessionDetailFastResponsePane({
 				) : null}
 				{initialWindowQuery.data ? (
 					<SessionDetailVirtualTranscript
+						anchorEventId={anchorEventId}
+						anchorEventRequestId={anchorEventRequestId}
 						anchorTurnId={anchorTurnId}
 						debugEnabled={transcriptDebugEnabled}
 						initialWindow={initialWindowQuery.data}
@@ -291,6 +284,8 @@ export function SessionDetailFastResponsePane({
 }
 
 function SessionDetailVirtualTranscript({
+	anchorEventId,
+	anchorEventRequestId,
 	anchorTurnId,
 	debugEnabled,
 	initialWindow,
@@ -307,6 +302,8 @@ function SessionDetailVirtualTranscript({
 	viewModel,
 	viewportStore,
 }: {
+	anchorEventId: string | undefined;
+	anchorEventRequestId: number;
 	anchorTurnId: string | undefined;
 	debugEnabled: boolean;
 	initialWindow: SessionDetailWindow;
@@ -328,7 +325,6 @@ function SessionDetailVirtualTranscript({
 	const [expandedTurnIds, setExpandedTurnIds] = useState<ReadonlySet<string>>(
 		() => new Set(),
 	);
-	const [missingTurnId, setMissingTurnId] = useState<string>();
 	const [fallbackBodies, setFallbackBodies] = useState<
 		ReadonlyMap<
 			string,
@@ -473,18 +469,11 @@ function SessionDetailVirtualTranscript({
 	);
 	const loadAnchor = useCallback(
 		async (turnId: string) => {
-			setMissingTurnId(undefined);
 			try {
-				const loaded = await windowStore.loadAnchor(turnId);
-				if (!loaded) {
-					setMissingTurnId(turnId);
-				}
-				return loaded;
+				return await windowStore.loadAnchor(turnId);
 			} catch (error) {
 				if (isSessionDetailStaleRevisionError(error)) {
 					onStaleRevision(error);
-				} else {
-					setMissingTurnId(turnId);
 				}
 				return false;
 			}
@@ -556,14 +545,41 @@ function SessionDetailVirtualTranscript({
 		if (!anchorTurnId) {
 			return;
 		}
+		let cancelled = false;
 		void listRef.current
 			?.scrollToTurn(anchorTurnId, { expandFolds: true })
 			.then((found) => {
-				if (!found) {
-					setMissingTurnId(anchorTurnId);
+				if (!(found && anchorEventId) || cancelled) {
+					return;
 				}
+				let attempts = 0;
+				function scrollToEvent() {
+					if (cancelled) {
+						return;
+					}
+					const eventElement = document.getElementById(
+						`trace-event-${anchorEventId}`,
+					);
+					if (eventElement) {
+						eventElement.dataset.sessionActivityAnchorRequest =
+							String(anchorEventRequestId);
+						eventElement.scrollIntoView({
+							behavior: "smooth",
+							block: "center",
+						});
+						return;
+					}
+					attempts += 1;
+					if (attempts < 60) {
+						window.requestAnimationFrame(scrollToEvent);
+					}
+				}
+				window.requestAnimationFrame(scrollToEvent);
 			});
-	}, [anchorTurnId]);
+		return () => {
+			cancelled = true;
+		};
+	}, [anchorEventId, anchorEventRequestId, anchorTurnId]);
 
 	return (
 		<>
@@ -572,11 +588,6 @@ function SessionDetailVirtualTranscript({
 					className="pointer-events-none fixed top-16 right-4 z-[100] max-w-[min(72rem,calc(100vw-2rem))] whitespace-pre-wrap rounded border border-(--session-overview-border) bg-(--session-overview-surface) px-2 py-1 text-[0.6875rem] text-(--session-overview-muted) shadow-sm"
 					data-transcript-debug-hud
 				/>
-			) : null}
-			{missingTurnId ? (
-				<output className="pointer-events-none fixed top-16 right-4 z-50 rounded-md border border-(--session-overview-border) bg-(--session-overview-surface) px-3 py-2 text-xs text-(--session-overview-text) shadow-sm">
-					Turn {missingTurnId} no longer exists in the latest upload.
-				</output>
 			) : null}
 			<SessionTranscriptList
 				ref={listRef}

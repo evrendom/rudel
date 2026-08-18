@@ -113,7 +113,6 @@ Output:
     inputTokens: number
     outputTokens: number
     totalTokens: number
-    totalInteractions: number | null
     estimatedCost: number | null
     skills: readonly string[]
     slashCommands: readonly string[]
@@ -124,8 +123,9 @@ Output:
       index: number
       startedAt: string | null
       endedAt: string | null
-      durationSeconds: number | null
-      userPreview: string | null
+	  durationSeconds: number | null
+	  userCharacterCount?: number
+	  userPreview: string | null
       responsePreview: string | null
       slashCommands: readonly string[]
       toolCallCount: number

@@ -3,39 +3,32 @@ import type { SessionCompaction } from "./session-compactions";
 import type { SessionTurnEpisode } from "./session-turn-episodes";
 
 export function SessionTurnCompactionRow({
-	columnCount,
 	compaction,
 }: {
-	columnCount: number;
 	compaction: SessionCompaction;
 }) {
 	return (
-		<tr className="border-y border-amber-200/70 bg-amber-50 dark:border-amber-400/15 dark:bg-amber-400/10">
-			<td
-				colSpan={columnCount}
-				className="h-7 px-3 text-xs font-medium tracking-[-0.01em] text-amber-800 dark:text-amber-300"
-				title={new Date(compaction.timestamp).toLocaleString()}
-			>
-				Compaction
-			</td>
+		<tr
+			className="flex h-7 min-w-full items-center border-y border-amber-200/70 bg-amber-50 px-3 text-xs font-medium tracking-[-0.01em] text-amber-800 dark:border-amber-400/15 dark:bg-amber-400/10 dark:text-amber-300"
+			title={new Date(compaction.timestamp).toLocaleString()}
+		>
+			<td>Compaction</td>
 		</tr>
 	);
 }
 
 export function SessionTurnEpisodeRow({
 	collapsed,
-	columnCount,
 	episode,
 	onToggle,
 }: {
 	collapsed: boolean;
-	columnCount: number;
 	episode: SessionTurnEpisode;
 	onToggle: (() => void) | undefined;
 }) {
 	return (
-		<tr className="border-b border-(--session-overview-border) bg-[color-mix(in_srgb,var(--session-overview-hover)_72%,var(--session-overview-surface))]">
-			<td colSpan={columnCount} className="p-0">
+		<tr className="min-w-full border-b border-(--session-overview-border) bg-[color-mix(in_srgb,var(--session-overview-hover)_72%,var(--session-overview-surface))]">
+			<td>
 				<button
 					type="button"
 					aria-expanded={!collapsed}

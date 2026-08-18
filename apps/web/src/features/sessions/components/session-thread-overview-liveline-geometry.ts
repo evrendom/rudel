@@ -69,18 +69,30 @@ function getCallInputMaximum(
 	);
 }
 
+export function getLivelineCallInputUtilization(
+	series: SessionOverviewCallSeries,
+	call: SessionOverviewCallPoint,
+	headroom = 1.12,
+) {
+	const maximum = getCallInputMaximum(
+		call,
+		getObservedInputMaximum(series, headroom),
+	);
+	const percentage =
+		maximum <= 0
+			? 0
+			: Math.min(100, Math.max(0, (call.inputTotal / maximum) * 100));
+	return { maximum, percentage };
+}
+
 export function getLivelineCallY(
 	series: SessionOverviewCallSeries,
 	config: SessionThreadOverviewStripConfig,
 	call: SessionOverviewCallPoint,
 	headroom = 1.12,
 ) {
-	return getLivelineY(
-		call.inputTotal,
-		getCallInputMaximum(call, getObservedInputMaximum(series, headroom)),
-		5,
-		config.axisY,
-	);
+	const utilization = getLivelineCallInputUtilization(series, call, headroom);
+	return getLivelineY(utilization.percentage, 100, 5, config.axisY);
 }
 
 function getInteriorCallXs(
@@ -184,17 +196,17 @@ export function getLivelineCallAtX(
 // Hovering is point inspection, not step-path inspection. Select the plotted
 // call nearest the cursor so the readout changes halfway between adjacent
 // calls instead of holding the previous value until the next vertical step.
-export function getNearestLivelineCallAtX(
-	series: SessionOverviewCallSeries,
+function getNearestLivelineCallFromTurnsAtX(
+	turns: readonly SessionOverviewCallTurn[],
 	config: SessionThreadOverviewStripConfig,
 	x: number,
-): SessionOverviewLivelineCallHit | undefined {
+) {
 	const plotLeft = config.plotPadding;
 	const plotRight = config.chartWidth - config.plotPadding;
 	let nearest: SessionOverviewLivelineCallHit | undefined;
 	let nearestDistance = Number.POSITIVE_INFINITY;
 
-	for (const turn of series.turns) {
+	for (const turn of turns) {
 		const callXs = getInteriorCallXs(turn, config);
 		for (const [callIndex, call] of turn.calls.entries()) {
 			const callX = callXs[callIndex];
@@ -210,6 +222,45 @@ export function getNearestLivelineCallAtX(
 	}
 
 	return nearest;
+}
+
+export function getNearestLivelineCallAtX(
+	series: SessionOverviewCallSeries,
+	config: SessionThreadOverviewStripConfig,
+	x: number,
+) {
+	return getNearestLivelineCallFromTurnsAtX(series.turns, config, x);
+}
+
+export function getNearestLivelineCallInTurnAtX(
+	series: SessionOverviewCallSeries,
+	config: SessionThreadOverviewStripConfig,
+	x: number,
+	turnIndex: number,
+) {
+	return getNearestLivelineCallFromTurnsAtX(
+		series.turns.filter((turn) => turn.index === turnIndex),
+		config,
+		x,
+	);
+}
+
+export function getLivelineCallNearX(
+	series: SessionOverviewCallSeries,
+	config: SessionThreadOverviewStripConfig,
+	x: number,
+	turnIndex?: number,
+) {
+	const hit =
+		turnIndex === undefined
+			? getNearestLivelineCallAtX(series, config, x)
+			: getNearestLivelineCallInTurnAtX(series, config, x, turnIndex);
+	if (!hit) {
+		return undefined;
+	}
+
+	const callX = getLivelineCallX(series, config, hit.turnIndex, hit.callIndex);
+	return callX !== undefined && Math.abs(callX - x) <= 8 ? hit : undefined;
 }
 
 // A historical Liveline-style signal rather than a cumulative curve. Each

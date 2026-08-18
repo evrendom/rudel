@@ -9,7 +9,9 @@ import {
 	centerSessionOverviewZoomWindowAt,
 	DEFAULT_SESSION_OVERVIEW_ZOOM_WINDOW,
 	getSessionOverviewZoomLevel,
+	getSessionOverviewZoomSelection,
 	getSessionOverviewZoomWindowFollowingSelection,
+	getSessionOverviewZoomWindowFromSelection,
 	panSessionOverviewZoomWindow,
 	SESSION_OVERVIEW_MAX_ZOOM_LEVEL,
 	zoomSessionOverviewWindowAt,
@@ -25,6 +27,34 @@ describe("session overview zoom window", () => {
 
 		expect(zoomed).toEqual({ xEndRatio: 0.875, xStartRatio: 0.375 });
 		expect(getSessionOverviewZoomLevel(zoomed)).toBe(2);
+	});
+
+	test("normalizes a dragged selection in either direction", () => {
+		expect(getSessionOverviewZoomSelection(0.8, 0.2)).toEqual({
+			xEndRatio: 0.8,
+			xStartRatio: 0.2,
+		});
+		expect(getSessionOverviewZoomSelection(-1, 2)).toEqual({
+			xEndRatio: 1,
+			xStartRatio: 0,
+		});
+	});
+
+	test("turns a dragged selection into a bounded zoom window", () => {
+		expect(
+			getSessionOverviewZoomWindowFromSelection({
+				xEndRatio: 0.75,
+				xStartRatio: 0.25,
+			}),
+		).toEqual({ xEndRatio: 0.75, xStartRatio: 0.25 });
+
+		const minimumWindow = getSessionOverviewZoomWindowFromSelection({
+			xEndRatio: 0.5001,
+			xStartRatio: 0.5,
+		});
+		expect(minimumWindow.xEndRatio - minimumWindow.xStartRatio).toBeCloseTo(
+			1 / SESSION_OVERVIEW_MAX_ZOOM_LEVEL,
+		);
 	});
 
 	test("caps zoom at the configured maximum", () => {

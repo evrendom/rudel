@@ -1,6 +1,7 @@
 import type {
 	Dispatch,
 	KeyboardEvent,
+	MouseEvent,
 	PointerEvent,
 	RefObject,
 	SetStateAction,
@@ -23,11 +24,10 @@ import {
 	getTurnLabel,
 	type SessionOverviewHover,
 } from "./session-thread-overview-strip-utils";
-import { formatTimelineMoment } from "./session-thread-overview-time-format";
 import type { buildSessionThreadOverviewClockTicks } from "./session-thread-overview-timeline";
 import { SessionThreadOverviewTokenLayer } from "./session-thread-overview-token-layer";
-import { SESSION_OVERVIEW_MAX_ZOOM_LEVEL } from "./session-thread-overview-zoom";
-import { SessionThreadOverviewZoomControls } from "./session-thread-overview-zoom-controls";
+import type { SessionOverviewZoomWindow } from "./session-thread-overview-zoom";
+import { SessionOverviewZoomSelectionBand } from "./session-thread-overview-zoom-selection";
 import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
 
 type Chart = ReturnType<typeof buildSessionThreadOverviewChart>;
@@ -44,34 +44,35 @@ export function SessionThreadOverviewStripView({
 	footerTicks,
 	hasViewport,
 	markerRatio,
+	onClickCapture,
 	onPointerLeave,
+	onPointerCancel,
+	onPointerDown,
 	onPointerMove,
+	onPointerUp,
+	onResetZoom,
 	onSelect,
+	onZoomSelectionConfirm,
 	onViewportKeyDown,
 	onViewportPointerDown,
 	onViewportPointerMove,
 	onWheel,
-	onZoomIn,
-	onZoomOut,
 	options,
 	plotLeft,
 	plotRight,
 	readout,
 	readoutCall,
-	readoutElapsedMs,
 	readoutId,
 	readoutTimestamp,
 	resolvedConfig,
-	rulerTicks,
 	selectedIndex,
 	setFocusedIndex,
 	timelineEvents,
 	tokenGradientId,
 	viewportStartX,
 	viewportWidth,
-	visibleAxisEndTimestamp,
-	visibleAxisStartTimestamp,
-	zoomLevel,
+	zoomSelection,
+	zoomSelectionIsDraft,
 }: {
 	callSeries: CallSeries;
 	chart: Chart;
@@ -79,80 +80,65 @@ export function SessionThreadOverviewStripView({
 	footerTicks: TimelineTicks;
 	hasViewport: boolean;
 	markerRatio: number | undefined;
+	onClickCapture: (event: MouseEvent<HTMLDivElement>) => void;
+	onPointerCancel: (event: PointerEvent<HTMLDivElement>) => void;
 	onPointerLeave: () => void;
+	onPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
 	onPointerMove: (event: PointerEvent<HTMLDivElement>) => void;
+	onPointerUp: (event: PointerEvent<HTMLDivElement>) => void;
+	onResetZoom: (() => void) | undefined;
 	onSelect: (index: number) => void;
+	onZoomSelectionConfirm: () => void;
 	onViewportKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
 	onViewportPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
 	onViewportPointerMove: (event: PointerEvent<HTMLDivElement>) => void;
 	onWheel: (event: WheelEvent<HTMLDivElement>) => void;
-	onZoomIn: () => void;
-	onZoomOut: () => void;
 	options: readonly SessionTurnTablePaneOption[];
 	plotLeft: number;
 	plotRight: number;
 	readout: SessionOverviewHover | undefined;
 	readoutCall: SessionOverviewLivelineCallHit | undefined;
-	readoutElapsedMs: number | undefined;
 	readoutId: string;
 	readoutTimestamp: number | undefined;
 	resolvedConfig: SessionThreadOverviewStripConfig;
-	rulerTicks: TimelineTicks;
 	selectedIndex: number;
 	setFocusedIndex: Dispatch<SetStateAction<number | undefined>>;
 	timelineEvents: TimelineEvents;
 	tokenGradientId: string;
 	viewportStartX: number;
 	viewportWidth: number;
-	visibleAxisEndTimestamp: number | undefined;
-	visibleAxisStartTimestamp: number | undefined;
-	zoomLevel: number;
+	zoomSelection: SessionOverviewZoomWindow | undefined;
+	zoomSelectionIsDraft: boolean;
 }) {
 	const selectedOption = options[selectedIndex];
 	return (
 		<section
 			aria-label="Session activity map (input context)"
-			className="@container h-[6.57rem] shrink-0 border-b border-(--session-overview-border) bg-(--session-overview-surface)"
+			className="@container h-[4.07rem] shrink-0 border-b border-(--session-overview-border) bg-(--session-overview-chart-surface) [--session-overview-chart-surface:#fcfcfc] dark:[--session-overview-chart-surface:var(--session-overview-surface)]"
 		>
-			<div className="relative h-6 shrink-0 border-b border-(--session-overview-border)">
-				<div className="absolute inset-y-0 left-3 right-3">
-					{visibleAxisStartTimestamp !== undefined ? (
-						<span className="absolute top-1/2 left-0 -translate-y-1/2 font-mono text-[0.5625rem] whitespace-nowrap text-(--session-overview-subtle) tabular-nums">
-							{formatTimelineMoment(visibleAxisStartTimestamp)}
-						</span>
-					) : null}
-					<div className="absolute inset-y-0 right-0 z-40 flex items-center gap-2">
-						<SessionThreadOverviewZoomControls
-							canZoomIn={zoomLevel < SESSION_OVERVIEW_MAX_ZOOM_LEVEL - 0.001}
-							canZoomOut={zoomLevel > 1.001}
-							onZoomIn={onZoomIn}
-							onZoomOut={onZoomOut}
-							zoomLevel={zoomLevel}
-						/>
-						{visibleAxisEndTimestamp !== undefined ? (
-							<span className="font-mono text-[0.5625rem] whitespace-nowrap text-(--session-overview-subtle) tabular-nums">
-								{formatTimelineMoment(visibleAxisEndTimestamp)}
-							</span>
-						) : null}
-					</div>
-				</div>
-			</div>
-
-			<div className="relative flex h-[5.07rem] min-w-0 flex-col overflow-hidden bg-(--session-overview-surface)">
-				<SessionThreadOverviewHoverCard
-					config={resolvedConfig}
-					elapsedMs={readoutElapsedMs}
-					hit={readoutCall}
-					options={options}
-					readout={readout}
-					readoutId={readoutId}
-					series={callSeries}
-					timestamp={readoutTimestamp}
-				/>
+			<div className="relative flex h-[4.07rem] min-w-0 flex-col overflow-visible bg-(--session-overview-chart-surface)">
+				{zoomSelectionIsDraft ? null : (
+					<SessionThreadOverviewHoverCard
+						chart={chart}
+						config={resolvedConfig}
+						events={timelineEvents}
+						hit={readoutCall}
+						onZoomSelectionConfirm={onZoomSelectionConfirm}
+						readout={readout}
+						readoutId={readoutId}
+						series={callSeries}
+						timestamp={readoutTimestamp}
+						zoomSelection={zoomSelection}
+					/>
+				)}
 				<div
-					className="relative h-[2.57rem] min-w-0 overflow-hidden"
+					className="relative h-[2.57rem] min-w-0 touch-pan-y cursor-crosshair overflow-hidden"
+					onClickCapture={onClickCapture}
+					onPointerCancel={onPointerCancel}
+					onPointerDown={onPointerDown}
 					onPointerLeave={onPointerLeave}
 					onPointerMove={onPointerMove}
+					onPointerUp={onPointerUp}
 					onWheel={onWheel}
 				>
 					<div ref={chartPlotRef} className="absolute inset-0">
@@ -205,7 +191,8 @@ export function SessionThreadOverviewStripView({
 										? getTurnLabel(selectedOption)
 										: "Session start"
 								}
-								className="absolute top-0.5 bottom-3.5 z-20 cursor-ew-resize touch-none rounded-[2px] outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-(--session-overview-accent)"
+								className="absolute top-0.5 bottom-3.5 z-20 cursor-crosshair touch-none rounded-[2px] outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-(--session-overview-accent)"
+								data-session-overview-viewport-band
 								style={{
 									left: `${(viewportStartX / resolvedConfig.chartWidth) * 100}%`,
 									width: `${(viewportWidth / resolvedConfig.chartWidth) * 100}%`,
@@ -216,11 +203,16 @@ export function SessionThreadOverviewStripView({
 								onPointerMove={onViewportPointerMove}
 							/>
 						) : null}
+						{zoomSelection ? (
+							<SessionOverviewZoomSelectionBand
+								config={resolvedConfig}
+								selection={zoomSelection}
+							/>
+						) : null}
 					</div>
 				</div>
 				<SessionOverviewTimelineFooter
-					config={resolvedConfig}
-					rulerTicks={resolvedConfig.showTicks ? rulerTicks : []}
+					onResetZoom={onResetZoom}
 					ticks={resolvedConfig.showTicks ? footerTicks : []}
 				/>
 				<SessionOverviewCallMarker

@@ -44,7 +44,6 @@ describe("buildSessionDetailViewModel", () => {
 					ignored: 42,
 					worker: "patched code",
 				},
-				total_interactions: "7",
 				user_id: "user-1",
 			},
 			{ "user-1": "Ada Lovelace" },
@@ -54,7 +53,6 @@ describe("buildSessionDetailViewModel", () => {
 		expect(model.safeSessionDate).toBe("2026-05-12");
 		expect(model.safeUserDisplayName).toBe("Ada Lovelace");
 		expect(model.safeDurationMin).toBe(42);
-		expect(model.safeTotalInteractions).toBe(7);
 		expect(model.safeSkills).toEqual(["refactor", "tests"]);
 		expect(model.safeSlashCommands).toEqual(["plan", "review"]);
 		expect(model.subagentNames).toEqual(["explorer", "worker"]);
@@ -84,7 +82,6 @@ describe("buildSessionDetailViewModel", () => {
 					["reviewer", "checked"],
 					["ignored", 100],
 				],
-				total_interactions: undefined,
 				user_id: "",
 			},
 			{},
@@ -94,7 +91,6 @@ describe("buildSessionDetailViewModel", () => {
 		expect(model.safeSessionDate).toBe("");
 		expect(model.safeUserDisplayName).toBe("User");
 		expect(model.safeDurationMin).toBe(0);
-		expect(model.safeTotalInteractions).toBeUndefined();
 		expect(model.safeSkills).toEqual([]);
 		expect(model.safeSlashCommands).toEqual([]);
 		expect(model.subagentNames).toEqual(["reviewer"]);

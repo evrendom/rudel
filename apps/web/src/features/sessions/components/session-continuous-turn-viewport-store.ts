@@ -6,6 +6,7 @@ type SessionContinuousTurnVisibleRange = readonly [number, number] | undefined;
 
 type SessionContinuousTurnViewportSnapshot = {
 	activeSelection: SessionTurnSelection | undefined;
+	viewedSelections: readonly SessionTurnSelection[];
 	visibleRange: SessionContinuousTurnVisibleRange;
 };
 
@@ -13,8 +14,9 @@ export type SessionContinuousTurnViewportStore = {
 	getSnapshot: () => SessionContinuousTurnViewportSnapshot;
 	publishSelection: (selection: SessionTurnSelection) => void;
 	publishViewport: (
-		activeIndex: number,
+		activeSelection: SessionTurnSelection,
 		visibleRange: readonly [number, number],
+		viewedSelections: readonly SessionTurnSelection[],
 	) => void;
 	subscribe: (listener: () => void) => () => void;
 };
@@ -22,6 +24,7 @@ export type SessionContinuousTurnViewportStore = {
 export function createSessionContinuousTurnViewportStore(): SessionContinuousTurnViewportStore {
 	let snapshot: SessionContinuousTurnViewportSnapshot = {
 		activeSelection: undefined,
+		viewedSelections: [],
 		visibleRange: undefined,
 	};
 	const listeners = new Set<() => void>();
@@ -46,20 +49,26 @@ export function createSessionContinuousTurnViewportStore(): SessionContinuousTur
 			};
 			notify();
 		},
-		publishViewport: (activeIndex, visibleRange) => {
-			const currentSelection = snapshot.activeSelection;
+		publishViewport: (activeSelection, visibleRange, viewedSelections) => {
+			const viewedSelectionsUnchanged =
+				snapshot.viewedSelections.length === viewedSelections.length &&
+				snapshot.viewedSelections.every(
+					(selection, index) =>
+						selection.index === viewedSelections[index]?.index &&
+						selection.speaker === viewedSelections[index]?.speaker,
+				);
 			if (
-				currentSelection?.index === activeIndex &&
+				snapshot.activeSelection?.index === activeSelection.index &&
+				snapshot.activeSelection.speaker === activeSelection.speaker &&
 				snapshot.visibleRange?.[0] === visibleRange[0] &&
-				snapshot.visibleRange[1] === visibleRange[1]
+				snapshot.visibleRange[1] === visibleRange[1] &&
+				viewedSelectionsUnchanged
 			) {
 				return;
 			}
 			snapshot = {
-				activeSelection: {
-					index: activeIndex,
-					speaker: currentSelection?.speaker ?? "model",
-				},
+				activeSelection,
+				viewedSelections,
 				visibleRange: [visibleRange[0], visibleRange[1]],
 			};
 			notify();
@@ -80,6 +89,16 @@ export function useSessionContinuousTurnVisibleRange(
 		store.subscribe,
 		() => store.getSnapshot().visibleRange,
 		() => store.getSnapshot().visibleRange,
+	);
+}
+
+export function useSessionContinuousTurnViewedSelections(
+	store: SessionContinuousTurnViewportStore,
+) {
+	return useSyncExternalStore(
+		store.subscribe,
+		() => store.getSnapshot().viewedSelections,
+		() => store.getSnapshot().viewedSelections,
 	);
 }
 

@@ -59,6 +59,7 @@ export {
 	getCodexMutationFiles,
 } from "./session-turn-file-edits.js";
 export {
+	extractSessionTurnMetricBreakdown,
 	extractSessionTurnMetrics,
 	extractTranscriptUsageMetrics,
 	type SessionTurnErrorEvent,
@@ -68,6 +69,7 @@ export {
 } from "./session-turn-metadata.js";
 export {
 	getSessionTurnId,
+	getSessionTurnMemberCharacterCount,
 	getSessionTurnMemberPreview,
 	getSessionTurnMemberText,
 	getSessionTurnPreview,

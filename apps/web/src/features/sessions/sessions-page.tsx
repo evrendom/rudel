@@ -155,7 +155,6 @@ function SessionDetail({ sessionId }: { sessionId: string }) {
 			<div className="dashboardy-page flex min-h-0 min-w-0 flex-1 overflow-hidden">
 				<SessionDetailView
 					navigation={sessionNavigation}
-					onReturn={returnToSessionSource}
 					position={sessionPosition}
 					sessionId={sessionId}
 					totalSessions={viewableSessions.length}

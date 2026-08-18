@@ -16,6 +16,8 @@ export const SESSION_DETAIL_WINDOW_PAGE_TURNS = 200;
 export const SESSION_DETAIL_WINDOW_MAX_RAW_BYTES = 4 * 1024 * 1024;
 export const SESSION_DETAIL_WINDOW_MAX_TURN_BYTES = 1.5 * 1024 * 1024;
 export const SESSION_DETAIL_ACTIVITY_POINT_LIMIT = 512;
+export const SESSION_DETAIL_CONTEXT_ERROR_LIMIT = 64;
+export const SESSION_DETAIL_CONTEXT_FILE_LIMIT = 128;
 export const SESSION_DETAIL_PREVIEW_CODE_POINT_LIMIT = 140;
 export const SESSION_DETAIL_STALE_REVISION_CODE = "STALE_REVISION";
 export const SESSION_DETAIL_STALE_REVISION_MESSAGE =
@@ -151,6 +153,25 @@ const SessionDetailPreviewSchema = z
 	)
 	.nullable();
 
+const SessionDetailFileOperationSchema = z.enum(["created", "edited", "read"]);
+
+const SessionDetailTurnFileEventSchema = z
+	.object({
+		at: SessionDetailTimestampSchema,
+		count: z.number().int().positive(),
+		eventId: z.string().min(1).max(MAX_DETAIL_ITEM_ID_LENGTH).optional(),
+		operation: SessionDetailFileOperationSchema,
+		path: z.string().min(1).max(MAX_DETAIL_STRING_LENGTH).optional(),
+	})
+	.strict();
+
+const SessionDetailTurnSubagentEventSchema = z
+	.object({
+		at: SessionDetailTimestampSchema,
+		count: z.number().int().positive(),
+	})
+	.strict();
+
 const SessionDetailUsageCallSchema = z
 	.object({
 		at: SessionDetailTimestampSchema,
@@ -173,6 +194,10 @@ export const SessionDetailTurnSummarySchema = z
 		errorEvents: z
 			.array(z.object({ at: SessionDetailTimestampSchema }).strict())
 			.max(SESSION_DETAIL_ACTIVITY_POINT_LIMIT),
+		fileEvents: z
+			.array(SessionDetailTurnFileEventSchema)
+			.max(SESSION_DETAIL_ACTIVITY_POINT_LIMIT)
+			.optional(),
 		estimatedCost: SessionDetailNullableCostSchema,
 		hasBody: z.boolean(),
 		index: z.number().int().nonnegative(),
@@ -192,11 +217,16 @@ export const SessionDetailTurnSummarySchema = z
 			.max(SESSION_DETAIL_ACTIVITY_POINT_LIMIT),
 		slashCommands: SessionDetailStringListSchema,
 		startedAt: SessionDetailNullableTimestampSchema,
+		subagentEvents: z
+			.array(SessionDetailTurnSubagentEventSchema)
+			.max(SESSION_DETAIL_ACTIVITY_POINT_LIMIT)
+			.optional(),
 		toolCallCount: z.number().int().nonnegative(),
 		turnId: z.string().min(1).max(MAX_DETAIL_ITEM_ID_LENGTH),
 		usageCalls: z
 			.array(SessionDetailUsageCallSchema)
 			.max(SESSION_DETAIL_ACTIVITY_POINT_LIMIT),
+		userCharacterCount: z.number().int().nonnegative().optional(),
 		userPreview: SessionDetailPreviewSchema,
 	})
 	.strict();
@@ -218,7 +248,6 @@ const SessionDetailSessionSummarySchema = z
 		skills: SessionDetailStringListSchema,
 		slashCommands: SessionDetailStringListSchema,
 		source: SourceSchema.nullable(),
-		totalInteractions: z.number().int().nonnegative().nullable(),
 		totalTokens: z.number().int().nonnegative(),
 		userId: z.string().max(MAX_DETAIL_ITEM_ID_LENGTH),
 	})
@@ -234,8 +263,35 @@ const SessionDetailSubagentSummarySchema = z
 	})
 	.strict();
 
+const SessionDetailContextSchema = z
+	.object({
+		errors: z
+			.array(
+				z
+					.object({
+						count: z.number().int().positive(),
+						label: z.string().min(1).max(MAX_DETAIL_STRING_LENGTH),
+					})
+					.strict(),
+			)
+			.max(SESSION_DETAIL_CONTEXT_ERROR_LIMIT),
+		files: z
+			.array(
+				z
+					.object({
+						operation: SessionDetailFileOperationSchema,
+						path: z.string().min(1).max(MAX_DETAIL_STRING_LENGTH),
+					})
+					.strict(),
+			)
+			.max(SESSION_DETAIL_CONTEXT_FILE_LIMIT),
+	})
+	.strict()
+	.default({ errors: [], files: [] });
+
 export const SessionDetailOverviewSchema = z
 	.object({
+		context: SessionDetailContextSchema,
 		revision: SessionDetailRevisionSchema,
 		session: SessionDetailSessionSummarySchema,
 		subagents: z

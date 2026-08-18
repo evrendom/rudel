@@ -5,6 +5,10 @@ import {
 	type SessionOverviewLivelineSignal,
 } from "./session-thread-overview-liveline-geometry";
 import type { SessionOverviewCallSeries } from "./session-thread-overview-model";
+import {
+	getChartX,
+	getPlotBounds,
+} from "./session-thread-overview-strip-utils";
 import type { SessionThreadOverviewBreak } from "./session-thread-overview-timeline";
 
 type LivelineTone = "accent" | "context";
@@ -138,22 +142,33 @@ function LivelineBreakBridges({
 	config: SessionThreadOverviewStripConfig;
 	layer: LivelineSeriesLayer;
 }) {
-	return breaks.map((gap) => {
-		const rawStartX =
-			config.plotPadding +
-			gap.xStartRatio * (config.chartWidth - 2 * config.plotPadding);
-		const rawEndX =
-			config.plotPadding +
-			gap.xEndRatio * (config.chartWidth - 2 * config.plotPadding);
+	const { plotLeft, plotRight } = getPlotBounds(config);
+	return breaks.flatMap((gap) => {
+		const visibleStartRatio = Math.max(
+			gap.xStartRatio,
+			config.xDomainStartRatio,
+		);
+		const visibleEndRatio = Math.min(gap.xEndRatio, config.xDomainEndRatio);
+		if (visibleEndRatio <= visibleStartRatio) {
+			return [];
+		}
+
+		const rawStartX = getChartX(visibleStartRatio, config);
+		const rawEndX = getChartX(visibleEndRatio, config);
 		const centerX = (rawStartX + rawEndX) / 2;
 		const halfWidth = Math.max((rawEndX - rawStartX) / 2, 6);
-		const path = `M ${centerX - halfWidth} ${layer.signal.baselineY} H ${centerX + halfWidth}`;
+		const startX = Math.max(centerX - halfWidth, plotLeft);
+		const endX = Math.min(centerX + halfWidth, plotRight);
+		if (endX <= startX) {
+			return [];
+		}
+		const path = `M ${startX} ${layer.signal.baselineY} H ${endX}`;
 
-		return (
+		return [
 			<g key={`${layer.gradientId}-${gap.key}`} data-liveline-break-bridge>
 				<path
 					d={path}
-					stroke="var(--session-overview-surface)"
+					stroke="var(--session-overview-chart-surface)"
 					strokeLinecap="round"
 					strokeWidth="5"
 					vectorEffect="non-scaling-stroke"
@@ -176,8 +191,8 @@ function LivelineBreakBridges({
 					strokeWidth="2.5"
 					vectorEffect="non-scaling-stroke"
 				/>
-			</g>
-		);
+			</g>,
+		];
 	});
 }
 

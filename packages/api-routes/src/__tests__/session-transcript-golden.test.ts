@@ -152,6 +152,55 @@ const CODEX_TRANSCRIPT = [
 ].join("\n");
 
 describe("shared session transcript derivation", () => {
+	test("attributes subagent usage to its owning parent turn", () => {
+		const turns = groupTraceIntoTurns(
+			buildConversationTrace(parseConversations(CLAUDE_TRANSCRIPT)),
+		);
+		const baseline = extractSessionTurnMetrics(CLAUDE_TRANSCRIPT, {
+			fallbackModel: undefined,
+			turns,
+		});
+		const withSubagent = extractSessionTurnMetrics(CLAUDE_TRANSCRIPT, {
+			fallbackModel: undefined,
+			subagents: {
+				"agent-1": [
+					line({
+						message: { content: "Start subagent", role: "user" },
+						timestamp: "2026-08-16T10:00:30.000Z",
+						type: "user",
+					}),
+					line({
+						message: {
+							content: [],
+							id: "subagent-assistant-1",
+							model: "claude-fable-5",
+							usage: {
+								cache_read_input_tokens: 1_000_000,
+								input_tokens: 0,
+								output_tokens: 0,
+							},
+						},
+						timestamp: "2026-08-16T10:01:30.000Z",
+						type: "assistant",
+					}),
+				].join("\n"),
+			},
+			turns,
+		});
+		const baselineFirst = baseline[0];
+		const baselineSecond = baseline[1];
+		const enrichedFirst = withSubagent[0];
+		const enrichedSecond = withSubagent[1];
+
+		expect(baselineFirst).toBeDefined();
+		expect(baselineSecond).toBeDefined();
+		expect(enrichedFirst?.usageEvents).toEqual(baselineFirst?.usageEvents);
+		expect(enrichedFirst?.estimatedCost).toBeCloseTo(
+			(baselineFirst?.estimatedCost ?? 0) + 1,
+		);
+		expect(enrichedSecond).toEqual(baselineSecond);
+	});
+
 	test("pins Claude trace, turn, metric, and pricing bytes", () => {
 		expect(sha256(deriveTranscriptSnapshot(CLAUDE_TRANSCRIPT))).toBe(
 			"f8342dac13b4824748e2be8b1bf2e5ab9e44038025cfeeff3c41a74815fb6053",

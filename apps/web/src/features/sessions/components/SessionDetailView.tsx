@@ -35,7 +35,6 @@ type SessionDetailViewProps = {
 	position: number | undefined;
 	sessionId: string;
 	totalSessions: number;
-	onReturn: () => void;
 };
 
 const SESSION_LOADING_METRICS = [
@@ -113,7 +112,6 @@ export function SessionDetailView({
 	position,
 	sessionId,
 	totalSessions,
-	onReturn,
 }: SessionDetailViewProps) {
 	const headerRef = useRef<HTMLElement>(null);
 	const responseScrollRef = useRef<HTMLDivElement>(null);
@@ -231,7 +229,6 @@ export function SessionDetailView({
 				hideMetrics
 				isLoading={overviewQuery.isLoading}
 				navigation={navigation}
-				onReturn={onReturn}
 				portalHost={shellHeaderPortal}
 				position={position}
 				sessionId={sessionId}
