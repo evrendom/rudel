@@ -86,4 +86,36 @@ describe("SessionMemberRow trace rail", () => {
 		expect(markup).toContain('height="56"');
 		expect(markup).toContain("min-height:56px");
 	});
+
+	test("highlights member prose without matching across message boundaries", () => {
+		const markup = renderToStaticMarkup(
+			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
+				<SessionMemberRow
+					active
+					headingId="member-signal-heading"
+					items={[
+						{
+							content: "You are",
+							id: "member-signal-1",
+							kind: "user",
+							timestamp: "2026-08-18T09:00:00.000Z",
+						},
+						{
+							content: "right. Sorry.",
+							id: "member-signal-2",
+							kind: "user",
+							timestamp: "2026-08-18T09:00:01.000Z",
+						},
+					]}
+					speakerLayout="trace-tree"
+					startsTrace
+					userImageUrl={undefined}
+					userLabel="Member"
+				/>
+			</ConversationTraceTreeConnectorStyleProvider>,
+		);
+
+		expect(markup).toContain('data-signal="apology"');
+		expect(markup).not.toContain('data-signal="positive"');
+	});
 });

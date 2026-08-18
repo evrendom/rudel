@@ -15,18 +15,19 @@ import {
 } from "@/components/conversation/conversation-trace-class-names";
 import { UserTraceAvatar } from "@/components/conversation/conversation-trace-icons";
 import { useTraceExpansionState } from "@/components/conversation/expandable-trace-row";
+import { SignalText } from "@/components/signal-text";
 import { cn } from "@/lib/utils";
 import type { SessionTurn } from "./session-turns";
 
 function UserPrompt({ content }: { content: UserContent }) {
 	return (
 		<p className="whitespace-pre-wrap break-words text-[0.8125rem] leading-6 text-(--session-overview-text)">
-			{userContentText(content)}
+			<SignalText text={userContentText(content)} />
 		</p>
 	);
 }
 
-const userPromptRowClassName = "min-w-0 py-2 pr-3 pl-[1.8125rem]";
+const userPromptRowClassName = "min-w-0 pt-0 pr-3 pb-2 pl-[1.8125rem]";
 
 export function SessionMemberRow({
 	active,
@@ -60,11 +61,21 @@ export function SessionMemberRow({
 		useTraceExpansionState(headingId);
 
 	if (speakerLayout === "trace-tree") {
-		const promptPreviewText = items
+		const promptPreviewParts = items
 			.flatMap((item) =>
-				item.kind === "user" ? [userContentText(item.content)] : [],
+				item.kind === "user"
+					? [
+							{
+								id: item.id,
+								text: compactPreview(
+									userContentText(item.content),
+									Number.POSITIVE_INFINITY,
+								),
+							},
+						]
+					: [],
 			)
-			.join(" ");
+			.filter(({ text }) => text.length > 0);
 		const promptRows = (
 			<div
 				id={promptPanelId}
@@ -84,7 +95,12 @@ export function SessionMemberRow({
 							className={conversationTraceProsePreviewClassName}
 							data-trace-preview
 						>
-							{compactPreview(promptPreviewText, Number.POSITIVE_INFINITY)}
+							{promptPreviewParts.map((part, index) => (
+								<span key={part.id}>
+									{index > 0 ? " " : null}
+									<SignalText text={part.text} />
+								</span>
+							))}
 						</p>
 					</div>
 				)}

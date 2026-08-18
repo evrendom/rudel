@@ -1,3 +1,4 @@
+/* biome-ignore-all lint/nursery/noExcessiveLinesPerFile: The shared trace palette and renderer overrides form one scoped session-detail theme. */
 @import "./session-constellation-tree-debug.css";
 
 .session-constellation-tree {

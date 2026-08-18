@@ -1,59 +1,164 @@
 import {
-	type LanguageSignalCategory,
+	type LanguageSignalMatch,
 	scanLanguageSignals,
 } from "@rudel/language-signals";
-import { type ReactNode, useMemo } from "react";
+import { type CSSProperties, type ReactNode, useMemo } from "react";
 
-const SIGNAL_MARK_CLASS_NAMES: Readonly<
-	Record<LanguageSignalCategory, string>
-> = {
-	swear:
-		"bg-[var(--language-signal-swear-background)] text-inherit underline decoration-wavy underline-offset-2 [box-decoration-break:clone]",
-	apology:
-		"bg-[var(--language-signal-apology-background)] text-inherit underline decoration-dotted underline-offset-2 [box-decoration-break:clone]",
-	positive:
-		"bg-[var(--language-signal-positive-background)] text-inherit underline decoration-solid underline-offset-2 [box-decoration-break:clone]",
-};
+export const LANGUAGE_SIGNAL_SCAN_CACHE_CAPACITY = 500;
 
-// Keep light and dark values scoped to this leaf instead of the global theme so
-// the feature stays self-contained and merge-friendly across the parallel rewrite.
-const SIGNAL_VARIABLE_CLASS_NAME =
-	"[--language-signal-swear-background:#ffe4e6] [--language-signal-apology-background:#fef3c7] [--language-signal-positive-background:#dcfce7] dark:[--language-signal-swear-background:#4c1d25] dark:[--language-signal-apology-background:#493719] dark:[--language-signal-positive-background:#173d2a]";
+const MAX_SEARCH_HIGHLIGHT_MATCHES = 10_000;
+const languageSignalScanCache = new Map<
+	string,
+	ReadonlyArray<LanguageSignalMatch>
+>();
+
+const SIGNAL_MARK_CLASS_NAME =
+	"rounded-lg px-1 py-0.5 font-sans text-[0.8125rem] leading-5 font-normal select-none";
+const SIGNAL_MARK_STYLE = {
+	backgroundColor: "color(display-p3 0.122 0.463 1 / 0.219)",
+	color: "color(display-p3 0.251 0.573 0.996 / 0.967)",
+} satisfies CSSProperties;
+
+const SEARCH_MARK_CLASS_NAME = "bg-yellow-300 text-inherit dark:bg-yellow-700";
 
 interface SignalTextProps {
+	readonly searchQuery?: string;
 	readonly text: string;
 }
 
-export function SignalText({ text }: SignalTextProps) {
-	const matches = useMemo(() => scanLanguageSignals(text), [text]);
+interface TextRange {
+	readonly start: number;
+	readonly end: number;
+}
 
-	if (matches.length === 0) {
+export function SignalText({ searchQuery, text }: SignalTextProps) {
+	const matches = useMemo(() => scanLanguageSignalsCached(text), [text]);
+	const searchRanges = useMemo(
+		() => findSearchHighlightRanges(text, searchQuery),
+		[searchQuery, text],
+	);
+
+	if (matches.length === 0 && searchRanges.length === 0) {
 		return text;
 	}
 
+	return <>{renderDecoratedText(text, matches, searchRanges)}</>;
+}
+
+export function scanLanguageSignalsCached(
+	text: string,
+): ReadonlyArray<LanguageSignalMatch> {
+	const cachedMatches = languageSignalScanCache.get(text);
+	if (cachedMatches !== undefined) {
+		languageSignalScanCache.delete(text);
+		languageSignalScanCache.set(text, cachedMatches);
+		return cachedMatches;
+	}
+
+	const matches = scanLanguageSignals(text);
+	if (languageSignalScanCache.size >= LANGUAGE_SIGNAL_SCAN_CACHE_CAPACITY) {
+		const oldestText = languageSignalScanCache.keys().next().value;
+		if (oldestText !== undefined) {
+			languageSignalScanCache.delete(oldestText);
+		}
+	}
+	languageSignalScanCache.set(text, matches);
+	return matches;
+}
+
+export function clearLanguageSignalScanCache(): void {
+	languageSignalScanCache.clear();
+}
+
+export function getLanguageSignalScanCacheSize(): number {
+	return languageSignalScanCache.size;
+}
+
+function renderDecoratedText(
+	text: string,
+	matches: ReadonlyArray<LanguageSignalMatch>,
+	searchRanges: ReadonlyArray<TextRange>,
+): ReactNode[] {
 	const content: ReactNode[] = [];
 	let cursor = 0;
+	let matchIndex = 0;
+	let searchRangeIndex = 0;
 
-	for (const match of matches) {
-		if (match.start > cursor) {
-			content.push(text.slice(cursor, match.start));
+	while (cursor < text.length) {
+		while (matches[matchIndex] && matches[matchIndex].end <= cursor) {
+			matchIndex += 1;
+		}
+		while (
+			searchRanges[searchRangeIndex] &&
+			searchRanges[searchRangeIndex].end <= cursor
+		) {
+			searchRangeIndex += 1;
 		}
 
-		content.push(
-			<mark
-				key={`${match.start}:${match.end}:${match.ruleId}`}
-				data-signal={match.category}
-				className={SIGNAL_MARK_CLASS_NAMES[match.category]}
-			>
-				{match.matchedText}
-			</mark>,
+		const match = matches[matchIndex];
+		const searchRange = searchRanges[searchRangeIndex];
+		if (searchRange && searchRange.start <= cursor) {
+			content.push(
+				<mark
+					key={`search:${cursor}:${searchRange.end}`}
+					className={SEARCH_MARK_CLASS_NAME}
+					data-search-highlight="true"
+				>
+					{text.slice(cursor, searchRange.end)}
+				</mark>,
+			);
+			cursor = searchRange.end;
+			continue;
+		}
+
+		if (match && match.start <= cursor) {
+			const end = Math.min(match.end, searchRange?.start ?? match.end);
+			content.push(
+				<span
+					key={`signal:${cursor}:${end}:${match.ruleId}`}
+					data-signal={match.category}
+					data-text="true"
+					className={SIGNAL_MARK_CLASS_NAME}
+					style={SIGNAL_MARK_STYLE}
+				>
+					{text.slice(cursor, end)}
+				</span>,
+			);
+			cursor = end;
+			continue;
+		}
+
+		const nextBoundary = Math.min(
+			match?.start ?? text.length,
+			searchRange?.start ?? text.length,
 		);
-		cursor = match.end;
+		content.push(text.slice(cursor, nextBoundary));
+		cursor = nextBoundary;
 	}
 
-	if (cursor < text.length) {
-		content.push(text.slice(cursor));
+	return content;
+}
+
+function findSearchHighlightRanges(
+	text: string,
+	searchQuery: string | undefined,
+): ReadonlyArray<TextRange> {
+	const query = searchQuery?.trim();
+	if (!query) {
+		return [];
 	}
 
-	return <span className={SIGNAL_VARIABLE_CLASS_NAME}>{content}</span>;
+	const pattern = new RegExp(escapeRegularExpression(query), "giu");
+	const ranges: TextRange[] = [];
+	for (const match of text.matchAll(pattern)) {
+		ranges.push({ start: match.index, end: match.index + match[0].length });
+		if (ranges.length >= MAX_SEARCH_HIGHLIGHT_MATCHES) {
+			break;
+		}
+	}
+	return ranges;
+}
+
+function escapeRegularExpression(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

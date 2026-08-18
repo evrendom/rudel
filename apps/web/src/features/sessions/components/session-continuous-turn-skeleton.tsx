@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { Skeleton } from "@/app/ui/skeleton";
 import { ConversationTraceTreeItem } from "@/components/conversation/ConversationTrace";
+import { SignalText } from "@/components/signal-text";
 import { cn } from "@/lib/utils";
 import { getStableSessionSkeletonWidth } from "./session-detail-skeleton-debug";
 import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
@@ -39,13 +40,13 @@ export function SessionContinuousTurnSkeleton({
 								{userLabel}
 							</p>
 							<p className="min-w-0 flex-1 truncate text-[0.8125rem] leading-5 text-(--session-overview-text)">
-								{option.memberPreview}
+								<SignalText text={option.memberPreview} />
 							</p>
 						</div>
 					</ConversationTraceTreeItem>
 					<div className="grid min-w-0 gap-2 py-2 pr-3 pl-[3.25rem]">
 						<p className="line-clamp-3 whitespace-pre-wrap break-words text-[0.8125rem] leading-6 text-(--session-overview-text)">
-							{option.memberPreview}
+							<SignalText text={option.memberPreview} />
 						</p>
 						{previewTruncated ? (
 							<Skeleton

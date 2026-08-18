@@ -1,5 +1,7 @@
-import type { ReactNode } from "react";
+import { splitDisplayTextParts } from "@rudel/language-signals";
+import { type ReactNode, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { SignalText } from "../signal-text";
 import { CodeBlock, type CodeLineKind } from "./CodeBlock";
 import {
 	formatShellOutput,
@@ -248,6 +250,37 @@ export function ToolCallBody({
 	);
 }
 
+function MessagePreviewText({ text }: { text: string }) {
+	const parts = useMemo(
+		() =>
+			splitDisplayTextParts(text)
+				.map((part) => ({
+					content: compactPreview(part.content, Number.POSITIVE_INFINITY),
+					part,
+				}))
+				.filter(({ content }) => content.length > 0),
+		[text],
+	);
+
+	return parts.map(({ content, part }, index) => (
+		<span
+			// biome-ignore lint/suspicious/noArrayIndexKey: display parts are immutable and may repeat text
+			key={`${part.type}:${index}`}
+		>
+			{index > 0 ? " " : null}
+			{part.type === "text" ? (
+				<SignalText text={content} />
+			) : part.type === "strong" ? (
+				<strong className="font-semibold">
+					<SignalText text={content} />
+				</strong>
+			) : (
+				<span className="font-mono">{content}</span>
+			)}
+		</span>
+	));
+}
+
 export function ConversationTraceEventRow({
 	event,
 	trailing,
@@ -268,7 +301,7 @@ export function ConversationTraceEventRow({
 						className={conversationTraceProsePreviewClassName}
 						data-trace-preview
 					>
-						{collapsedPreviewText}
+						<SignalText text={collapsedPreviewText} />
 					</p>
 				}
 				fullPreviewText={event.text}
@@ -278,7 +311,7 @@ export function ConversationTraceEventRow({
 				treeBodyClassName="-ml-3"
 				body={
 					<p className="whitespace-pre-wrap font-sans text-[0.8125rem] leading-5 font-normal tracking-normal text-[color:var(--dashboardy-heading)] text-pretty">
-						{event.text}
+						<SignalText text={event.text} />
 					</p>
 				}
 			/>
@@ -299,7 +332,7 @@ export function ConversationTraceEventRow({
 							className={conversationTraceProsePreviewClassName}
 							data-trace-preview
 						>
-							{collapsedPreviewText}
+							<MessagePreviewText text={event.text} />
 						</p>
 					) : undefined
 				}
