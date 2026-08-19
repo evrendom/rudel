@@ -7,7 +7,7 @@
 		"backfill:usage-events": "bun src/scripts/backfill-usage-events.ts",
 		"benchmark:usage-event-analytics": "bun src/scripts/benchmark-usage-event-analytics.ts",
 		"compare:usage-events": "bun src/scripts/compare-usage-events.ts",
-		"dev": "bun --watch src/index.ts",
+		"dev": "bun --hot src/index.ts",
 		"cleanup:session-ownership": "bun src/scripts/cleanup-session-ownership.ts",
 		"cutover:session-ownership": "bun src/scripts/backfill-session-ownership.ts",
 		"resolve:session-ownership": "bun src/scripts/resolve-session-ownership.ts",
