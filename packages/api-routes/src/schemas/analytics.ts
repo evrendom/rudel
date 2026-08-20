@@ -805,7 +805,21 @@ export type ProjectInvestment = z.infer<typeof ProjectInvestmentSchema>;
 export type ProjectDetailData = z.infer<typeof ProjectDetailDataSchema>;
 export type ProjectContributor = z.infer<typeof ProjectContributorSchema>;
 export type ProjectTrendDataPoint = z.infer<typeof ProjectTrendDataPointSchema>;
-export type SessionAnalytics = z.infer<typeof SessionAnalyticsSchema>;
+type ParsedSessionAnalytics = z.infer<typeof SessionAnalyticsSchema>;
+type SessionLanguageSignalCountKey = `${string}_${
+	| "swears"
+	| "apologies"
+	| "positive"}`;
+
+// Older clients construct SessionAnalytics fixtures without persisted count
+// fields. The response schema still defaults every known field to zero, while
+// this patterned index keeps reads strongly numeric for newer clients.
+export type SessionAnalytics = Omit<
+	ParsedSessionAnalytics,
+	SessionLanguageSignalCountKey
+> & {
+	readonly [key: SessionLanguageSignalCountKey]: number;
+};
 export type SessionListInput = z.input<typeof SessionListInputSchema>;
 export type HistoricalSkillSummary = z.infer<
 	typeof HistoricalSkillSummarySchema

@@ -1,10 +1,9 @@
-import {
-	type DimensionAnalysisInput,
-	resolveRepoIdentity,
-	type SessionAnalytics,
-	type SessionAnalyticsSummary as SessionAnalyticsSummaryBase,
-	type SessionDetail,
-	type Source,
+import type {
+	DimensionAnalysisInput,
+	SessionAnalytics,
+	SessionAnalyticsSummary as SessionAnalyticsSummaryBase,
+	SessionDetail,
+	Source,
 } from "@rudel/api-routes";
 import {
 	addOptionalStringEqFilter,
@@ -26,6 +25,7 @@ export interface SessionAnalyticsRaw {
 	package_name: string;
 
 	// Interaction timing metrics
+	total_interactions: number;
 	avg_period_sec: number;
 	median_period_sec: number;
 	quick_responses: number;
@@ -69,47 +69,12 @@ export interface SessionAnalyticsRaw {
 	model_positive: number;
 }
 
-export type SessionAnalyticsSummary = SessionAnalyticsSummaryBase;
-
-export function mapSessionAnalyticsRow(
-	row: SessionAnalyticsRaw,
-): SessionAnalytics {
-	const repositoryIdentity = resolveRepoIdentity({
-		gitRemote: row.git_remote || null,
-		packageName: row.package_name || null,
-		projectPath: row.project_path,
-	});
-
-	return {
-		source: row.source,
-		session_id: row.session_id,
-		user_id: row.user_id,
-		session_date: row.session_date,
-		project_path: row.project_path,
-		repository: repositoryIdentity.repoLabel,
-		worktree: repositoryIdentity.worktree,
-		git_remote: row.git_remote || undefined,
-		git_branch: row.git_branch || null,
-		duration_min: row.actual_duration_min,
-		total_tokens: row.total_tokens,
-		input_tokens: row.input_tokens,
-		output_tokens: row.output_tokens,
-		estimated_cost: row.estimated_cost,
-		success_score: row.success_score,
-		avg_period_sec: row.avg_period_sec,
-		subagent_types: row.subagent_types,
-		skills: row.skills,
-		slash_commands: row.slash_commands,
-		has_commit: row.has_commit > 0,
-		model_used: row.model_used,
-		used_plan_mode: row.used_plan_mode > 0,
-		member_swears: row.member_swears,
-		member_apologies: row.member_apologies,
-		member_positive: row.member_positive,
-		model_swears: row.model_swears,
-		model_apologies: row.model_apologies,
-		model_positive: row.model_positive,
-	};
+export interface SessionAnalyticsSummary extends SessionAnalyticsSummaryBase {
+	total_interactions: number;
+	avg_interactions_per_session: number;
+	median_response_time_sec: number;
+	quick_response_rate: number;
+	long_pause_rate: number;
 }
 
 /**
@@ -127,7 +92,7 @@ export async function getSessionAnalytics(
 		source?: string;
 		limit?: number;
 		offset?: number;
-		sort_by?: "date" | "duration";
+		sort_by?: "date" | "duration" | "interactions";
 		sort_order?: "asc" | "desc";
 	} = {},
 ): Promise<SessionAnalytics[]> {
@@ -201,7 +166,11 @@ export async function getSessionAnalytics(
 	);
 
 	const sortColumn =
-		sort_by === "duration" ? "actual_duration_min" : "sa.session_date";
+		sort_by === "duration"
+			? "actual_duration_min"
+			: sort_by === "interactions"
+				? "total_interactions"
+				: "sa.session_date";
 	const sortDirection = sort_order === "asc" ? "ASC" : "DESC";
 	const usage = await getUsageAnalyticsQueryContext(orgId, {
 		sourceParam: source ? "source" : undefined,
@@ -210,34 +179,35 @@ export async function getSessionAnalytics(
 	const estimatedCostSql = "sa.estimated_cost";
 
 	const query = `
-	WITH ${usage.cteDefinitions},
-	language_signal_counts AS (
-		SELECT
-			organization_id,
-			session_date,
-			session_id,
-			user_id,
-			source,
-			argMax(member_swears, scanned_at) AS member_swears,
-			argMax(member_apologies, scanned_at) AS member_apologies,
-			argMax(member_positive, scanned_at) AS member_positive,
-			argMax(model_swears, scanned_at) AS model_swears,
-			argMax(model_apologies, scanned_at) AS model_apologies,
-			argMax(model_positive, scanned_at) AS model_positive
-		FROM rudel.session_language_signals AS signal_rows
-		WHERE signal_rows.organization_id = {orgId:String}
-			AND ${signalDateFilter}
-		GROUP BY organization_id, session_date, session_id, user_id, source
-	)
-    SELECT
-      sa.source AS source,
-	  sa.session_id AS session_id,
-	  sa.user_id AS user_id,
+		WITH ${usage.cteDefinitions},
+		language_signal_counts AS (
+			SELECT
+				organization_id,
+				session_date,
+				session_id,
+				user_id,
+				source,
+				argMax(member_swears, scanned_at) AS member_swears,
+				argMax(member_apologies, scanned_at) AS member_apologies,
+				argMax(member_positive, scanned_at) AS member_positive,
+				argMax(model_swears, scanned_at) AS model_swears,
+				argMax(model_apologies, scanned_at) AS model_apologies,
+				argMax(model_positive, scanned_at) AS model_positive
+			FROM rudel.session_language_signals AS signal_rows
+			WHERE signal_rows.organization_id = {orgId:String}
+				AND ${signalDateFilter}
+			GROUP BY organization_id, session_date, session_id, user_id, source
+		)
+	    SELECT
+	      sa.source AS source,
+	      sa.session_id AS session_id,
+	      sa.user_id AS user_id,
       formatDateTime(sa.session_date, '%Y-%m-%dT%H:%i:%SZ') as session_date,
       project_path,
       sa.organization_id AS organization_id,
       git_remote,
       package_name,
+      total_interactions,
       avg_period_sec,
       median_period_sec,
       quick_responses,
@@ -258,20 +228,20 @@ export async function getSessionAnalytics(
       success_score,
       error_count,
       model_used,
-      used_plan_mode,
-	  signals.member_swears AS member_swears,
-	  signals.member_apologies AS member_apologies,
-	  signals.member_positive AS member_positive,
-	  signals.model_swears AS model_swears,
-	  signals.model_apologies AS model_apologies,
-	  signals.model_positive AS model_positive
-    FROM ${usage.sessionsRelation} AS sa
-	LEFT ANY JOIN language_signal_counts AS signals
-		ON signals.organization_id = sa.organization_id
-		AND signals.session_date = sa.session_date
-		AND signals.session_id = sa.session_id
-		AND signals.user_id = sa.user_id
-		AND signals.source = sa.source
+	      used_plan_mode,
+	      signals.member_swears AS member_swears,
+	      signals.member_apologies AS member_apologies,
+	      signals.member_positive AS member_positive,
+	      signals.model_swears AS model_swears,
+	      signals.model_apologies AS model_apologies,
+	      signals.model_positive AS model_positive
+	    FROM ${usage.sessionsRelation} AS sa
+		LEFT ANY JOIN language_signal_counts AS signals
+			ON signals.organization_id = sa.organization_id
+			AND signals.session_date = sa.session_date
+			AND signals.session_id = sa.session_id
+			AND signals.user_id = sa.user_id
+			AND signals.source = sa.source
     WHERE ${dateFilter}
       AND sa.organization_id = {orgId:String}
       ${filters.length > 0 ? `AND ${filters.join("\n      AND ")}` : ""}
@@ -285,7 +255,39 @@ export async function getSessionAnalytics(
 		query,
 		query_params,
 	});
-	return raw.map(mapSessionAnalyticsRow);
+
+	return raw.map(
+		(row): SessionAnalytics => ({
+			source: row.source,
+			session_id: row.session_id,
+			user_id: row.user_id,
+			session_date: row.session_date,
+			project_path: row.project_path,
+			repository:
+				row.git_remote || row.package_name || row.project_path || null,
+			git_remote: row.git_remote || undefined,
+			duration_min: row.actual_duration_min,
+			total_tokens: row.total_tokens,
+			input_tokens: row.input_tokens,
+			output_tokens: row.output_tokens,
+			estimated_cost: row.estimated_cost,
+			success_score: row.success_score,
+			total_interactions: row.total_interactions,
+			avg_period_sec: row.avg_period_sec,
+			subagent_types: row.subagent_types,
+			skills: row.skills,
+			slash_commands: row.slash_commands,
+			has_commit: row.has_commit > 0,
+			model_used: row.model_used,
+			used_plan_mode: row.used_plan_mode > 0,
+			member_swears: row.member_swears,
+			member_apologies: row.member_apologies,
+			member_positive: row.member_positive,
+			model_swears: row.model_swears,
+			model_apologies: row.model_apologies,
+			model_positive: row.model_positive,
+		}),
+	);
 }
 
 /**
@@ -325,8 +327,13 @@ export async function getSessionAnalyticsSummary(
     WITH totals AS (
       SELECT
         COUNT(*) as cnt_sessions,
+        SUM(total_interactions) as sum_interactions,
+        SUM(quick_responses) as sum_quick_responses,
+        SUM(long_pauses) as sum_long_pauses,
         ifNull(AVG(actual_duration_min), 0) as avg_duration,
+        ifNull(AVG(total_interactions), 0) as avg_interactions,
         ifNull(AVG(avg_period_sec), 0) as avg_response,
+        ifNull(AVG(median_period_sec), 0) as med_response,
         countIf(length(subagent_types) > 0) as cnt_subagents,
         countIf(length(skills) > 0) as cnt_skills,
         countIf(length(slash_commands) > 0) as cnt_slash
@@ -337,8 +344,13 @@ export async function getSessionAnalyticsSummary(
     )
     SELECT
       cnt_sessions as total_sessions,
+      sum_interactions as total_interactions,
       ifNull(round(avg_duration, 2), 0) as avg_session_duration_min,
+      ifNull(round(avg_interactions, 2), 0) as avg_interactions_per_session,
       ifNull(round(avg_response, 2), 0) as avg_response_time_sec,
+      ifNull(round(med_response, 2), 0) as median_response_time_sec,
+      round(sum_quick_responses * 100.0 / if(sum_interactions > 0, sum_interactions, 1), 2) as quick_response_rate,
+      round(sum_long_pauses * 100.0 / if(sum_interactions > 0, sum_interactions, 1), 2) as long_pause_rate,
       round(cnt_subagents * 100.0 / if(cnt_sessions > 0, cnt_sessions, 1), 2) as subagents_adoption_rate,
       round(cnt_skills * 100.0 / if(cnt_sessions > 0, cnt_sessions, 1), 2) as skills_adoption_rate,
       round(cnt_slash * 100.0 / if(cnt_sessions > 0, cnt_sessions, 1), 2) as slash_commands_adoption_rate
@@ -352,8 +364,13 @@ export async function getSessionAnalyticsSummary(
 
 	const defaults: SessionAnalyticsSummary = {
 		total_sessions: 0,
+		total_interactions: 0,
 		avg_session_duration_min: 0,
+		avg_interactions_per_session: 0,
 		avg_response_time_sec: 0,
+		median_response_time_sec: 0,
+		quick_response_rate: 0,
+		long_pause_rate: 0,
 		subagents_adoption_rate: 0,
 		skills_adoption_rate: 0,
 		slash_commands_adoption_rate: 0,
@@ -490,6 +507,93 @@ export async function getSessionAnalyticsSummaryComparison(
 }
 
 /**
+ * Get interaction timing distribution
+ */
+export async function getInteractionTimingDistribution(
+	orgId: string,
+	params: {
+		days?: number;
+		user_id?: string;
+		project_path?: string;
+	} = {},
+): Promise<Array<{ bucket: string; count: number; percentage: number }>> {
+	const { days = 30, user_id, project_path } = params;
+	const d = Number(days);
+	const query_params: Record<string, unknown> = {
+		days: d,
+		orgId,
+	};
+	const filters: string[] = [];
+	addOptionalStringEqFilter(
+		filters,
+		query_params,
+		"user_id",
+		"userId",
+		user_id,
+	);
+	addOptionalStringEqFilter(
+		filters,
+		query_params,
+		"project_path",
+		"projectPath",
+		project_path,
+	);
+	const filterSql =
+		filters.length > 0 ? `AND ${filters.join("\n        AND ")}` : "";
+	const repeatedFilterSql =
+		filters.length > 0 ? `AND ${filters.join("\n      AND ")}` : "";
+
+	const query = `
+    WITH total AS (
+      SELECT SUM(total_interactions) as total_count
+      FROM rudel.session_analytics FINAL
+      WHERE ${buildDateFilter("days")}
+        AND organization_id = {orgId:String}
+        ${filterSql}
+    )
+    SELECT
+      'Instant (< 5s)' as bucket,
+      SUM(quick_responses) as count,
+      round(SUM(quick_responses) * 100.0 / (SELECT total_count FROM total), 2) as percentage
+    FROM rudel.session_analytics FINAL
+    WHERE ${buildDateFilter("days")}
+      AND organization_id = {orgId:String}
+      ${repeatedFilterSql}
+
+    UNION ALL
+
+    SELECT
+      'Normal (5-60s)' as bucket,
+      SUM(normal_responses) as count,
+      round(SUM(normal_responses) * 100.0 / (SELECT total_count FROM total), 2) as percentage
+    FROM rudel.session_analytics FINAL
+    WHERE ${buildDateFilter("days")}
+      AND organization_id = {orgId:String}
+      ${repeatedFilterSql}
+
+    UNION ALL
+
+    SELECT
+      'Long Pause (> 5m)' as bucket,
+      SUM(long_pauses) as count,
+      round(SUM(long_pauses) * 100.0 / (SELECT total_count FROM total), 2) as percentage
+    FROM rudel.session_analytics FINAL
+    WHERE ${buildDateFilter("days")}
+      AND organization_id = {orgId:String}
+      ${repeatedFilterSql}
+
+    ORDER BY count DESC
+  `;
+
+	return queryClickhouse<{ bucket: string; count: number; percentage: number }>(
+		{
+			query,
+			query_params,
+		},
+	);
+}
+
+/**
  * Get flexible dimension analysis with optional split-by for stacked charts
  */
 
@@ -498,6 +602,8 @@ const METRIC_EXPRESSIONS: Record<DimensionAnalysisInput["metric"], string> = {
 	session_count: "COUNT(*)",
 	avg_duration: "round(AVG(actual_duration_min), 2)",
 	total_duration: "round(SUM(actual_duration_min) / 60, 2)",
+	avg_interactions: "round(AVG(total_interactions), 2)",
+	total_interactions: "SUM(total_interactions)",
 	avg_response_time: "round(AVG(avg_period_sec), 2)",
 	median_response_time: "round(AVG(median_period_sec), 2)",
 	avg_tokens: "round(AVG(total_tokens), 0)",
@@ -693,6 +799,7 @@ export async function getSessionDetail(
 	  ${estimatedCostSql} AS estimated_cost,
       sa.success_score,
       dateDiff('second', sa.session_date, sa.last_interaction_date) / 60.0 as duration_min,
+      sa.total_interactions,
       sa.model_used
 	FROM ${usage.sessionsRelation} AS sa
     WHERE sa.organization_id = {orgId:String}

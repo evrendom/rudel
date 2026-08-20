@@ -1,7 +1,7 @@
-import type { LanguageSignalCategory } from "./types.js";
+import type { BuiltInLanguageSignalCategory } from "./types.js";
 
 export interface LanguageSignalRule {
-	readonly category: LanguageSignalCategory;
+	readonly category: BuiltInLanguageSignalCategory;
 	readonly ruleId: string;
 	readonly surfaces: readonly string[];
 }

@@ -1,11 +1,19 @@
-export type LanguageSignalCategory =
+export type BuiltInLanguageSignalCategory =
 	| "negative"
 	| "swear"
 	| "apology"
 	| "positive";
 
+export type LanguageSignalCategory =
+	| "swear"
+	| "apology"
+	| "positive"
+	// Keep category maps compiled by older clients forward-compatible when a
+	// newer scanner adds another server-recognized category.
+	| (string & {});
+
 export interface LanguageSignalMatch {
-	readonly category: LanguageSignalCategory;
+	readonly category: BuiltInLanguageSignalCategory;
 	readonly ruleId: string;
 	readonly matchedText: string;
 	readonly start: number;
@@ -13,7 +21,7 @@ export interface LanguageSignalMatch {
 }
 
 export type ModelLanguageSignalCategory = Exclude<
-	LanguageSignalCategory,
+	BuiltInLanguageSignalCategory,
 	"positive"
 >;
 

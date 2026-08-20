@@ -1,12 +1,12 @@
 import { LANGUAGE_SIGNAL_RULES } from "./rules.js";
 import type {
-	LanguageSignalCategory,
+	BuiltInLanguageSignalCategory,
 	LanguageSignalMatch,
 	ModelLanguageSignalMatch,
 } from "./types.js";
 
 interface CompiledSurface {
-	readonly category: LanguageSignalCategory;
+	readonly category: BuiltInLanguageSignalCategory;
 	readonly ruleId: string;
 	readonly source: string;
 	readonly surfaceLength: number;
@@ -15,7 +15,9 @@ interface CompiledSurface {
 	readonly surfaceOrder: number;
 }
 
-const CATEGORY_PRECEDENCE: Readonly<Record<LanguageSignalCategory, number>> = {
+const CATEGORY_PRECEDENCE: Readonly<
+	Record<BuiltInLanguageSignalCategory, number>
+> = {
 	negative: 0,
 	swear: 1,
 	apology: 2,

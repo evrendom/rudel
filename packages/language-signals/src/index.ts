@@ -9,6 +9,7 @@ export {
 } from "./scanner.js";
 export { scanModelLanguageSignalSegments, summarize } from "./summarize.js";
 export type {
+	BuiltInLanguageSignalCategory,
 	DisplayTextPart,
 	LanguageSignalCategory,
 	LanguageSignalCounts,

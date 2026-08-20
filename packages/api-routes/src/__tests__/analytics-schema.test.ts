@@ -69,6 +69,7 @@ describe("analytics input schemas", () => {
 			slash_commands: [],
 			subagent_types: [],
 			success_score: 0,
+			total_interactions: 0,
 			total_tokens: 0,
 			used_plan_mode: false,
 			user_id: "user-1",
@@ -109,14 +110,14 @@ describe("analytics input schemas", () => {
 		).toBe(false);
 	});
 
-	test("rejects deprecated interaction-count metrics", () => {
+	test("retains interaction-count metrics for older clients", () => {
 		for (const metric of ["avg_interactions", "total_interactions"]) {
 			expect(
 				DimensionAnalysisInputSchema.safeParse({
 					dimension: "user_id",
 					metric,
 				}).success,
-			).toBe(false);
+			).toBe(true);
 		}
 	});
 
