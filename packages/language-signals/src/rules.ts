@@ -1,18 +1,69 @@
-import type { LanguageSignalCategory } from "./types.js";
+import type { BuiltInLanguageSignalCategory } from "./types.js";
 
 export interface LanguageSignalRule {
-	readonly category: LanguageSignalCategory;
+	readonly category: BuiltInLanguageSignalCategory;
 	readonly ruleId: string;
 	readonly surfaces: readonly string[];
 }
 
-export const LANGUAGE_SIGNAL_RULES_VERSION = 2;
-
 // Deterministic surface lists only: no stemming, fuzzy matching, leetspeak,
-// negation, or context awareness. Identity slurs stay excluded. "hellish" and
-// bare "absolutely right" are deliberate non-surfaces (boundary and ordering
+// or broad context awareness. The scanner only handles immediately adjacent
+// explicit negation. Identity slurs stay excluded. "hellish", bare "absolutely
+// right", and bare "exactly" are deliberate non-surfaces (boundary and ordering
 // semantics depend on them).
 export const LANGUAGE_SIGNAL_RULES: readonly LanguageSignalRule[] = [
+	{
+		category: "negative",
+		ruleId: "negative.fishy",
+		surfaces: ["fishy"],
+	},
+	{
+		category: "negative",
+		ruleId: "negative.did-not-work",
+		surfaces: [
+			"didn't work",
+			"didnt work",
+			"did not work",
+			"doesn't work",
+			"doesnt work",
+			"does not work",
+			"isn't working",
+			"isnt working",
+			"is not working",
+			"not working",
+			"still not working",
+			"won't work",
+			"wont work",
+			"will not work",
+			"never worked",
+			"stopped working",
+		],
+	},
+	{
+		category: "negative",
+		ruleId: "negative.unchanged",
+		surfaces: ["exactly the same"],
+	},
+	{
+		category: "negative",
+		ruleId: "negative.not-good",
+		surfaces: ["not good"],
+	},
+	{
+		category: "negative",
+		ruleId: "negative.dislike",
+		surfaces: [
+			"don't like",
+			"dont like",
+			"do not like",
+			"doesn't like",
+			"doesnt like",
+			"does not like",
+			"didn't like",
+			"didnt like",
+			"did not like",
+		],
+	},
 	{
 		category: "swear",
 		ruleId: "swear.fuck",
@@ -375,7 +426,6 @@ export const LANGUAGE_SIGNAL_RULES: readonly LanguageSignalRule[] = [
 		ruleId: "positive.agreement",
 		surfaces: [
 			"agreed",
-			"exactly",
 			"absolutely",
 			"correct",
 			"precisely",

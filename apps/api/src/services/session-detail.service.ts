@@ -5,6 +5,7 @@ import {
 	assembleSessionDetailWindow,
 	decodeSessionDetailWindowCursor,
 	deriveSessionDetail,
+	getSessionDetailSpine as getCachedSessionDetailSpine,
 	getSessionDetailSubagent as getCachedSessionDetailSubagent,
 	getSessionDetailTurn as getCachedSessionDetailTurn,
 	getSessionDetailOverviewPage,
@@ -58,7 +59,7 @@ export class SessionDetailStaleRevisionError extends Error {
 }
 
 function logRequestLatency(
-	kind: "overview" | "subagent" | "turn" | "window",
+	kind: "overview" | "spine" | "subagent" | "turn" | "window",
 	startedAt: number,
 ) {
 	const durationMs = Math.round(performance.now() - startedAt);
@@ -266,6 +267,21 @@ export async function getSessionDetailWindow(input: {
 		return assembly.window;
 	} finally {
 		logRequestLatency("window", startedAt);
+	}
+}
+
+export async function getSessionDetailSpine(input: {
+	organizationId: string;
+	ownerId: string;
+	revision: string;
+	sessionId: string;
+}) {
+	const startedAt = performance.now();
+	try {
+		const derivation = await getRequestedDerivation(input);
+		return derivation ? getCachedSessionDetailSpine(derivation) : null;
+	} finally {
+		logRequestLatency("spine", startedAt);
 	}
 }
 

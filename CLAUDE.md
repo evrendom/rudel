@@ -58,6 +58,8 @@ A platform for ingesting, storing, and analyzing Claude Code / Codex session tra
 | `USAGE_EXTRACTION_QUEUE_PER_USER_MAX_BYTES` | No | Maximum active-plus-queued extraction bytes for one authenticated user (default: 128 MiB). |
 | `USAGE_EXTRACTION_QUEUE_PER_USER_MAX_JOBS` | No | Maximum active-plus-queued extraction jobs for one authenticated user (default: 5). |
 | `USAGE_EXTRACTION_QUEUE_TIMEOUT_MS` | No | Extraction worker timeout in milliseconds (default: 30,000). |
+| `LANGUAGE_SIGNAL_RECONCILE_INTERVAL_MS` | No | Delay between per-process language-signal reconciliation passes in milliseconds (default: 60,000). |
+| `LANGUAGE_SIGNAL_RECONCILE_BATCH_SIZE` | No | Maximum stale or missing sessions scanned per language-signal reconciliation batch (default: 25). |
 | `RATE_LIMIT_INGEST_REQUESTS_MAX` | No | Positive integer per-user ingest request cap per API process (default: 15,000) |
 | `RATE_LIMIT_INGEST_REQUESTS_WINDOW` | No | Positive integer ingest request window in seconds (default: 3,600) |
 | `RATE_LIMIT_INGEST_BYTES_MAX` | No | Positive integer per-user ingest byte cap per API process (default: 10 GiB) |

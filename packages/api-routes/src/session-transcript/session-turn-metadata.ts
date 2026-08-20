@@ -28,11 +28,22 @@ const tokenUsageSchema = z.object({
 	output_tokens: z.number().nonnegative().optional(),
 });
 
+const claudeErrorContentPartSchema = z
+	.object({ text: z.string().optional() })
+	.passthrough();
+
+const claudeErrorContentSchema = z.union([
+	z.string(),
+	z.array(z.union([z.string(), claudeErrorContentPartSchema])),
+]);
+
 const claudeContentBlockSchema = z.object({
+	content: claudeErrorContentSchema.optional(),
 	id: z.string().nullable().optional(),
 	input: z.record(z.string(), z.unknown()).nullable().optional(),
 	is_error: z.boolean().nullable().optional(),
 	name: z.string().nullable().optional(),
+	text: z.string().optional(),
 	tool_use_id: z.string().nullable().optional(),
 	type: z.string().optional(),
 });
@@ -94,6 +105,9 @@ const CODEX_TOOL_FAILURE_PATTERN =
 	/(?:Error|Exception):|apply_patch verification failed:/iu;
 
 type TokenUsage = z.infer<typeof tokenUsageSchema>;
+type ClaudeMessageContent = NonNullable<
+	z.infer<typeof claudeLineSchema>["message"]
+>["content"];
 
 export type TokenUsageEvent = SessionRequestUsageEvent;
 
@@ -125,6 +139,7 @@ export type SessionTurnMetrics = {
 
 export type SessionTurnErrorEvent = {
 	at: string;
+	content?: string;
 };
 
 export type SessionTurnSkillEvent = {
@@ -196,20 +211,52 @@ function getTurnIndex(
 function addErrors(
 	builder: TurnMetricsBuilder,
 	at: string | undefined,
-	count: number,
+	contents: readonly (string | undefined)[],
 ) {
-	if (count <= 0) {
+	if (contents.length === 0) {
 		return;
 	}
 
-	builder.errorCount += count;
+	builder.errorCount += contents.length;
 	if (!at) {
 		return;
 	}
 
-	for (let index = 0; index < count; index += 1) {
-		builder.errorEvents.push({ at });
+	for (const content of contents) {
+		builder.errorEvents.push({
+			at,
+			...(content?.trim() ? { content: content.trim() } : {}),
+		});
 	}
+}
+
+function getClaudeErrorContent(
+	content: z.infer<typeof claudeErrorContentSchema> | undefined,
+) {
+	if (typeof content === "string") {
+		return content;
+	}
+	return content
+		?.flatMap((part) =>
+			typeof part === "string"
+				? [part]
+				: part.text === undefined
+					? []
+					: [part.text],
+		)
+		.join("\n");
+}
+
+function getClaudeApiErrorContent(content: ClaudeMessageContent) {
+	if (typeof content === "string") {
+		return content;
+	}
+	return content
+		?.flatMap((block) => [block.text, getClaudeErrorContent(block.content)])
+		.filter(
+			(part): part is string => typeof part === "string" && part.length > 0,
+		)
+		.join("\n");
 }
 
 function addSkill(
@@ -321,7 +368,9 @@ function extractClaudeTurnMetadata(
 		}
 
 		if (!editsOnly && line.isApiErrorMessage === true) {
-			addErrors(builder, line.timestamp, 1);
+			addErrors(builder, line.timestamp, [
+				getClaudeApiErrorContent(line.message?.content),
+			]);
 		}
 
 		const contentBlocks = Array.isArray(line.message?.content)
@@ -331,7 +380,9 @@ function extractClaudeTurnMetadata(
 			addErrors(
 				builder,
 				line.timestamp,
-				contentBlocks.filter((block) => block.is_error === true).length,
+				contentBlocks.flatMap((block) =>
+					block.is_error === true ? [getClaudeErrorContent(block.content)] : [],
+				),
 			);
 		}
 
@@ -417,22 +468,30 @@ function addCodexSkills(
 	}
 }
 
-function countCodexToolErrors(outputEnvelope: string | undefined) {
+function getCodexToolErrors(outputEnvelope: string | undefined) {
 	if (!outputEnvelope) {
-		return 0;
+		return [];
 	}
 
 	const result = codexToolOutputSchema.safeParse(parseJson(outputEnvelope));
 	if (!result.success) {
-		return CODEX_TOOL_FAILURE_PATTERN.test(outputEnvelope) ? 1 : 0;
+		return CODEX_TOOL_FAILURE_PATTERN.test(outputEnvelope)
+			? [outputEnvelope]
+			: [];
 	}
 
 	const output = result.data.output ?? "";
-	return (
-		(result.data.metadata?.exit_code && result.data.metadata.exit_code !== 0
-			? 1
-			: 0) + (CODEX_TOOL_FAILURE_PATTERN.test(output) ? 1 : 0)
-	);
+	const fallback =
+		result.data.metadata?.exit_code === undefined
+			? "Tool call failed"
+			: `Tool call exited with code ${result.data.metadata.exit_code}`;
+	const content = output.trim() || fallback;
+	return [
+		...(result.data.metadata?.exit_code && result.data.metadata.exit_code !== 0
+			? [content]
+			: []),
+		...(CODEX_TOOL_FAILURE_PATTERN.test(output) ? [content] : []),
+	];
 }
 
 function getTokenUsageSignature(usage: TokenUsage | undefined) {
@@ -506,8 +565,9 @@ function extractCodexTurnMetadata(
 			(line.payload?.type === "function_call_output" ||
 				line.payload?.type === "custom_tool_call_output")
 		) {
-			const errorCount = countCodexToolErrors(line.payload.output);
-			addErrors(builder, line.timestamp, errorCount);
+			const errors = getCodexToolErrors(line.payload.output);
+			const errorCount = errors.length;
+			addErrors(builder, line.timestamp, errors);
 
 			if (line.payload.call_id) {
 				const pendingEdit = pendingFileEdits.get(line.payload.call_id);

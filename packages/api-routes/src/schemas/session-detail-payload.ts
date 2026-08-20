@@ -8,6 +8,7 @@ const MAX_DETAIL_ITEM_ID_LENGTH = 512;
 const MAX_DETAIL_STRING_LENGTH = 4096;
 const MAX_DETAIL_COLLECTION_LENGTH = 512;
 const MAX_TRACE_ITEM_COUNT = 100_000;
+const MAX_SESSION_DETAIL_SPINE_TURNS = 100_000;
 const MAX_TRANSCRIPT_CODE_UNITS = 160 * 1024 * 1024;
 
 export const SESSION_DETAIL_TURN_PAGE_LIMIT = 100;
@@ -16,9 +17,11 @@ export const SESSION_DETAIL_WINDOW_PAGE_TURNS = 200;
 export const SESSION_DETAIL_WINDOW_MAX_RAW_BYTES = 4 * 1024 * 1024;
 export const SESSION_DETAIL_WINDOW_MAX_TURN_BYTES = 1.5 * 1024 * 1024;
 export const SESSION_DETAIL_ACTIVITY_POINT_LIMIT = 512;
+export const SESSION_DETAIL_ACTIVITY_DETAIL_CODE_POINT_LIMIT = 4_096;
 export const SESSION_DETAIL_CONTEXT_ERROR_LIMIT = 64;
 export const SESSION_DETAIL_CONTEXT_FILE_LIMIT = 128;
 export const SESSION_DETAIL_PREVIEW_CODE_POINT_LIMIT = 140;
+export const SESSION_DETAIL_SIGNAL_OCCURRENCE_LIMIT = 200;
 export const SESSION_DETAIL_STALE_REVISION_CODE = "STALE_REVISION";
 export const SESSION_DETAIL_STALE_REVISION_MESSAGE =
 	"The session changed while its detail was being loaded.";
@@ -96,6 +99,9 @@ export const SessionDetailTurnInputSchema =
 		turnId: z.string().min(1).max(MAX_DETAIL_ITEM_ID_LENGTH),
 	}).strict();
 
+export const SessionDetailSpineInputSchema =
+	SessionDetailRevisionInputSchema.strict();
+
 export const SessionDetailSubagentInputSchema =
 	SessionDetailRevisionInputSchema.extend({
 		subagentId: z.string().min(1).max(MAX_DETAIL_ITEM_ID_LENGTH),
@@ -169,6 +175,8 @@ const SessionDetailTurnSubagentEventSchema = z
 	.object({
 		at: SessionDetailTimestampSchema,
 		count: z.number().int().positive(),
+		eventId: z.string().min(1).max(MAX_DETAIL_ITEM_ID_LENGTH).optional(),
+		subagentId: z.string().min(1).max(MAX_DETAIL_ITEM_ID_LENGTH).optional(),
 	})
 	.strict();
 
@@ -184,6 +192,13 @@ const SessionDetailUsageCallSchema = z
 	})
 	.strict();
 
+const SessionDetailSignalOccurrenceSchema = z
+	.object({
+		category: z.enum(["apology", "negative", "positive"]),
+		matchedText: z.string().min(1).max(MAX_DETAIL_STRING_LENGTH),
+	})
+	.strict();
+
 export const SessionDetailTurnSummarySchema = z
 	.object({
 		activityResolution: z.enum(["exact", "bucketed"]),
@@ -192,7 +207,22 @@ export const SessionDetailTurnSummarySchema = z
 		endedAt: SessionDetailNullableTimestampSchema,
 		errorCount: z.number().int().nonnegative(),
 		errorEvents: z
-			.array(z.object({ at: SessionDetailTimestampSchema }).strict())
+			.array(
+				z
+					.object({
+						at: SessionDetailTimestampSchema,
+						content: z
+							.string()
+							.refine(
+								(value) =>
+									Array.from(value).length <=
+									SESSION_DETAIL_ACTIVITY_DETAIL_CODE_POINT_LIMIT,
+								`Activity detail must contain at most ${SESSION_DETAIL_ACTIVITY_DETAIL_CODE_POINT_LIMIT} Unicode code points`,
+							)
+							.optional(),
+					})
+					.strict(),
+			)
 			.max(SESSION_DETAIL_ACTIVITY_POINT_LIMIT),
 		fileEvents: z
 			.array(SessionDetailTurnFileEventSchema)
@@ -202,9 +232,17 @@ export const SessionDetailTurnSummarySchema = z
 		hasBody: z.boolean(),
 		index: z.number().int().nonnegative(),
 		inputTokens: SessionDetailNullableCountSchema,
+		modelSignalCount: z.number().int().nonnegative(),
 		outputTokens: SessionDetailNullableCountSchema,
 		responsePreview: SessionDetailPreviewSchema,
+		signalCount: z.number().int().nonnegative(),
+		signalOccurrences: z
+			.array(SessionDetailSignalOccurrenceSchema)
+			.max(SESSION_DETAIL_SIGNAL_OCCURRENCE_LIMIT),
+		signalOccurrencesOmittedCount: z.number().int().nonnegative(),
+		signalOccurrencesTruncated: z.boolean(),
 		skills: SessionDetailStringListSchema,
+		skillCount: z.number().int().nonnegative(),
 		skillEvents: z
 			.array(
 				z
@@ -228,6 +266,19 @@ export const SessionDetailTurnSummarySchema = z
 			.max(SESSION_DETAIL_ACTIVITY_POINT_LIMIT),
 		userCharacterCount: z.number().int().nonnegative().optional(),
 		userPreview: SessionDetailPreviewSchema,
+	})
+	.strict();
+
+const SessionDetailActivityTotalsSchema = z
+	.object({
+		edit: z.number().int().nonnegative(),
+		error: z.number().int().nonnegative(),
+		read: z.number().int().nonnegative(),
+		signal: z.number().int().nonnegative(),
+		signalScanVersion: z.number().int().nonnegative(),
+		skill: z.number().int().nonnegative(),
+		subagent: z.number().int().nonnegative(),
+		write: z.number().int().nonnegative(),
 	})
 	.strict();
 
@@ -257,7 +308,9 @@ const SessionDetailSubagentSummarySchema = z
 	.object({
 		estimatedCost: SessionDetailNullableCostSchema,
 		hasTranscript: z.boolean(),
+		inputTokens: SessionDetailNullableCountSchema,
 		model: z.string().max(MAX_DETAIL_STRING_LENGTH).nullable(),
+		outputTokens: SessionDetailNullableCountSchema,
 		subagentId: z.string().min(1).max(MAX_DETAIL_ITEM_ID_LENGTH),
 		totalTokens: SessionDetailNullableCountSchema,
 	})
@@ -291,6 +344,7 @@ const SessionDetailContextSchema = z
 
 export const SessionDetailOverviewSchema = z
 	.object({
+		activityTotals: SessionDetailActivityTotalsSchema,
 		context: SessionDetailContextSchema,
 		revision: SessionDetailRevisionSchema,
 		session: SessionDetailSessionSummarySchema,
@@ -355,6 +409,7 @@ const SessionDetailTraceToolResultSchema = z
 			),
 		]),
 		isError: z.boolean(),
+		subagentId: z.string().max(MAX_DETAIL_ITEM_ID_LENGTH).optional(),
 	})
 	.strict();
 
@@ -442,10 +497,12 @@ export const SessionDetailTraceItemSchema = z.discriminatedUnion("kind", [
 		.strict(),
 	z
 		.object({
+			agentName: z.string().max(MAX_DETAIL_STRING_LENGTH).optional(),
 			events: z.array(SessionDetailTraceEventSchema).max(MAX_TRACE_ITEM_COUNT),
 			executionMode: z.enum(["plan", "default", "unknown"]),
 			id: z.string().max(MAX_DETAIL_ITEM_ID_LENGTH),
 			kind: z.literal("agent"),
+			modelSetting: z.string().max(MAX_DETAIL_STRING_LENGTH).optional(),
 			timestamp: SessionDetailTimestampSchema,
 		})
 		.strict(),
@@ -506,6 +563,23 @@ export const SessionDetailWindowSchema = z
 	})
 	.strict();
 
+export const SessionDetailSpineTurnSchema = z
+	.object({
+		eventCount: z.number().int().nonnegative(),
+		responseBytes: z.number().int().nonnegative(),
+		turnId: SessionDetailTurnIdSchema,
+	})
+	.strict();
+
+export const SessionDetailSpineSchema = z
+	.object({
+		revision: SessionDetailRevisionSchema,
+		turns: z
+			.array(SessionDetailSpineTurnSchema)
+			.max(MAX_SESSION_DETAIL_SPINE_TURNS),
+	})
+	.strict();
+
 export const SessionDetailSubagentSchema = z
 	.object({
 		content: z.string().max(MAX_TRANSCRIPT_CODE_UNITS),
@@ -516,6 +590,13 @@ export const SessionDetailSubagentSchema = z
 
 export type SessionDetailOverviewInput = z.infer<
 	typeof SessionDetailOverviewInputSchema
+>;
+export type SessionDetailSpineInput = z.infer<
+	typeof SessionDetailSpineInputSchema
+>;
+export type SessionDetailSpine = z.infer<typeof SessionDetailSpineSchema>;
+export type SessionDetailSpineTurn = z.infer<
+	typeof SessionDetailSpineTurnSchema
 >;
 export type SessionDetailWindowRequest = z.infer<
 	typeof SessionDetailWindowRequestSchema
