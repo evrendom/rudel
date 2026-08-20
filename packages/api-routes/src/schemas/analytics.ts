@@ -451,6 +451,9 @@ const VALID_METRICS = [
 	"session_count",
 	"avg_duration",
 	"total_duration",
+	// Retained for older deployed clients that still send interaction metrics.
+	"avg_interactions",
+	"total_interactions",
 	"avg_response_time",
 	"median_response_time",
 	"avg_tokens",
