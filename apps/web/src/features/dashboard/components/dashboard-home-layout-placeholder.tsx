@@ -50,7 +50,7 @@ export function DashboardHomeLayoutPlaceholder() {
 							<div
 								key={key}
 								aria-hidden="true"
-								className="dashboardy-card flex aspect-[9/8] min-w-0 flex-col overflow-hidden rounded-xl border dark:shadow-none"
+								className="flex aspect-[9/8] min-w-0 flex-col overflow-hidden rounded-xl border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]"
 							>
 								<div className="h-10 shrink-0 border-b border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-subsurface)]" />
 								<div className="flex min-h-0 flex-1 flex-col justify-end gap-2 p-4">
@@ -66,7 +66,7 @@ export function DashboardHomeLayoutPlaceholder() {
 					<DashboardPlaceholderSectionMarker />
 					<div
 						aria-hidden="true"
-						className="dashboardy-card flex h-56 min-h-0 flex-col overflow-hidden rounded-xl border dark:shadow-none"
+						className="flex h-56 min-h-0 flex-col overflow-hidden rounded-xl border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]"
 					>
 						<div className="flex h-10 shrink-0 items-center border-b border-[color:var(--dashboardy-border)] px-4">
 							<div className="h-2.5 w-28 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
@@ -89,7 +89,7 @@ export function DashboardHomeLayoutPlaceholder() {
 							<div
 								key={key}
 								aria-hidden="true"
-								className="dashboardy-card flex h-32 min-w-0 flex-col overflow-hidden rounded-xl border dark:shadow-none"
+								className="flex h-32 min-w-0 flex-col overflow-hidden rounded-xl border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]"
 							>
 								<div className="h-9 shrink-0 border-b border-[color:var(--dashboardy-border)]" />
 								<div className="min-h-0 flex-1 bg-[color:var(--dashboardy-subsurface)]" />
@@ -105,7 +105,7 @@ export function DashboardHomeLayoutPlaceholder() {
 							<div
 								key={key}
 								aria-hidden="true"
-								className="dashboardy-card flex h-32 min-w-0 flex-col overflow-hidden rounded-xl border dark:shadow-none"
+								className="flex h-32 min-w-0 flex-col overflow-hidden rounded-xl border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]"
 							>
 								<div className="flex h-11 shrink-0 items-center px-4">
 									<div className="h-2.5 w-24 rounded-full bg-[color:var(--dashboardy-subsurface-strong)]" />
