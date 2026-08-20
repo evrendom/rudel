@@ -27,6 +27,7 @@ To run one scenario in an existing terminal without the browser:
 ```sh
 bun run playground:cli:scenario whoami-signed-in
 bun run playground:cli:scenario picker-real
+bun run playground:cli:scenario picker-uploaded-mixed
 ```
 
 The runner accepts exactly one registered scenario name. It never forwards extra arguments.

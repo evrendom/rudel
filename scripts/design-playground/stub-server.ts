@@ -14,6 +14,18 @@ import type {
 
 const MAX_LOG_ENTRIES = 300;
 const STAGGER_DELAYS_MS = [200, 650, 1_400, 2_600, 4_200, 8_000];
+const UPLOADED_MIXED_SESSION_IDS = new Set([
+	"fixture-current-01",
+	"fixture-current-02",
+	"fixture-current-03",
+	"fixture-current-04",
+	"fixture-current-05",
+	"fixture-current-06",
+	"fixture-codex-01",
+	"fixture-codex-04",
+	"fixture-api-01",
+	"fixture-api-02",
+]);
 const DEFAULT_IDENTITY: PlaygroundIdentity = {
 	user: {
 		id: "user_playground_01",
@@ -219,13 +231,19 @@ async function respondToCliRequest(options: {
 	}
 	if (info.pathname === "/rpc/cli/sessionUploadStatus") {
 		if (behavior === "auth") return unauthorizedResponse();
+		const requestedSessionIds = readRequestedSessionIds(info.body);
 		return Response.json({
 			json: {
 				organizationId:
 					readRequestedOrganizationId(info.body) ??
 					identity.organizations[0]?.id ??
 					identity.user.id,
-				uploadedSessionIds: [],
+				uploadedSessionIds:
+					behavior === "uploaded-mixed"
+						? requestedSessionIds.filter((sessionId) =>
+								UPLOADED_MIXED_SESSION_IDS.has(sessionId),
+							)
+						: [],
 			},
 		});
 	}
@@ -370,6 +388,7 @@ function isStubBehavior(value: unknown): value is StubBehavior {
 	return (
 		value === "auth" ||
 		value === "ok" ||
+		value === "uploaded-mixed" ||
 		value === "proxy-html" ||
 		value === "rate-limit" ||
 		value === "retry-choreo" ||
@@ -393,6 +412,20 @@ function unauthorizedResponse(): Response {
 }
 
 function readRequestedOrganizationId(body: string): string | null {
+	const value = readRpcJsonBody(body);
+	if (!value) return null;
+	return typeof value.organizationId === "string" ? value.organizationId : null;
+}
+
+function readRequestedSessionIds(body: string): string[] {
+	const value = readRpcJsonBody(body);
+	if (!value || !Array.isArray(value.sessionIds)) return [];
+	return value.sessionIds.filter(
+		(sessionId): sessionId is string => typeof sessionId === "string",
+	);
+}
+
+function readRpcJsonBody(body: string): Record<string, unknown> | null {
 	let value: unknown;
 	try {
 		value = JSON.parse(body);
@@ -400,9 +433,7 @@ function readRequestedOrganizationId(body: string): string | null {
 		return null;
 	}
 	if (!isRecord(value) || !isRecord(value.json)) return null;
-	return typeof value.json.organizationId === "string"
-		? value.json.organizationId
-		: null;
+	return value.json;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

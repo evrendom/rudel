@@ -3,6 +3,7 @@ export type PlaygroundProfile = "fixture" | "local-real";
 export type StubBehavior =
 	| "auth"
 	| "ok"
+	| "uploaded-mixed"
 	| "proxy-html"
 	| "rate-limit"
 	| "retry-choreo"

@@ -160,7 +160,6 @@ async function runInteractiveUpload(
 	const options: Array<{
 		value: InteractiveUploadProject;
 		label: string;
-		hint: string;
 	}> = [];
 	const preSelected: InteractiveUploadProject[] = [];
 	const projectOrder = new Map<
@@ -186,8 +185,7 @@ async function runInteractiveUpload(
 		const project = uploadProject.project;
 		options.push({
 			value: uploadProject,
-			label: `[${getAdapterName(project.source)}] ${project.displayPath}`,
-			hint: getProjectUploadHint(uploadProject),
+			label: `[${getAdapterName(project.source)}] ${project.displayPath} (${getProjectUploadHint(uploadProject)})`,
 		});
 		if (
 			projectOrder.get(project)?.containsCwd &&

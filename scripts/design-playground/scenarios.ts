@@ -107,6 +107,19 @@ export const SCENARIOS: readonly Scenario[] = [
 		agentState: "clean",
 	},
 	{
+		name: "picker-uploaded-mixed",
+		label: "New + already uploaded",
+		description:
+			"One fully uploaded project plus mixed and entirely new projects.",
+		group: "Happy paths",
+		profile: "fixture",
+		argv: ["upload"],
+		stubBehavior: "uploaded-mixed",
+		env: {},
+		fixture: "standard",
+		agentState: "clean",
+	},
+	{
 		name: "upload-ok",
 		label: "Successful upload",
 		description: "A normal project selection and successful batch upload.",

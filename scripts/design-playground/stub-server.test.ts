@@ -131,6 +131,41 @@ describe("design playground stub", () => {
 		expect(activeStub.getTripwire()).toContain("example.com");
 	});
 
+	test("returns only requested fixture sessions marked as uploaded", async () => {
+		activeStub = startPlaygroundStub({ crashOnTripwire: false });
+		await configurePlaygroundStub(
+			activeStub.loopbackBase,
+			activeStub.secret,
+			"uploaded-mixed",
+			IDENTITY,
+		);
+
+		const response = await fetch(
+			`${activeStub.loopbackBase}/rpc/cli/sessionUploadStatus`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					json: {
+						organizationId: "org_test",
+						sessionIds: [
+							"fixture-current-01",
+							"fixture-api-02",
+							"fixture-api-03",
+						],
+					},
+				}),
+			},
+		);
+
+		expect(await response.json()).toEqual({
+			json: {
+				organizationId: "org_test",
+				uploadedSessionIds: ["fixture-current-01", "fixture-api-02"],
+			},
+		});
+	});
+
 	test("drives the real uploader's terminal 429 message without retrying", async () => {
 		activeStub = startPlaygroundStub({ crashOnTripwire: false });
 		await configurePlaygroundStub(
