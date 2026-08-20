@@ -9,6 +9,13 @@ export interface UsageEventAnalyticsCutoverConfig {
 	mode: UsageEventAnalyticsCutoverMode;
 }
 
+export type SkillAnalyticsCutoverMode = "all" | "canary" | "off";
+
+export interface SkillAnalyticsCutoverConfig {
+	canaryOrganizationIds: ReadonlySet<string>;
+	mode: SkillAnalyticsCutoverMode;
+}
+
 export interface CliDeviceVerificationUrlConfig {
 	url: string;
 	/** Non-fatal configuration concern for the caller to log. */
@@ -134,6 +141,39 @@ export function readUsageEventAnalyticsCutoverConfig(
 export function shouldUseUsageEventAnalytics(
 	organizationId: string,
 	config: UsageEventAnalyticsCutoverConfig = readUsageEventAnalyticsCutoverConfig(),
+): boolean {
+	return (
+		config.mode === "all" ||
+		(config.mode === "canary" &&
+			config.canaryOrganizationIds.has(organizationId))
+	);
+}
+
+export function readSkillAnalyticsCutoverConfig(
+	environment: Readonly<Record<string, string | undefined>> = process.env,
+): SkillAnalyticsCutoverConfig {
+	const rawMode = environment.SKILL_ANALYTICS_CUTOVER_MODE?.trim();
+	if (rawMode !== "all" && rawMode !== "canary") {
+		return { canaryOrganizationIds: new Set(), mode: "off" };
+	}
+	if (rawMode === "all") {
+		return { canaryOrganizationIds: new Set(), mode: "all" };
+	}
+	const canaryOrganizationIds = new Set(
+		(environment.SKILL_ANALYTICS_CANARY_ORG_IDS ?? "")
+			.split(",")
+			.map((organizationId) => organizationId.trim())
+			.filter((organizationId) => organizationId !== ""),
+	);
+	return {
+		canaryOrganizationIds,
+		mode: canaryOrganizationIds.size === 0 ? "off" : "canary",
+	};
+}
+
+export function shouldUsePersistentSkillAnalytics(
+	organizationId: string,
+	config: SkillAnalyticsCutoverConfig = readSkillAnalyticsCutoverConfig(),
 ): boolean {
 	return (
 		config.mode === "all" ||

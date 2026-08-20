@@ -17,6 +17,49 @@ const BASE_INPUT = {
 };
 
 describe("usage extraction worker boundary", () => {
+	test("extracts skill facts in the existing bounded worker", async () => {
+		const queue = createQueue();
+		const body = "# Worker body\n";
+		const content = [
+			JSON.stringify({
+				message: {
+					role: "assistant",
+					content: [
+						{
+							type: "tool_use",
+							name: "Skill",
+							input: { skill: "worker-skill" },
+						},
+					],
+				},
+				type: "assistant",
+			}),
+			JSON.stringify({
+				isMeta: true,
+				message: {
+					role: "user",
+					content: `Base directory for this skill: /tmp/worker-skill\n\n${body}`,
+				},
+				type: "user",
+			}),
+		].join("\n");
+
+		const result = await queue.extractSessionFacts({
+			bytes: Buffer.byteLength(content, "utf8"),
+			extractSkills: true,
+			input: { ...BASE_INPUT, content },
+			signal: new AbortController().signal,
+			skillSessionDate: "2026-08-20T10:00:00.000Z",
+			userId: "skill-worker-user",
+		});
+
+		expect(result.skills).toMatchObject({
+			agent: "claude",
+			uses: [{ content: body, name: "worker-skill" }],
+		});
+		queue.close();
+	});
+
 	test("keeps the event loop responsive and reports bytes and every parsed line", async () => {
 		const queue = createQueue();
 		const metadataLine = JSON.stringify({ type: "user" });

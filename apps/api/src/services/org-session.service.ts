@@ -7,9 +7,17 @@ import {
 
 const SESSION_ANALYTICS_TABLE = "rudel.session_analytics";
 const SESSION_LANGUAGE_SIGNALS_TABLE = "rudel.session_language_signals";
+const SKILL_RECEIPTS_TABLE = "rudel.skill_receipts";
+const SKILL_USES_TABLE = "rudel.skill_uses";
+const SKILL_VERSION_CONTENTS_TABLE = "rudel.skill_version_contents";
 const USAGE_EVENTS_TABLE = "rudel.usage_events";
 const WRAPPED_USER_ARCHETYPE_SNAPSHOTS_TABLE =
 	"rudel.wrapped_user_archetype_snapshots_v1";
+const PRIVACY_DELETE_SCAN_SETTINGS = {
+	max_bytes_to_read: String(2 * 1024 * 1024 * 1024),
+	max_execution_time: 90,
+	max_rows_to_read: "10000000",
+} as const;
 
 interface SessionCountRow {
 	count: string;
@@ -147,21 +155,29 @@ async function deleteSessions(
 	column: "organization_id" | "user_id",
 	targetId: string,
 ): Promise<void> {
-	const tables = [
-		...getAllAdapters().map((adapter) => adapter.rawTableName),
-		SESSION_ANALYTICS_TABLE,
-		SESSION_LANGUAGE_SIGNALS_TABLE,
-		USAGE_EVENTS_TABLE,
-		WRAPPED_USER_ARCHETYPE_SNAPSHOTS_TABLE,
+	const plans = [
+		...getAllAdapters().map((adapter) => ({
+			column,
+			table: adapter.rawTableName,
+		})),
+		{ column, table: SESSION_ANALYTICS_TABLE },
+		{ column, table: SESSION_LANGUAGE_SIGNALS_TABLE },
+		{ column, table: SKILL_RECEIPTS_TABLE },
+		{ column, table: SKILL_USES_TABLE },
+		{ column, table: SKILL_VERSION_CONTENTS_TABLE },
+		{ column, table: USAGE_EVENTS_TABLE },
+		{ column, table: WRAPPED_USER_ARCHETYPE_SNAPSHOTS_TABLE },
 	];
 	const results = await Promise.allSettled(
-		tables.map((table) => deleteSessionsFromTable(table, column, targetId)),
+		plans.map((plan) =>
+			deleteSessionsFromTable(plan.table, plan.column, targetId),
+		),
 	);
 	const failures = results.flatMap((result, index) =>
 		result.status === "rejected"
 			? [
 					new Error(
-						`ClickHouse purge failed for ${tables[index] ?? "unknown"}`,
+						`ClickHouse purge failed for ${plans[index]?.table ?? "unknown"}`,
 						{ cause: result.reason },
 					),
 				]
@@ -187,12 +203,16 @@ async function deleteSessionsFromTable(
 	// Sync level 3 waits for active SharedMergeTree replicas. The read-back
 	// confirms query-level deletion; merges reclaim the physical data later.
 	await clickhouse.execute({
-		clickhouse_settings: { lightweight_deletes_sync: "3" },
+		clickhouse_settings: {
+			...PRIVACY_DELETE_SCAN_SETTINGS,
+			lightweight_deletes_sync: "3",
+		},
 		query: `DELETE FROM ${table} WHERE ${predicate}`,
 		query_params: queryParams,
 	});
 
 	const remainingRows = await clickhouse.query({
+		clickhouse_settings: PRIVACY_DELETE_SCAN_SETTINGS,
 		query: `SELECT 1 FROM ${table} WHERE ${predicate} LIMIT 1`,
 		query_params: queryParams,
 	});

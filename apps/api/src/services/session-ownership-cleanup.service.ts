@@ -5,12 +5,16 @@ import { sqlClient } from "../db.js";
 
 const SESSION_ANALYTICS_TABLE = "rudel.session_analytics";
 const SESSION_LANGUAGE_SIGNALS_TABLE = "rudel.session_language_signals";
+const SKILL_RECEIPTS_TABLE = "rudel.skill_receipts";
+const SKILL_USES_TABLE = "rudel.skill_uses";
+const SKILL_VERSION_CONTENTS_TABLE = "rudel.skill_version_contents";
 const USAGE_EVENTS_TABLE = "rudel.usage_events";
 const OWNERSHIP_OPERATION_LOCK_ID = 941_821_301;
 const DELETE_BATCH_SIZE = 10;
 const CLEANUP_QUERY_SETTINGS = {
 	max_bytes_to_read: "10000000000",
 	max_execution_time: 90,
+	max_rows_to_read: "10000000",
 } satisfies ClickHouseSettings;
 const DELETE_QUERY_SETTINGS = {
 	...CLEANUP_QUERY_SETTINGS,
@@ -27,10 +31,34 @@ interface SessionRowGroup extends OwnershipRow {
 	row_count: string;
 }
 
-interface CleanupTablePlan {
+interface SkillContentIdentity {
+	content_sha256: string;
+	organization_id: string;
+	skill_name: string;
+	user_id: string;
+}
+
+interface SkillContentReferenceRow extends SkillContentIdentity {
+	session_id: string;
+}
+
+interface SkillContentRowGroup extends SkillContentIdentity {
+	row_count: string;
+}
+
+interface SessionCleanupTablePlan {
+	keyKind: "session";
 	keys: SessionRowGroup[];
 	table: string;
 }
+
+interface SkillContentCleanupTablePlan {
+	keyKind: "skill_content";
+	keys: SkillContentRowGroup[];
+	table: typeof SKILL_VERSION_CONTENTS_TABLE;
+}
+
+type CleanupTablePlan = SessionCleanupTablePlan | SkillContentCleanupTablePlan;
 
 interface CleanupPlan {
 	keyCount: number;
@@ -119,10 +147,11 @@ async function getCleanupPlan(
 			row.user_id,
 		]),
 	);
-	const tables = await Promise.all(
+	const sessionTables = await Promise.all(
 		getCleanupTableNames().map(async (table): Promise<CleanupTablePlan> => {
 			const rowGroups = await getSessionRowGroups(table, cutoff);
 			return {
+				keyKind: "session",
 				keys: rowGroups.filter(
 					(row) =>
 						registeredOwners.get(
@@ -133,6 +162,28 @@ async function getCleanupPlan(
 			};
 		}),
 	);
+	const [contentRows, contentReferences] = await Promise.all([
+		getSkillContentRowGroups(cutoff),
+		getSkillContentReferenceRows(),
+	]);
+	const canonicalContentKeys = new Set(
+		contentReferences
+			.filter(
+				(row) =>
+					registeredOwners.get(
+						getOwnershipKey(row.organization_id, row.session_id),
+					) === row.user_id,
+			)
+			.map((row) => getSkillContentKey(row)),
+	);
+	const contentTable: SkillContentCleanupTablePlan = {
+		keyKind: "skill_content",
+		keys: contentRows.filter(
+			(row) => !canonicalContentKeys.has(getSkillContentKey(row)),
+		),
+		table: SKILL_VERSION_CONTENTS_TABLE,
+	};
+	const tables: CleanupTablePlan[] = [...sessionTables, contentTable];
 
 	return {
 		keyCount: tables.reduce((total, table) => total + table.keys.length, 0),
@@ -149,6 +200,45 @@ async function getCleanupPlan(
 	};
 }
 
+async function getSkillContentRowGroups(
+	cutoff: Date,
+): Promise<SkillContentRowGroup[]> {
+	return getClickhouse().query<SkillContentRowGroup>({
+		clickhouse_settings: CLEANUP_QUERY_SETTINGS,
+		query: `
+			SELECT
+				organization_id,
+				user_id,
+				skill_name,
+				content_sha256,
+				count() AS row_count
+			FROM ${getSafeClickHouseTable(SKILL_VERSION_CONTENTS_TABLE)}
+			WHERE extracted_at <= parseDateTime64BestEffort({cutoff:String})
+			GROUP BY organization_id, user_id, skill_name, content_sha256
+		`,
+		query_params: { cutoff: cutoff.toISOString() },
+	});
+}
+
+async function getSkillContentReferenceRows(): Promise<
+	SkillContentReferenceRow[]
+> {
+	return getClickhouse().query<SkillContentReferenceRow>({
+		clickhouse_settings: CLEANUP_QUERY_SETTINGS,
+		query: `
+			SELECT
+				organization_id,
+				user_id,
+				session_id,
+				skill_name,
+				content_sha256
+			FROM ${getSafeClickHouseTable(SKILL_USES_TABLE)}
+			WHERE content_sha256 != ''
+			GROUP BY organization_id, user_id, session_id, skill_name, content_sha256
+		`,
+	});
+}
+
 async function getSessionRowGroups(
 	table: string,
 	cutoff: Date,
@@ -156,7 +246,9 @@ async function getSessionRowGroups(
 	const cutoffColumn =
 		table === SESSION_LANGUAGE_SIGNALS_TABLE
 			? "raw_ingested_at"
-			: "ingested_at";
+			: table === SKILL_USES_TABLE || table === SKILL_RECEIPTS_TABLE
+				? "extracted_at"
+				: "ingested_at";
 	return getClickhouse().query<SessionRowGroup>({
 		clickhouse_settings: CLEANUP_QUERY_SETTINGS,
 		query: `
@@ -181,21 +273,41 @@ async function deleteNonCanonicalKeys(
 		startIndex < tablePlan.keys.length;
 		startIndex += DELETE_BATCH_SIZE
 	) {
-		const batch = tablePlan.keys.slice(
-			startIndex,
-			startIndex + DELETE_BATCH_SIZE,
-		);
 		const queryParams: Record<string, unknown> = {};
-		const predicates = batch.map((row, batchIndex) => {
-			queryParams[`organizationId${batchIndex}`] = row.organization_id;
-			queryParams[`sessionId${batchIndex}`] = row.session_id;
-			queryParams[`userId${batchIndex}`] = row.user_id;
-			return `(
-				organization_id = {organizationId${batchIndex}:String}
-				AND session_id = {sessionId${batchIndex}:String}
-				AND user_id = {userId${batchIndex}:String}
-			)`;
-		});
+		let predicates: string[];
+		if (tablePlan.keyKind === "skill_content") {
+			const batch = tablePlan.keys.slice(
+				startIndex,
+				startIndex + DELETE_BATCH_SIZE,
+			);
+			predicates = batch.map((row, batchIndex) => {
+				queryParams[`organizationId${batchIndex}`] = row.organization_id;
+				queryParams[`userId${batchIndex}`] = row.user_id;
+				queryParams[`skillName${batchIndex}`] = row.skill_name;
+				queryParams[`contentSha256${batchIndex}`] = row.content_sha256;
+				return `(
+					organization_id = {organizationId${batchIndex}:String}
+					AND user_id = {userId${batchIndex}:String}
+					AND skill_name = {skillName${batchIndex}:String}
+					AND content_sha256 = {contentSha256${batchIndex}:String}
+				)`;
+			});
+		} else {
+			const batch = tablePlan.keys.slice(
+				startIndex,
+				startIndex + DELETE_BATCH_SIZE,
+			);
+			predicates = batch.map((row, batchIndex) => {
+				queryParams[`organizationId${batchIndex}`] = row.organization_id;
+				queryParams[`sessionId${batchIndex}`] = row.session_id;
+				queryParams[`userId${batchIndex}`] = row.user_id;
+				return `(
+					organization_id = {organizationId${batchIndex}:String}
+					AND session_id = {sessionId${batchIndex}:String}
+					AND user_id = {userId${batchIndex}:String}
+				)`;
+			});
+		}
 
 		await getClickhouse().execute({
 			clickhouse_settings: DELETE_QUERY_SETTINGS,
@@ -213,6 +325,8 @@ function getCleanupTableNames(): string[] {
 		...getAllAdapters().map((adapter) => adapter.rawTableName),
 		SESSION_ANALYTICS_TABLE,
 		SESSION_LANGUAGE_SIGNALS_TABLE,
+		SKILL_RECEIPTS_TABLE,
+		SKILL_USES_TABLE,
 		USAGE_EVENTS_TABLE,
 	];
 }
@@ -242,4 +356,8 @@ function createCleanupResult(
 
 function getOwnershipKey(organizationId: string, sessionId: string): string {
 	return `${organizationId}\u0000${sessionId}`;
+}
+
+function getSkillContentKey(identity: SkillContentIdentity): string {
+	return `${identity.organization_id}\u0000${identity.user_id}\u0000${identity.skill_name}\u0000${identity.content_sha256}`;
 }

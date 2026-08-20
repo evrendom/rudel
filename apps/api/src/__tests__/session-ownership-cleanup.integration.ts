@@ -121,6 +121,12 @@ beforeAll(async () => {
 		RECENT_SESSION_DATE,
 		FIXTURE_INGESTED_AT,
 	);
+	await Promise.all([
+		ingestSkillRows(CANONICAL_SESSION_ID, owner.userId),
+		ingestSkillRows(MISMATCHED_SESSION_ID, otherUser.userId),
+		ingestSkillRows(MISMATCHED_SESSION_ID, owner.userId),
+		ingestSkillRows(UNCLAIMED_SESSION_ID, otherUser.userId),
+	]);
 });
 
 afterAll(async () => {
@@ -135,6 +141,9 @@ afterAll(async () => {
 			"rudel.claude_sessions",
 			"rudel.codex_sessions",
 			"rudel.session_analytics",
+			"rudel.skill_receipts",
+			"rudel.skill_uses",
+			"rudel.skill_version_contents",
 		].map((table) =>
 			clickhouse
 				.execute({
@@ -172,8 +181,25 @@ describe("non-canonical session cleanup", () => {
 					rowCount: expect.any(Number),
 					table: "rudel.session_analytics",
 				}),
+				expect.objectContaining({
+					keyCount: expect.any(Number),
+					rowCount: expect.any(Number),
+					table: "rudel.skill_receipts",
+				}),
+				expect.objectContaining({
+					keyCount: expect.any(Number),
+					rowCount: expect.any(Number),
+					table: "rudel.skill_uses",
+				}),
+				expect.objectContaining({
+					keyCount: expect.any(Number),
+					rowCount: expect.any(Number),
+					table: "rudel.skill_version_contents",
+				}),
 			]),
 		);
+		expect(await countSkillContentRows(owner.userId)).toBeGreaterThan(0);
+		expect(await countSkillContentRows(otherUser.userId)).toBeGreaterThan(0);
 		await expect(
 			cleanupNonCanonicalSessionRows(
 				CLEANUP_CUTOFF,
@@ -240,6 +266,16 @@ describe("non-canonical session cleanup", () => {
 		expect(await countSessionRows(UNCLAIMED_SESSION_ID, otherUser.userId)).toBe(
 			0,
 		);
+		expect(await countSkillRows(CANONICAL_SESSION_ID, owner.userId)).toBe(2);
+		expect(await countSkillRows(MISMATCHED_SESSION_ID, owner.userId)).toBe(2);
+		expect(await countSkillRows(MISMATCHED_SESSION_ID, otherUser.userId)).toBe(
+			0,
+		);
+		expect(await countSkillRows(UNCLAIMED_SESSION_ID, otherUser.userId)).toBe(
+			0,
+		);
+		expect(await countSkillContentRows(owner.userId)).toBeGreaterThan(0);
+		expect(await countSkillContentRows(otherUser.userId)).toBe(0);
 
 		await expectCleanupApiResults();
 
@@ -284,6 +320,64 @@ async function ingestSession(
 	});
 }
 
+async function ingestSkillRows(
+	sessionId: string,
+	userId: string,
+): Promise<void> {
+	const extractedAt = toClickHouseTimestamp(new Date(FIXTURE_INGESTED_AT));
+	const sourceContentSha256 = "a".repeat(64);
+	const contentSha256 = "b".repeat(64);
+	const clickhouse = getClickhouse();
+	await clickhouse.insert({
+		table: "rudel.skill_version_contents",
+		values: [
+			{
+				content: "shared ownership cleanup body",
+				content_sha256: contentSha256,
+				extracted_at: extractedAt,
+				extraction_seq: "1",
+				organization_id: organizationId,
+				parser_version: 1,
+				skill_name: "ownership-cleanup-skill",
+				user_id: userId,
+			},
+		],
+	});
+	await clickhouse.insert({
+		table: "rudel.skill_uses",
+		values: [
+			{
+				agent: "claude",
+				content_sha256: contentSha256,
+				extracted_at: extractedAt,
+				extraction_seq: "1",
+				organization_id: organizationId,
+				parser_version: 1,
+				session_id: sessionId,
+				skill_name: "ownership-cleanup-skill",
+				source_content_sha256: sourceContentSha256,
+				used_at: extractedAt,
+				user_id: userId,
+			},
+		],
+	});
+	await clickhouse.insert({
+		table: "rudel.skill_receipts",
+		values: [
+			{
+				agent: "claude",
+				extracted_at: extractedAt,
+				extraction_seq: "1",
+				organization_id: organizationId,
+				parser_version: 1,
+				session_id: sessionId,
+				source_content_sha256: sourceContentSha256,
+				user_id: userId,
+			},
+		],
+	});
+}
+
 async function countSessionRows(
 	sessionId: string,
 	userId: string,
@@ -294,6 +388,31 @@ async function countSessionRows(
 		),
 	);
 	return counts.reduce((total, count) => total + count, 0);
+}
+
+async function countSkillRows(
+	sessionId: string,
+	userId: string,
+): Promise<number> {
+	const counts = await Promise.all(
+		["rudel.skill_receipts", "rudel.skill_uses"].map((table) =>
+			countSessionRowsInTable(table, sessionId, userId),
+		),
+	);
+	return counts.reduce((total, count) => total + count, 0);
+}
+
+async function countSkillContentRows(userId: string): Promise<number> {
+	const [row] = await getClickhouse().query<{ count: string }>({
+		query: `
+			SELECT count() AS count
+			FROM ${getSafeClickHouseTable("rudel.skill_version_contents")}
+			WHERE organization_id = {organizationId:String}
+				AND user_id = {userId:String}
+		`,
+		query_params: { organizationId, userId },
+	});
+	return Number(row?.count ?? 0);
 }
 
 async function countSessionRowsInTable(
@@ -433,6 +552,10 @@ async function expectCleanupApiResults(): Promise<void> {
 
 function formatUtcDate(timestamp: number): string {
 	return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function toClickHouseTimestamp(value: Date): string {
+	return value.toISOString().replace("T", " ").replace("Z", "");
 }
 
 async function createTestIdentity(
