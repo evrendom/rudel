@@ -18,8 +18,8 @@ npm install -g rudel
 # 1. Log in via your browser
 rudel login
 
-# 2. Enable automatic session uploads
-rudel enable
+# 2. Choose the repositories Rudel should keep in sync
+rudel upload
 
 # That's it! Your Claude Code / Codex sessions will now be uploaded automatically.
 ```
@@ -44,18 +44,18 @@ Self-hosting over plain HTTP therefore needs `--allow-insecure-api-base` on ever
 
 ### `rudel enable`
 
-Registers the available Claude Code / Codex hooks so your session transcript uploads automatically when a session ends. This is the recommended way to use Rudel -- set it and forget it.
+Enables automatic upload for the current repository. `rudel upload` is the recommended way to review and toggle all discovered repositories together.
 
 ### `rudel disable`
 
-Removes the auto-upload hook.
+Turns automatic upload off and removes the Claude Code / Codex hooks.
 
 ### `rudel upload [session]`
 
-Upload session transcripts. Run without arguments to interactively select projects for batch upload, or pass a session ID / file path to upload a single session.
+Keep repositories in sync with Rudel. Run without arguments to see canonical repositories, their new/uploaded counts, and their current automatic-upload state. Checked repositories stay on automatic upload and have their new sessions uploaded immediately; unchecked repositories are disabled. Pass a session ID or file path for an explicit one-session upload.
 
 ```bash
-# Interactive project picker (batch upload)
+# Review and toggle repositories, then upload their new sessions
 rudel upload
 
 # Upload by session ID
@@ -87,7 +87,7 @@ refuses the upload, reports the reason in stderr and
 `~/.rudel/logs/hook-upload.log`, and adds the session to the failed-upload queue
 for `rudel upload --retry`; it does not fall back to the saved API base.
 
-When run without arguments, `rudel upload` scans `~/.claude/projects/` for all projects with session transcripts and presents an interactive picker. The current project (matched from your working directory) and its subfolders are pre-selected. Use arrow keys to navigate, space to toggle, and enter to confirm.
+When run without arguments, `rudel upload` scans local Claude Code and Codex sessions and groups worktrees under their high-level repository. Each row shows `new`, `uploaded`, and automatic-upload state. Existing automatic-upload choices are pre-selected. Use arrow keys to navigate, space to toggle, and enter to save the repository choices and upload new sessions. The global agent hooks only dispatch events; a repository allowlist decides whether each event may upload.
 
 ### `rudel whoami`
 

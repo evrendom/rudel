@@ -1,4 +1,5 @@
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { basename, resolve } from "node:path";
 import type { FixtureVariant, PlaygroundProfile } from "./types.js";
 
 export const MONOREPO_ROOT = resolve(import.meta.dir, "..", "..");
@@ -36,7 +37,7 @@ export function getPlaygroundPaths(
 ): PlaygroundPaths {
 	const runtimeRoot =
 		process.env.RUDEL_PLAYGROUND_RUNTIME_DIR ??
-		resolve(MONOREPO_ROOT, ".context", "design-playground");
+		resolve(tmpdir(), "rudel-cli-design-playground", basename(MONOREPO_ROOT));
 	const fixtureRoot = resolve(runtimeRoot, "fixtures", fixture);
 	const agentHome = resolve(runtimeRoot, "fake-agent-home", profile);
 	return {

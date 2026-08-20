@@ -17,27 +17,24 @@ Analytics for Claude Code and Codex. Rudel gives you a dashboard with insights o
 npm install -g rudel
 
 rudel login     # authenticate via your browser
-rudel enable    # auto-upload sessions when Claude Code / Codex exits
+rudel upload    # choose repositories to keep automatically in sync
 ```
 
 3. Invite teammates (optional): go to **Settings → Organization** in the dashboard, enter their email, and share the generated invite link with them.
 
 That's it. Your Claude Code / Codex sessions will now be uploaded automatically.
 
-Already have past sessions? Upload them in one go:
-
-```bash
-rudel upload    # interactive picker for batch upload
-```
+`rudel upload` groups local worktrees into canonical repositories, shows which sessions already exist in Rudel, and lets you toggle automatic upload per repository. Enabling a repository also uploads its new historical sessions, so there is no separate batch-only setup choice.
 
 See the [CLI documentation](apps/cli/README.md) for all available commands.
 
 ## How It Works
 
-1. You install the CLI and run `rudel enable`
-2. This registers Claude Code / Codex hooks that run when a session ends
-3. The hook redacts known secret patterns and uploads the session transcript to Rudel
-4. Transcripts are stored in ClickHouse and processed into analytics
+1. You install the CLI and run `rudel upload`
+2. You select the repositories that should stay in sync
+3. Rudel registers Claude Code / Codex hooks that run when a session ends and ignores hook events from repositories you left off
+4. The hook redacts known secret patterns and uploads the session transcript to Rudel
+5. Transcripts are stored in ClickHouse and processed into analytics
 
 ## What Data Is Collected
 

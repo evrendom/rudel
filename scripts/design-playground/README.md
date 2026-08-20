@@ -56,10 +56,11 @@ real terminal resize to Clack.
   `apiBaseUrl` pinned to the loopback stub; PostHog is disabled and its credentials are not
   inherited.
 - Local-real session directories stay read-only. Claude settings and Codex config are
-  redirected to `.context/design-playground/fake-agent-home/`.
+  redirected to the playground sandbox under the operating system's temporary directory.
 - Stub logs contain only method, path, selected behavior, status, and byte count. They never
   contain authorization headers or request bodies.
-- Generated runtime state lives under `.context/design-playground/`, which is gitignored.
+- Generated runtime state lives under the operating system's temporary directory, outside
+  the repository. Set `RUDEL_PLAYGROUND_RUNTIME_DIR` to override it.
 
 Run the focused verification suite with:
 

@@ -110,14 +110,14 @@ export const SCENARIOS: readonly Scenario[] = [
 		name: "picker-uploaded-mixed",
 		label: "New + already uploaded",
 		description:
-			"One fully uploaded project plus mixed and entirely new projects.",
+			"Canonical repos with mixed upload counts and Claude-only auto-upload.",
 		group: "Happy paths",
 		profile: "fixture",
 		argv: ["upload"],
 		stubBehavior: "uploaded-mixed",
 		env: {},
 		fixture: "standard",
-		agentState: "clean",
+		agentState: "claude-hook-enabled",
 	},
 	{
 		name: "upload-ok",

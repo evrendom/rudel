@@ -56,8 +56,9 @@ async function generateStandardFixture(
 ): Promise<GeneratedFixture> {
 	const projects = [
 		workdir,
+		join(fixtureRoot, "conductor", "workspaces", "rudel-v2", "berlin"),
+		join(fixtureRoot, "conductor", "workspaces", "rudel-v2", "opaline"),
 		join(fixtureRoot, "projects", "checkout-api"),
-		join(fixtureRoot, "projects", "mobile", "über-long-project-name"),
 		join(fixtureRoot, "projects", "zero-session-project"),
 	];
 	for (const projectPath of projects) {

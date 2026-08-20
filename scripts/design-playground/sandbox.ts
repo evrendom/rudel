@@ -52,6 +52,7 @@ export async function prepareSandbox(
 		mkdir(paths.workdir, { recursive: true, mode: 0o700 }),
 	]);
 	await chmod(paths.configDir, 0o700);
+	await rm(join(paths.configDir, "auto-upload.json"), { force: true });
 	await resetAgentHome(paths.agentHome, paths.runtimeRoot);
 	await seedAgentState(paths, agentState);
 
@@ -215,41 +216,40 @@ async function seedAgentState(
 	paths: PlaygroundPaths,
 	agentState: AgentState,
 ): Promise<void> {
-	if (agentState !== "hooks-enabled") return;
+	if (agentState === "clean") return;
 	const claudeSettingsPath = join(paths.agentHome, ".claude", "settings.json");
 	await mkdir(dirname(claudeSettingsPath), { recursive: true });
-	await mkdir(dirname(paths.codexConfig), { recursive: true });
-	await Promise.all([
-		writeFile(
-			claudeSettingsPath,
-			`${JSON.stringify(
-				{
-					hooks: {
-						SessionEnd: [
-							{
-								matcher: "",
-								hooks: [
-									{
-										type: "command",
-										command: "rudel hooks claude session-end",
-										async: true,
-									},
-								],
-							},
-						],
-					},
+	await writeFile(
+		claudeSettingsPath,
+		`${JSON.stringify(
+			{
+				hooks: {
+					SessionEnd: [
+						{
+							matcher: "",
+							hooks: [
+								{
+									type: "command",
+									command: "rudel hooks claude session-end",
+									async: true,
+								},
+							],
+						},
+					],
 				},
-				null,
-				2,
-			)}\n`,
-			{ mode: 0o600 },
-		),
-		writeFile(
-			paths.codexConfig,
-			'notify = ["rudel", "hooks", "codex", "turn-complete"]\n',
-			{ mode: 0o600 },
-		),
-	]);
+			},
+			null,
+			2,
+		)}\n`,
+		{ mode: 0o600 },
+	);
+	if (agentState === "claude-hook-enabled") return;
+	await mkdir(dirname(paths.codexConfig), { recursive: true });
+	await writeFile(
+		paths.codexConfig,
+		'notify = ["rudel", "hooks", "codex", "turn-complete"]\n',
+		{ mode: 0o600 },
+	);
 }
 
 function parseUser(value: unknown): PlaygroundUser | null {

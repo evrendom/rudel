@@ -21,7 +21,7 @@ export type FixtureVariant =
 
 export type ScenarioGroup = "Errors" | "Happy paths" | "Scale" | "States";
 
-export type AgentState = "clean" | "hooks-enabled";
+export type AgentState = "claude-hook-enabled" | "clean" | "hooks-enabled";
 
 export interface PlaygroundUser {
 	readonly email: string;

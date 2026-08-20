@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { ScannedProject } from "@rudel/agent-adapters";
+import { resolveRepoIdentity, type Source } from "@rudel/api-routes";
 import {
 	classifyUploadProjects,
-	orderUploadProjectsNewFirst,
+	getRepositoryHookState,
+	groupUploadProjectsByRepository,
+	orderUploadRepositoriesNewFirst,
 	type ResolvedOrganizationUploadStatus,
 } from "../lib/upload-reconciliation.js";
 
@@ -64,29 +67,67 @@ describe("upload reconciliation", () => {
 		]);
 	});
 
-	test("orders projects with new sessions before fully uploaded projects", () => {
-		const uploadedProject = createProject("uploaded", ["old"]);
-		const newProject = createProject("new", ["new"]);
+	test("groups worktrees and agent sources into canonical repositories", () => {
+		const uploadedWorktree = createProject("podgorica", ["old"], {
+			projectPath:
+				"/Users/test/conductor/workspaces/rudel-v2/podgorica/apps/cli",
+			source: "claude_code",
+		});
+		const newWorktree = createProject("lansing", ["new"], {
+			projectPath: "/Users/test/conductor/workspaces/rudel-v2/lansing",
+			source: "codex",
+		});
+		const currentProject = createProject("other", ["uploaded"], {
+			projectPath: "/Users/test/projects/other",
+			source: "claude_code",
+		});
 		const projects = [
 			{
 				newSessions: [],
-				project: uploadedProject,
+				project: uploadedWorktree,
+				hookInstalled: true,
+				repositoryIdentity: resolveIdentity(uploadedWorktree),
 			},
 			{
-				newSessions: newProject.sessions,
-				project: newProject,
+				newSessions: newWorktree.sessions,
+				project: newWorktree,
+				hookInstalled: false,
+				repositoryIdentity: resolveIdentity(newWorktree),
+			},
+			{
+				newSessions: [],
+				project: currentProject,
+				hookInstalled: true,
+				repositoryIdentity: resolveRepoIdentity({
+					gitRemote: "github.com/acme/other",
+					packageName: null,
+					projectPath: currentProject.projectPath,
+				}),
 			},
 		];
 		const order = new Map([
-			[uploadedProject, { containsCwd: true, index: 0 }],
-			[newProject, { containsCwd: false, index: 1 }],
+			[uploadedWorktree, { containsCwd: false, index: 1 }],
+			[newWorktree, { containsCwd: false, index: 2 }],
+			[currentProject, { containsCwd: true, index: 0 }],
 		]);
 
-		const result = orderUploadProjectsNewFirst(projects, order);
+		const repositories = groupUploadProjectsByRepository(projects);
+		const rudelRepository = repositories.find(
+			(repository) => repository.key === "path:rudel-v2",
+		);
+		if (!rudelRepository)
+			throw new Error("rudel-v2 repository was not grouped");
+		const result = orderUploadRepositoriesNewFirst(repositories, order);
 
-		expect(result.map((project) => project.project.displayPath)).toEqual([
-			"new",
-			"uploaded",
+		expect(repositories).toHaveLength(2);
+		expect(rudelRepository.label).toBe("rudel-v2");
+		expect(
+			rudelRepository.projects.map((project) => project.project.displayPath),
+		).toEqual(["podgorica", "lansing"]);
+		expect(getRepositoryHookState(rudelRepository)).toBe("mixed");
+		expect(result.map((repository) => repository.label)).toEqual([
+			"rudel-v2",
+			"acme/other",
 		]);
 	});
 });
@@ -94,8 +135,12 @@ describe("upload reconciliation", () => {
 function createProject(
 	name: string,
 	sessionIds: readonly string[],
+	options: {
+		readonly projectPath?: string;
+		readonly source?: Source;
+	} = {},
 ): ScannedProject {
-	const projectPath = `/test/${name}`;
+	const projectPath = options.projectPath ?? `/test/${name}`;
 	const sessions = sessionIds.map((sessionId) => ({
 		projectPath,
 		sessionId,
@@ -106,6 +151,14 @@ function createProject(
 		projectPath,
 		sessionCount: sessions.length,
 		sessions,
-		source: "claude_code",
+		source: options.source ?? "claude_code",
 	};
+}
+
+function resolveIdentity(project: ScannedProject) {
+	return resolveRepoIdentity({
+		gitRemote: null,
+		packageName: null,
+		projectPath: project.projectPath,
+	});
 }

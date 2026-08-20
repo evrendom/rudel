@@ -1,8 +1,10 @@
 import * as p from "@clack/prompts";
 import { getAllAdapters } from "@rudel/agent-adapters";
 import { buildCommand } from "@stricli/core";
+import { clearAutoUploadRepositories } from "../lib/auto-upload-config.js";
 
 async function runDisable(): Promise<void> {
+	clearAutoUploadRepositories();
 	const adapters = getAllAdapters();
 	let anyDisabled = false;
 

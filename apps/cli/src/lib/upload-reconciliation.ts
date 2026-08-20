@@ -3,6 +3,7 @@ import type { ScannedProject, SessionFile } from "@rudel/agent-adapters";
 import {
 	CLI_SESSION_UPLOAD_STATUS_MAX_IDS,
 	parseSafeApiEndpoint,
+	type RepoIdentity,
 } from "@rudel/api-routes";
 import pMap from "p-map";
 import { createRpcClient } from "./api-client.js";
@@ -36,6 +37,27 @@ export interface UploadProjectOrder {
 	readonly containsCwd: boolean;
 	readonly index: number;
 }
+
+export interface RepositoryUploadProject {
+	readonly newSessions: readonly SessionFile[];
+	readonly project: ScannedProject;
+	readonly repositoryIdentity: RepoIdentity;
+}
+
+export interface HookAwareRepositoryUploadProject
+	extends RepositoryUploadProject {
+	readonly hookInstalled: boolean;
+}
+
+export interface UploadRepositoryGroup<
+	TProject extends RepositoryUploadProject,
+> {
+	readonly key: string;
+	readonly label: string;
+	readonly projects: TProject[];
+}
+
+export type RepositoryHookState = "disabled" | "enabled" | "mixed";
 
 export async function reconcileUploadProjects(
 	targets: readonly UploadProjectTarget[],
@@ -141,26 +163,76 @@ export function classifyUploadProjects(
 	});
 }
 
-export function orderUploadProjectsNewFirst<
-	TProject extends {
-		readonly newSessions: readonly SessionFile[];
-		readonly project: ScannedProject;
-	},
+export function groupUploadProjectsByRepository<
+	TProject extends RepositoryUploadProject,
+>(projects: readonly TProject[]): UploadRepositoryGroup<TProject>[] {
+	const groups = new Map<string, UploadRepositoryGroup<TProject>>();
+
+	for (const project of projects) {
+		const existing = groups.get(project.repositoryIdentity.repoKey);
+		if (existing) {
+			existing.projects.push(project);
+			continue;
+		}
+		groups.set(project.repositoryIdentity.repoKey, {
+			key: project.repositoryIdentity.repoKey,
+			label: project.repositoryIdentity.repoLabel,
+			projects: [project],
+		});
+	}
+
+	return Array.from(groups.values());
+}
+
+export function getRepositoryHookState<
+	TProject extends HookAwareRepositoryUploadProject,
+>(repository: UploadRepositoryGroup<TProject>): RepositoryHookState {
+	const enabledCount = repository.projects.filter(
+		(project) => project.hookInstalled,
+	).length;
+	if (enabledCount === 0) return "disabled";
+	if (enabledCount === repository.projects.length) return "enabled";
+	return "mixed";
+}
+
+export function orderUploadRepositoriesNewFirst<
+	TProject extends RepositoryUploadProject,
 >(
-	projects: readonly TProject[],
+	repositories: readonly UploadRepositoryGroup<TProject>[],
 	projectOrder: ReadonlyMap<ScannedProject, UploadProjectOrder>,
-): TProject[] {
-	return [...projects].sort((left, right) => {
-		const leftHasNew = left.newSessions.length > 0;
-		const rightHasNew = right.newSessions.length > 0;
+): UploadRepositoryGroup<TProject>[] {
+	return [...repositories].sort((left, right) => {
+		const leftHasNew = repositoryHasNewSessions(left);
+		const rightHasNew = repositoryHasNewSessions(right);
 		if (leftHasNew !== rightHasNew) return leftHasNew ? -1 : 1;
-		const leftOrder = projectOrder.get(left.project);
-		const rightOrder = projectOrder.get(right.project);
+		const leftOrder = getRepositoryOrder(left, projectOrder);
+		const rightOrder = getRepositoryOrder(right, projectOrder);
 		if (leftOrder?.containsCwd !== rightOrder?.containsCwd) {
 			return leftOrder?.containsCwd ? -1 : 1;
 		}
 		return (leftOrder?.index ?? 0) - (rightOrder?.index ?? 0);
 	});
+}
+
+function repositoryHasNewSessions<TProject extends RepositoryUploadProject>(
+	repository: UploadRepositoryGroup<TProject>,
+): boolean {
+	return repository.projects.some((project) => project.newSessions.length > 0);
+}
+
+function getRepositoryOrder<TProject extends RepositoryUploadProject>(
+	repository: UploadRepositoryGroup<TProject>,
+	projectOrder: ReadonlyMap<ScannedProject, UploadProjectOrder>,
+): UploadProjectOrder | undefined {
+	let containsCwd = false;
+	let index: number | undefined;
+	for (const project of repository.projects) {
+		const order = projectOrder.get(project.project);
+		if (!order) continue;
+		containsCwd ||= order.containsCwd;
+		index = index === undefined ? order.index : Math.min(index, order.index);
+	}
+	return index === undefined ? undefined : { containsCwd, index };
 }
 
 function collectSessionIdsByOrganization(
