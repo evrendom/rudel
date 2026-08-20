@@ -60,12 +60,18 @@ const sampleShare: PublicWrappedShare = {
 };
 
 describe("wrapped share card image", () => {
-	test("renders the saved snapshot into a PNG buffer", () => {
-		const png = renderWrappedShareCardPng(sampleSnapshot);
+	// PNG rasterization is CPU-bound and exceeds the 5s default on shared CI
+	// runners now that the API suite runs with --max-concurrency=1.
+	test(
+		"renders the saved snapshot into a PNG buffer",
+		() => {
+			const png = renderWrappedShareCardPng(sampleSnapshot);
 
-		expect([...png.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
-		expect(png.byteLength).toBeGreaterThan(10_000);
-	});
+			expect([...png.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+			expect(png.byteLength).toBeGreaterThan(10_000);
+		},
+		20_000,
+	);
 
 	test("keeps share-safe uploaded profile images in the generated SVG", () => {
 		const svg = buildWrappedShareCardSvg(sampleSnapshot);
