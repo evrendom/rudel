@@ -42,16 +42,11 @@ describe("skill extraction persistence rows", () => {
 		expect(cte).toContain("skill_filtered_use_identities");
 		expect(cte).toContain("SELECT DISTINCT user_id, agent, session_id");
 		expect(cte).toContain("FROM skill_filtered_use_identities");
-		expect(cte).toContain("INNER ANY JOIN");
-		expect(cte).toContain(
-			"uses.extraction_seq = receipts.receipt_extraction_seq",
-		);
-		expect(cte).toContain(
-			"uses.source_content_sha256 = receipts.receipt_source_content_sha256",
-		);
-		expect(cte).toContain(
-			"uses.parser_version = receipts.receipt_parser_version",
-		);
+		expect(cte).not.toContain("JOIN latest_skill_receipts");
+		expect(cte).toContain("FROM latest_skill_receipts");
+		expect(cte).toContain("uses.extraction_seq,");
+		expect(cte).toContain("uses.source_content_sha256,");
+		expect(cte).toContain("uses.parser_version");
 		expect(cte).not.toContain("FINAL");
 	});
 

@@ -731,7 +731,7 @@ describe("persistent skill extraction through the real API", () => {
 			});
 
 			expect(result).toMatchObject({ completedCount: 1, failedCount: 0 });
-			expect(lookupChunkSizes).toEqual([1_000, 1]);
+			expect(lookupChunkSizes).toEqual([500, 500, 1]);
 			expect(insertedContentRowCount).toBe(skillCount - 1);
 			expect(
 				await countBatchRows("rudel.skill_version_contents", organizationId),

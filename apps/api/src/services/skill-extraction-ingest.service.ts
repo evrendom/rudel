@@ -23,10 +23,12 @@ const EXTRACTION_PARSER_BIT_COUNT = 16n;
 const SKILL_RECEIPTS_TABLE = "rudel.skill_receipts";
 const SKILL_USES_TABLE = "rudel.skill_uses";
 const SKILL_VERSION_CONTENTS_TABLE = "rudel.skill_version_contents";
-// The measured 1 MiB URI failure point is roughly 7,040 ordinary tuples.
-// Capping chunks at 1,000 leaves about sevenfold headroom for URL encoding and
-// longer identifiers; an exceptional oversized tuple safely degrades to insert.
-const SKILL_VERSION_LOOKUP_MAX_TUPLES = 1_000;
+// ClickHouse 26.3 caps each HTTP form field at 128 KiB. A 1,000-tuple lookup
+// with production-shaped identifiers serializes to about 153 KiB before URL
+// encoding and is rejected as "Field value too long". Five hundred tuples use
+// about 77 KiB, leaving headroom for longer identifiers; an exceptional
+// oversized tuple still safely degrades to insert.
+const SKILL_VERSION_LOOKUP_MAX_TUPLES = 500;
 const SKILL_VERSION_LOOKUP_SETTINGS = {
 	max_bytes_to_read: String(2 * 1024 * 1024 * 1024),
 	max_execution_time: 60,
@@ -164,14 +166,25 @@ export function buildActiveSkillUsesCte(options?: {
 				WHERE organization_id = {organizationId:String}
 					${skillNameFilter}
 			) AS uses
-			INNER ANY JOIN latest_skill_receipts AS receipts
-				ON receipts.organization_id = uses.organization_id
-				AND receipts.user_id = uses.user_id
-				AND receipts.agent = uses.agent
-				AND receipts.session_id = uses.session_id
-			WHERE uses.extraction_seq = receipts.receipt_extraction_seq
-				AND uses.source_content_sha256 = receipts.receipt_source_content_sha256
-				AND uses.parser_version = receipts.receipt_parser_version
+			WHERE (
+				uses.organization_id,
+				uses.user_id,
+				uses.agent,
+				uses.session_id,
+				uses.extraction_seq,
+				uses.source_content_sha256,
+				uses.parser_version
+			) IN (
+				SELECT
+					organization_id,
+					user_id,
+					agent,
+					session_id,
+					receipt_extraction_seq,
+					receipt_source_content_sha256,
+					receipt_parser_version
+				FROM latest_skill_receipts
+			)
 			GROUP BY
 				uses.organization_id,
 				uses.user_id,

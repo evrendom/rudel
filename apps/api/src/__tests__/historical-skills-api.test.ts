@@ -68,11 +68,9 @@ describe("historical skills API guardrails", () => {
 		expect(serviceSource).toContain("any(content) AS content");
 		expect(persistenceSource).toContain("rudel.skill_receipts");
 		expect(persistenceSource).toContain("rudel.skill_uses");
-		expect(persistenceSource).toContain("INNER ANY JOIN");
+		expect(persistenceSource).not.toContain("JOIN latest_skill_receipts");
 		expect(persistenceSource).toContain("skill_filtered_use_identities");
-		expect(persistenceSource).toContain(
-			"uses.extraction_seq = receipts.receipt_extraction_seq",
-		);
+		expect(persistenceSource).toContain("FROM latest_skill_receipts");
 		expect(serviceSource).toContain("max(used_at) AS last_used_at_raw");
 		expect(serviceSource).toContain("ORDER BY last_used_at_raw DESC");
 		expect(
