@@ -21,18 +21,22 @@ interface CodexContentBlock {
 	text?: string;
 }
 
-interface CodexMessagePayload {
+interface CodexAgentAttribution {
+	agent?: { agent_name?: string };
+}
+
+interface CodexMessagePayload extends CodexAgentAttribution {
 	type: string;
 	role: string;
 	content: Array<CodexContentBlock>;
 }
 
-interface CodexReasoningPayload {
+interface CodexReasoningPayload extends CodexAgentAttribution {
 	type: "reasoning";
 	summary: Array<{ type: string; text: string }>;
 }
 
-interface CodexToolCallPayload {
+interface CodexToolCallPayload extends CodexAgentAttribution {
 	type: "function_call" | "custom_tool_call" | "tool_search_call";
 	name?: string;
 	arguments?: unknown;
@@ -40,7 +44,7 @@ interface CodexToolCallPayload {
 	call_id?: string;
 }
 
-interface CodexToolOutputPayload {
+interface CodexToolOutputPayload extends CodexAgentAttribution {
 	type:
 		| "function_call_output"
 		| "custom_tool_call_output"
@@ -48,6 +52,20 @@ interface CodexToolOutputPayload {
 	call_id?: string;
 	output?: unknown;
 	tools?: unknown;
+}
+
+interface CodexMultiAgentCallPayload extends CodexAgentAttribution {
+	type: "multi_agent_call";
+	action?: string;
+	arguments?: unknown;
+	call_id?: string;
+}
+
+interface CodexMultiAgentOutputPayload extends CodexAgentAttribution {
+	type: "multi_agent_call_output";
+	action?: string;
+	call_id?: string;
+	output?: unknown;
 }
 
 function hashCodexEntryContent(value: string) {
@@ -92,34 +110,81 @@ function readCodexExecutionMode(
 	return collaborationMode.mode === "plan" ? "plan" : "default";
 }
 
+function readCodexModelSetting(line: CodexLine): string | undefined {
+	if (line.type !== "turn_context") {
+		return undefined;
+	}
+
+	if (typeof line.payload.effort === "string") {
+		const modelSetting = line.payload.effort.trim();
+		if (modelSetting) {
+			return modelSetting;
+		}
+	}
+
+	const collaborationMode = line.payload.collaboration_mode;
+	if (
+		typeof collaborationMode !== "object" ||
+		collaborationMode === null ||
+		!("settings" in collaborationMode) ||
+		typeof collaborationMode.settings !== "object" ||
+		collaborationMode.settings === null ||
+		!("reasoning_effort" in collaborationMode.settings) ||
+		typeof collaborationMode.settings.reasoning_effort !== "string"
+	) {
+		return undefined;
+	}
+
+	const modelSetting = collaborationMode.settings.reasoning_effort.trim();
+	return modelSetting ? modelSetting : undefined;
+}
+
+function readAgentName(payload: CodexAgentAttribution) {
+	const agentName = payload.agent?.agent_name?.trim();
+	return agentName ? agentName : undefined;
+}
+
+function isDelegationToolName(toolName: string | undefined) {
+	const normalizedName = toolName?.split(/\.|__/u).at(-1)?.toLowerCase();
+	return (
+		normalizedName === "agent" ||
+		normalizedName === "task" ||
+		normalizedName === "spawn_agent"
+	);
+}
+
 // Same failure heuristic the turn metadata extractor applies to Codex tool
 // outputs, so trace-level error marks agree with turn-level error counts.
 const CODEX_TOOL_FAILURE_PATTERN =
 	/(?:Error|Exception):|apply_patch verification failed:/iu;
 
-function toToolInput(payload: CodexToolCallPayload): Record<string, unknown> {
-	if (payload.type === "custom_tool_call") {
-		return { input: payload.input ?? "" };
+function parseArguments(argumentsValue: unknown): Record<string, unknown> {
+	if (
+		typeof argumentsValue === "object" &&
+		argumentsValue !== null &&
+		!Array.isArray(argumentsValue)
+	) {
+		return argumentsValue as Record<string, unknown>;
 	}
-	if (payload.type === "tool_search_call") {
-		return typeof payload.arguments === "object" &&
-			payload.arguments !== null &&
-			!Array.isArray(payload.arguments)
-			? (payload.arguments as Record<string, unknown>)
-			: {};
-	}
-	if (typeof payload.arguments !== "string" || !payload.arguments) {
+	if (typeof argumentsValue !== "string" || !argumentsValue) {
 		return {};
 	}
 	try {
-		const parsed = JSON.parse(payload.arguments) as unknown;
+		const parsed = JSON.parse(argumentsValue) as unknown;
 		if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
 			return parsed as Record<string, unknown>;
 		}
 	} catch {
 		// Fall through to the raw-string wrapper.
 	}
-	return { arguments: payload.arguments };
+	return { arguments: argumentsValue };
+}
+
+function toToolInput(payload: CodexToolCallPayload): Record<string, unknown> {
+	if (payload.type === "custom_tool_call") {
+		return { input: payload.input ?? "" };
+	}
+	return parseArguments(payload.arguments);
 }
 
 // Tool outputs arrive as plain strings, block arrays, or JSON-encoded block
@@ -153,6 +218,26 @@ function toToolOutputText(output: unknown): string {
 	return typeof output === "string" ? output : JSON.stringify(output ?? "");
 }
 
+function extractSubagentId(outputText: string): string | undefined {
+	try {
+		const parsed = JSON.parse(outputText) as unknown;
+		if (typeof parsed !== "object" || parsed === null) {
+			return undefined;
+		}
+		for (const key of ["task_name", "agent_name", "agentId", "agent_id"]) {
+			if (
+				key in parsed &&
+				typeof (parsed as Record<string, unknown>)[key] === "string"
+			) {
+				return (parsed as Record<string, string>)[key];
+			}
+		}
+	} catch {
+		return undefined;
+	}
+	return undefined;
+}
+
 /**
  * Detect whether JSONL content is in Codex format by checking the first line.
  */
@@ -182,6 +267,17 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 
 	let sessionId = "";
 	let executionMode: ConversationExecutionMode = "unknown";
+	let rootModelSetting: string | undefined;
+	const modelSettingsByAgent = new Map<string, string>();
+	const pendingToolNames = new Map<string, string>();
+
+	function getModelSetting(payload: CodexAgentAttribution) {
+		const agentName = readAgentName(payload);
+		if (!agentName || agentName === "/root") {
+			return rootModelSetting;
+		}
+		return modelSettingsByAgent.get(agentName);
+	}
 
 	for (const line of lines) {
 		let parsed: CodexLine;
@@ -200,6 +296,15 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 		if (nextExecutionMode !== undefined) {
 			executionMode = nextExecutionMode;
 		}
+		const nextModelSetting = readCodexModelSetting(parsed);
+		if (nextModelSetting !== undefined) {
+			const agentName = readAgentName(parsed.payload);
+			if (agentName && agentName !== "/root") {
+				modelSettingsByAgent.set(agentName, nextModelSetting);
+			} else {
+				rootModelSetting = nextModelSetting;
+			}
+		}
 
 		if (parsed.type === "event_msg" && parsed.payload.type === "turn_aborted") {
 			const entry: SystemEntry = {
@@ -217,11 +322,16 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 
 		const payload = parsed.payload as unknown as
 			| CodexMessagePayload
-			| CodexReasoningPayload;
+			| CodexMultiAgentCallPayload
+			| CodexMultiAgentOutputPayload
+			| CodexReasoningPayload
+			| CodexToolCallPayload
+			| CodexToolOutputPayload;
 
 		// Handle reasoning blocks — map to assistant entry with thinking content
 		if (payload.type === "reasoning") {
 			const reasoning = payload as CodexReasoningPayload;
+			const modelSetting = getModelSetting(reasoning);
 			const summaryText = reasoning.summary
 				.map((s) => s.text)
 				.filter(Boolean)
@@ -234,7 +344,9 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 			};
 
 			const entry: AssistantEntry = {
+				agentName: readAgentName(reasoning),
 				executionMode,
+				...(modelSetting ? { modelSetting } : {}),
 				uuid: getCodexEntryId(line),
 				timestamp: parsed.timestamp,
 				sessionId,
@@ -254,21 +366,34 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 		if (
 			payload.type === "function_call" ||
 			payload.type === "custom_tool_call" ||
-			payload.type === "tool_search_call"
+			payload.type === "tool_search_call" ||
+			payload.type === "multi_agent_call"
 		) {
-			const call = payload as CodexToolCallPayload;
+			const call = payload as CodexMultiAgentCallPayload | CodexToolCallPayload;
+			const modelSetting = getModelSetting(call);
 			const entryId = getCodexEntryId(line);
+			const toolName =
+				call.type === "multi_agent_call"
+					? (call.action ?? "multi_agent")
+					: call.type === "tool_search_call"
+						? "tool_search"
+						: (call.name ?? "tool");
+			const toolInput =
+				call.type === "multi_agent_call"
+					? parseArguments(call.arguments)
+					: toToolInput(call);
+			const callId = call.call_id ?? `${entryId}-call`;
 			const toolUse: ToolUseContent = {
 				type: "tool_use",
-				id: call.call_id ?? `${entryId}-call`,
-				name:
-					call.type === "tool_search_call"
-						? "tool_search"
-						: (call.name ?? "tool"),
-				input: toToolInput(call),
+				id: callId,
+				name: toolName,
+				input: toolInput,
 			};
+			pendingToolNames.set(callId, toolName);
 			const entry: AssistantEntry = {
+				agentName: readAgentName(call),
 				executionMode,
+				...(modelSetting ? { modelSetting } : {}),
 				uuid: entryId,
 				timestamp: parsed.timestamp,
 				sessionId,
@@ -282,14 +407,21 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 		if (
 			payload.type === "function_call_output" ||
 			payload.type === "custom_tool_call_output" ||
-			payload.type === "tool_search_output"
+			payload.type === "tool_search_output" ||
+			payload.type === "multi_agent_call_output"
 		) {
-			const output = payload as CodexToolOutputPayload;
+			const output = payload as
+				| CodexMultiAgentOutputPayload
+				| CodexToolOutputPayload;
 			if (!output.call_id) continue;
 			const text =
 				output.type === "tool_search_output"
 					? toToolOutputText(output.tools)
 					: toToolOutputText(output.output);
+			const toolName =
+				output.type === "multi_agent_call_output"
+					? (output.action ?? pendingToolNames.get(output.call_id))
+					: pendingToolNames.get(output.call_id);
 			const resultBlock: ToolResultContent = {
 				type: "tool_result",
 				tool_use_id: output.call_id,
@@ -297,10 +429,18 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 				is_error: CODEX_TOOL_FAILURE_PATTERN.test(text) ? true : undefined,
 			};
 			const entry: UserEntry = {
+				agentName: readAgentName(output),
 				uuid: getCodexEntryId(line),
 				timestamp: parsed.timestamp,
 				sessionId,
 				type: "user",
+				...(isDelegationToolName(toolName)
+					? {
+							toolUseResult: {
+								agentId: extractSubagentId(text),
+							},
+						}
+					: {}),
 				message: { role: "user", content: [resultBlock] },
 			};
 			conversations.push(entry);
@@ -325,6 +465,7 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 
 		if (msg.role === "user") {
 			const entry: UserEntry = {
+				agentName: readAgentName(msg),
 				uuid: getCodexEntryId(line),
 				timestamp: parsed.timestamp,
 				sessionId,
@@ -336,13 +477,16 @@ export function parseCodexConversations(content: string): Array<Conversation> {
 			};
 			conversations.push(entry);
 		} else if (msg.role === "assistant") {
+			const modelSetting = getModelSetting(msg);
 			const textBlocks: TextContent[] = textParts.map((text) => ({
 				type: "text" as const,
 				text,
 			}));
 
 			const entry: AssistantEntry = {
+				agentName: readAgentName(msg),
 				executionMode,
+				...(modelSetting ? { modelSetting } : {}),
 				uuid: getCodexEntryId(line),
 				timestamp: parsed.timestamp,
 				sessionId,

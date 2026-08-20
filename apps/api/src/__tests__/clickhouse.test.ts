@@ -90,6 +90,10 @@ describe("clickhouse helpers", () => {
 		).toHaveLength(2);
 		expect(sql).toContain("argMax(content, ingested_at)");
 		expect(sql).toContain(
+			"formatDateTime(max(ingested_at), '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS revision",
+		);
+		expect(sql).not.toContain("toString(max(ingested_at)) AS revision");
+		expect(sql).toContain(
 			"GROUP BY source, organization_id, user_id, session_id",
 		);
 		expect(sql).not.toContain("ORDER BY ingested_at");
@@ -146,7 +150,7 @@ describe("analytics service guardrails", () => {
 		expect(clickhouseSource).not.toContain("string | ClickHouseStatement");
 		expect(clickhouseSource).not.toContain("normalizeStatement(");
 		expect(clickhouseSource).not.toContain("{table:Identifier}");
-		expect(clickhouseSource).not.toContain("async_insert=0");
+		expect(clickhouseSource).toContain("async_insert=0");
 		expect(clickhouseSource).toContain(
 			"async_insert=1, wait_for_async_insert=1",
 		);
