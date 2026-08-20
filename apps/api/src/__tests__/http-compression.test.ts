@@ -74,6 +74,29 @@ describe("session detail HTTP compression", () => {
 		expect(gunzipSync(transferBody).toString("utf8")).toBe(body);
 	});
 
+	test("compresses the repeated identifiers in a full session spine", async () => {
+		const body = JSON.stringify({
+			json: {
+				revision: "2026-08-16T08:30:00.123Z",
+				turns: Array.from({ length: 500 }, (_, index) => ({
+					eventCount: 12,
+					responseBytes: 4_096,
+					turnId: `session-turn-${index}`,
+				})),
+			},
+		});
+		const response = await maybeCompressSessionDetailRpcResponse({
+			pathname: "/rpc/analytics/sessions/detailSpine",
+			requestHeaders: new Headers({ "Accept-Encoding": "gzip" }),
+			response: new Response(body),
+		});
+
+		expect(response.headers.get("Content-Encoding")).toBe("gzip");
+		expect(gunzipSync(await response.arrayBuffer()).toString("utf8")).toBe(
+			body,
+		);
+	});
+
 	test("passes a below-threshold body through uncompressed", async () => {
 		const body = JSON.stringify({ json: { responseItems: [], userItems: [] } });
 		expect(body.length).toBeLessThan(GZIP_MIN_BODY_BYTES);

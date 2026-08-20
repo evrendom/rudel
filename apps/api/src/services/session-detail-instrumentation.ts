@@ -1,5 +1,6 @@
 export type SessionDetailRequestKind =
 	| "overview"
+	| "spine"
 	| "subagent"
 	| "turn"
 	| "window";
@@ -38,6 +39,7 @@ export function createSessionDetailInstrumentation(
 ) {
 	const requestSamples: Record<SessionDetailRequestKind, number[]> = {
 		overview: [],
+		spine: [],
 		subagent: [],
 		turn: [],
 		window: [],
@@ -93,6 +95,7 @@ export function createSessionDetailInstrumentation(
 			},
 			requests: {
 				overview: summarizeNumericSamples(requestSamples.overview),
+				spine: summarizeNumericSamples(requestSamples.spine),
 				subagent: summarizeNumericSamples(requestSamples.subagent),
 				turn: summarizeNumericSamples(requestSamples.turn),
 				window: summarizeNumericSamples(requestSamples.window),

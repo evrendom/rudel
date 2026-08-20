@@ -6,6 +6,7 @@ import {
 } from "../clickhouse.js";
 
 const SESSION_ANALYTICS_TABLE = "rudel.session_analytics";
+const SESSION_LANGUAGE_SIGNALS_TABLE = "rudel.session_language_signals";
 const USAGE_EVENTS_TABLE = "rudel.usage_events";
 const WRAPPED_USER_ARCHETYPE_SNAPSHOTS_TABLE =
 	"rudel.wrapped_user_archetype_snapshots_v1";
@@ -149,6 +150,7 @@ async function deleteSessions(
 	const tables = [
 		...getAllAdapters().map((adapter) => adapter.rawTableName),
 		SESSION_ANALYTICS_TABLE,
+		SESSION_LANGUAGE_SIGNALS_TABLE,
 		USAGE_EVENTS_TABLE,
 		WRAPPED_USER_ARCHETYPE_SNAPSHOTS_TABLE,
 	];

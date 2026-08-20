@@ -4,6 +4,7 @@ import { gzip } from "node:zlib";
 const gzipAsync = promisify(gzip);
 
 const GZIP_SESSION_DETAIL_PATHS = new Set([
+	"/rpc/analytics/sessions/detailSpine",
 	"/rpc/analytics/sessions/detailSubagent",
 	"/rpc/analytics/sessions/detailTurn",
 	"/rpc/analytics/sessions/detailWindow",

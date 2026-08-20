@@ -12,7 +12,12 @@ const handlersSource = await Bun.file(
 ).text();
 
 function handlerSource(
-	name: "detailOverview" | "detailSubagent" | "detailTurn" | "detailWindow",
+	name:
+		| "detailOverview"
+		| "detailSpine"
+		| "detailSubagent"
+		| "detailTurn"
+		| "detailWindow",
 ) {
 	const start = handlersSource.indexOf(`const ${name} =`);
 	const end = handlersSource.indexOf("\nconst ", start + 1);
@@ -38,6 +43,7 @@ describe("session detail endpoint guardrails", () => {
 
 	for (const name of [
 		"detailOverview",
+		"detailSpine",
 		"detailSubagent",
 		"detailTurn",
 		"detailWindow",
@@ -51,7 +57,11 @@ describe("session detail endpoint guardrails", () => {
 	}
 
 	test("each body endpoint forwards the caller-bound revision", () => {
-		for (const name of ["detailSubagent", "detailTurn"] as const) {
+		for (const name of [
+			"detailSpine",
+			"detailSubagent",
+			"detailTurn",
+		] as const) {
 			expect(handlerSource(name)).toContain("revision: input.revision");
 			expect(handlerSource(name)).toContain(
 				"throwSessionDetailRevisionError(error, errors)",

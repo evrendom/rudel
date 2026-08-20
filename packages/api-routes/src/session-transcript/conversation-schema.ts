@@ -47,6 +47,12 @@ export const UserMessageSchema = z.object({
 	]),
 });
 
+const ToolUseResultMetadataSchema = z
+	.object({
+		agentId: z.string().optional(),
+	})
+	.passthrough();
+
 export const AssistantMessageSchema = z.object({
 	role: z.literal("assistant"),
 	content: z.array(
@@ -62,6 +68,7 @@ export const ConversationExecutionModeSchema = z.enum([
 
 // Entry schemas
 const BaseEntrySchema = z.object({
+	agentName: z.string().optional(),
 	uuid: z.string(),
 	timestamp: z.string(),
 	sessionId: z.string(),
@@ -71,10 +78,12 @@ export const UserEntrySchema = BaseEntrySchema.extend({
 	isMeta: z.boolean().optional(),
 	type: z.literal("user"),
 	message: UserMessageSchema,
+	toolUseResult: ToolUseResultMetadataSchema.optional(),
 });
 
 export const AssistantEntrySchema = BaseEntrySchema.extend({
 	executionMode: ConversationExecutionModeSchema.default("unknown"),
+	modelSetting: z.string().max(128).optional(),
 	type: z.literal("assistant"),
 	message: AssistantMessageSchema,
 });
@@ -123,6 +132,20 @@ function readPermissionMode(value: unknown): string | undefined {
 	return value.permissionMode;
 }
 
+function readClaudeModelSetting(value: unknown): string | undefined {
+	if (
+		typeof value !== "object" ||
+		value === null ||
+		!("effort" in value) ||
+		typeof value.effort !== "string"
+	) {
+		return undefined;
+	}
+
+	const modelSetting = value.effort.trim();
+	return modelSetting ? modelSetting : undefined;
+}
+
 function toExecutionMode(permissionMode: string): ConversationExecutionMode {
 	return permissionMode === "plan" ? "plan" : "default";
 }
@@ -142,6 +165,7 @@ export function parseConversations(content: string): Array<Conversation> {
 		try {
 			const parsed = JSON.parse(line) as unknown;
 			const permissionMode = readPermissionMode(parsed);
+			const modelSetting = readClaudeModelSetting(parsed);
 			const result = ConversationSchema.safeParse(parsed);
 			if (result.success) {
 				const entry = result.data;
@@ -152,7 +176,11 @@ export function parseConversations(content: string): Array<Conversation> {
 				}
 
 				if (entry.type === "assistant") {
-					conversations.push({ ...entry, executionMode });
+					conversations.push({
+						...entry,
+						executionMode,
+						...(modelSetting ? { modelSetting } : {}),
+					});
 					for (const block of entry.message.content) {
 						if (block.type === "tool_use" && block.name === "ExitPlanMode") {
 							pendingExitPlanToolIds.add(block.id);

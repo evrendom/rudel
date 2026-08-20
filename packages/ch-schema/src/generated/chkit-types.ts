@@ -170,6 +170,43 @@ export const RudelSessionAnalyticsRowSchema = z.object({
 export type RudelSessionAnalyticsRowInput = z.input<typeof RudelSessionAnalyticsRowSchema>
 export type RudelSessionAnalyticsRowOutput = z.output<typeof RudelSessionAnalyticsRowSchema>
 
+export type RudelSessionLanguageSignalsRow = {
+  organization_id: string
+  session_date: string
+  session_id: string
+  user_id: string
+  source: string
+  raw_ingested_at: string
+  scan_version: number
+  member_swears: number
+  member_apologies: number
+  member_positive: number
+  model_swears: number
+  model_apologies: number
+  model_positive: number
+  scanned_at: string
+}
+
+export const RudelSessionLanguageSignalsRowSchema = z.object({
+  organization_id: z.string(),
+  session_date: z.string(),
+  session_id: z.string(),
+  user_id: z.string(),
+  source: z.string(),
+  raw_ingested_at: z.string(),
+  scan_version: z.number(),
+  member_swears: z.number(),
+  member_apologies: z.number(),
+  member_positive: z.number(),
+  model_swears: z.number(),
+  model_apologies: z.number(),
+  model_positive: z.number(),
+  scanned_at: z.string(),
+})
+
+export type RudelSessionLanguageSignalsRowInput = z.input<typeof RudelSessionLanguageSignalsRowSchema>
+export type RudelSessionLanguageSignalsRowOutput = z.output<typeof RudelSessionLanguageSignalsRowSchema>
+
 export type RudelUsageEventsRow = {
   organization_id: string
   user_id: string

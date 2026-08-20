@@ -94,6 +94,7 @@ export { type RepoIdentity, resolveRepoIdentity } from "./repo-identity.js";
 export * from "./safe-url.js";
 export * from "./schemas/analytics.js";
 export {
+	SESSION_DETAIL_ACTIVITY_DETAIL_CODE_POINT_LIMIT,
 	SESSION_DETAIL_ACTIVITY_POINT_LIMIT,
 	SESSION_DETAIL_ANCHOR_NOT_FOUND_CODE,
 	SESSION_DETAIL_ANCHOR_NOT_FOUND_MESSAGE,
@@ -101,6 +102,7 @@ export {
 	SESSION_DETAIL_CONTEXT_FILE_LIMIT,
 	SESSION_DETAIL_PREVIEW_CODE_POINT_LIMIT,
 	SESSION_DETAIL_REVISION_ERRORS,
+	SESSION_DETAIL_SIGNAL_OCCURRENCE_LIMIT,
 	SESSION_DETAIL_STALE_REVISION_CODE,
 	SESSION_DETAIL_STALE_REVISION_MESSAGE,
 	SESSION_DETAIL_TURN_PAGE_LIMIT,
@@ -116,6 +118,12 @@ export {
 	SessionDetailOverviewInputSchema,
 	SessionDetailOverviewSchema,
 	SessionDetailRevisionSchema,
+	type SessionDetailSpine,
+	type SessionDetailSpineInput,
+	SessionDetailSpineInputSchema,
+	SessionDetailSpineSchema,
+	type SessionDetailSpineTurn,
+	SessionDetailSpineTurnSchema,
 	type SessionDetailStaleRevisionData,
 	SessionDetailStaleRevisionDataSchema,
 	type SessionDetailSubagent,
@@ -581,6 +589,7 @@ export const contract = {
 		},
 		sessions: {
 			detailOverview: sessionDetailProcedureContracts.detailOverview,
+			detailSpine: sessionDetailProcedureContracts.detailSpine,
 			detailSubagent: sessionDetailProcedureContracts.detailSubagent,
 			detailTurn: sessionDetailProcedureContracts.detailTurn,
 			detailWindow: sessionDetailProcedureContracts.detailWindow,
