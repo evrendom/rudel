@@ -8,44 +8,16 @@ import {
 import { useDateRange } from "@/features/analytics/date-range/useDateRange";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
 import { buildDashboardPerformanceUsers } from "@/features/dashboard/data/dashboard-performance-adapter";
-import { mergeDashboardSnapshotWithRoi } from "@/features/dashboard/data/dashboard-roi-adapter";
-import { createDashboardOutputSnapshot } from "@/features/dashboard/data/dashboard-static-data";
 import { useFullOrganization } from "@/features/workspace/hooks/useFullOrganization";
 import { useOrganization } from "@/features/workspace/organization/useOrganization";
 import { orpc } from "@/lib/orpc";
 
-export type DashboardView =
-	| "tokens"
-	| "commits"
-	| "errors"
-	| "repos"
-	| "sessions";
-
-export function getDashboardQueryRequirements(activeView: DashboardView) {
-	const performance =
-		activeView === "tokens" ||
-		activeView === "commits" ||
-		activeView === "repos";
-	const repositoryTrend =
-		activeView === "commits" ||
-		activeView === "repos" ||
-		activeView === "sessions";
-
-	return {
-		errors: activeView === "errors",
-		modelTokens: activeView === "tokens",
-		performance,
-		repositoryTrend,
-		roi: repositoryTrend,
-		sessionSummary: activeView === "sessions",
-	};
-}
-
-export function useDashboardPageData(activeView: DashboardView) {
+export function useDashboardPageData() {
 	const { meta, state } = useDateRange();
 	const { state: workspaceState } = useOrganization();
 	const useFixtures = isFrontendFixturesEnabled();
 	announceFrontendFixturesEnabled("dashboard");
+
 	const { data: fullOrganization } = useFullOrganization(
 		workspaceState.activeOrg?.id,
 	);
@@ -73,7 +45,7 @@ export function useDashboardPageData(activeView: DashboardView) {
 				: null,
 		[fixtureMembers, state.endDate, state.startDate, useFixtures],
 	);
-	const requirements = getDashboardQueryRequirements(activeView);
+
 	const overviewKpisQuery = useAnalyticsQuery({
 		...orpc.analytics.overview.kpis.queryOptions({
 			input: {
@@ -83,15 +55,6 @@ export function useDashboardPageData(activeView: DashboardView) {
 		}),
 		enabled: !useFixtures,
 	});
-	const roiDashboardQuery = useAnalyticsQuery({
-		...orpc.analytics.roi.dashboard.queryOptions({
-			input: {
-				startDate: state.startDate,
-				endDate: state.endDate,
-			},
-		}),
-		enabled: !useFixtures && requirements.roi,
-	});
 	const usersTokenUsageQuery = useAnalyticsQuery({
 		...orpc.analytics.overview.usersTokenUsage.queryOptions({
 			input: {
@@ -99,7 +62,7 @@ export function useDashboardPageData(activeView: DashboardView) {
 				endDate: state.endDate,
 			},
 		}),
-		enabled: !useFixtures && requirements.performance,
+		enabled: !useFixtures,
 	});
 	const modelTokensTrendQuery = useAnalyticsQuery({
 		...orpc.analytics.overview.modelTokensTrend.queryOptions({
@@ -108,7 +71,7 @@ export function useDashboardPageData(activeView: DashboardView) {
 				endDate: state.endDate,
 			},
 		}),
-		enabled: !useFixtures && requirements.modelTokens,
+		enabled: !useFixtures,
 	});
 	const usersDailyTrendQuery = useAnalyticsQuery({
 		...orpc.analytics.overview.usersDailyTrend.queryOptions({
@@ -117,7 +80,7 @@ export function useDashboardPageData(activeView: DashboardView) {
 				endDate: state.endDate,
 			},
 		}),
-		enabled: !useFixtures && requirements.performance,
+		enabled: !useFixtures,
 	});
 	const repositoriesDailyTrendQuery = useAnalyticsQuery({
 		...orpc.analytics.overview.repositoriesDailyTrend.queryOptions({
@@ -126,16 +89,15 @@ export function useDashboardPageData(activeView: DashboardView) {
 				endDate: state.endDate,
 			},
 		}),
-		enabled: !useFixtures && requirements.repositoryTrend,
+		enabled: !useFixtures,
 	});
-	const errorDashboardQuery = useAnalyticsQuery({
-		...orpc.analytics.errors.dashboard.queryOptions({
+	const projectInvestmentQuery = useAnalyticsQuery({
+		...orpc.analytics.projects.investment.queryOptions({
 			input: {
-				startDate: state.startDate,
-				endDate: state.endDate,
+				days: meta.dayCount,
 			},
 		}),
-		enabled: !useFixtures && requirements.errors,
+		enabled: !useFixtures,
 	});
 	const errorProjectTrendQuery = useAnalyticsQuery({
 		...orpc.analytics.errors.trends.queryOptions({
@@ -145,7 +107,7 @@ export function useDashboardPageData(activeView: DashboardView) {
 				splitBy: "project_path",
 			},
 		}),
-		enabled: !useFixtures && requirements.errors,
+		enabled: !useFixtures,
 	});
 	const errorDeveloperTrendQuery = useAnalyticsQuery({
 		...orpc.analytics.errors.trends.queryOptions({
@@ -155,18 +117,20 @@ export function useDashboardPageData(activeView: DashboardView) {
 				splitBy: "user_id",
 			},
 		}),
-		enabled: !useFixtures && requirements.errors,
+		enabled: !useFixtures,
 	});
-	const sessionSummaryComparisonQuery = useAnalyticsQuery({
-		...orpc.analytics.sessions.summaryComparison.queryOptions({
+	const errorModelTrendQuery = useAnalyticsQuery({
+		...orpc.analytics.errors.trends.queryOptions({
 			input: {
-				days: meta.dayCount,
+				startDate: state.startDate,
+				endDate: state.endDate,
+				splitBy: "model",
 			},
 		}),
-		enabled: !useFixtures && requirements.sessionSummary,
+		enabled: !useFixtures,
 	});
+
 	const overviewKpis = fixtureData?.overviewKpis ?? overviewKpisQuery.data;
-	const roiDashboard = fixtureData?.roiDashboard ?? roiDashboardQuery.data;
 	const usersTokenUsage =
 		fixtureData?.usersTokenUsage ?? usersTokenUsageQuery.data;
 	const modelTokensTrend =
@@ -175,32 +139,21 @@ export function useDashboardPageData(activeView: DashboardView) {
 		fixtureData?.usersDailyTrend ?? usersDailyTrendQuery.data;
 	const repositoriesDailyTrend =
 		fixtureData?.repositoriesDailyTrend ?? repositoriesDailyTrendQuery.data;
-	const errorDashboard =
-		fixtureData?.errorDashboard ?? errorDashboardQuery.data;
+	const projectInvestment =
+		fixtureData?.projectInvestment ?? projectInvestmentQuery.data ?? [];
 	const errorProjectTrend =
 		fixtureData?.errorProjectTrend ?? errorProjectTrendQuery.data;
 	const errorDeveloperTrend =
 		fixtureData?.errorDeveloperTrend ?? errorDeveloperTrendQuery.data;
-	const sessionSummaryComparison =
-		fixtureData?.sessionSummaryComparison ?? sessionSummaryComparisonQuery.data;
+	const errorModelTrend =
+		fixtureData?.errorModelTrend ?? errorModelTrendQuery.data;
+
 	const userImageById = useMemo(
 		() =>
 			new Map(
 				(fullOrganization?.members ?? []).map((member) => [
 					member.userId,
 					member.user.image,
-				]),
-			),
-		[fullOrganization?.members],
-	);
-	const userLabelById = useMemo(
-		() =>
-			new Map(
-				(fullOrganization?.members ?? []).map((member) => [
-					member.userId,
-					member.user.name?.trim() ||
-						member.user.email?.trim() ||
-						member.userId,
 				]),
 			),
 		[fullOrganization?.members],
@@ -220,56 +173,35 @@ export function useDashboardPageData(activeView: DashboardView) {
 			usersTokenUsage,
 		],
 	);
-	const baseSnapshot = useMemo(
-		() => createDashboardOutputSnapshot(state.startDate, state.endDate),
-		[state.startDate, state.endDate],
-	);
-	const snapshot = useMemo(
-		() => mergeDashboardSnapshotWithRoi(baseSnapshot, roiDashboard),
-		[baseSnapshot, roiDashboard],
-	);
 
 	return {
 		endDate: state.endDate,
-		isDashboardSnapshotPending:
-			!useFixtures && requirements.roi && roiDashboardQuery.isPending,
-		isPerformanceChartPending:
-			!useFixtures &&
-			requirements.performance &&
-			(usersTokenUsageQuery.isPending || usersDailyTrendQuery.isPending),
-		isOverviewKpisPending: !useFixtures && overviewKpisQuery.isPending,
-		isTokenChartPending:
-			!useFixtures &&
-			requirements.modelTokens &&
-			(usersTokenUsageQuery.isPending ||
-				usersDailyTrendQuery.isPending ||
-				modelTokensTrendQuery.isPending),
-		isSessionSnapshotPending:
-			!useFixtures &&
-			requirements.sessionSummary &&
-			sessionSummaryComparisonQuery.isPending,
-		isRepositoryChartPending:
-			!useFixtures &&
-			requirements.repositoryTrend &&
-			repositoriesDailyTrendQuery.isPending,
-		isErrorDashboardPending:
-			!useFixtures &&
-			requirements.errors &&
-			(errorDashboardQuery.isPending ||
-				errorProjectTrendQuery.isPending ||
-				errorDeveloperTrendQuery.isPending),
-		errorDashboard,
-		errorProjectTrend,
 		errorDeveloperTrend,
+		errorModelTrend,
+		errorProjectTrend,
+		isCostControlPending: {
+			base: {
+				members:
+					!useFixtures &&
+					(usersTokenUsageQuery.isPending || usersDailyTrendQuery.isPending),
+				models: !useFixtures && modelTokensTrendQuery.isPending,
+				repositories: !useFixtures && repositoriesDailyTrendQuery.isPending,
+			},
+			errors: {
+				members: !useFixtures && errorDeveloperTrendQuery.isPending,
+				models: !useFixtures && errorModelTrendQuery.isPending,
+				repositories: !useFixtures && errorProjectTrendQuery.isPending,
+			},
+		},
+		isOverviewKpisPending: !useFixtures && overviewKpisQuery.isPending,
+		isRepositoryUploadStatusPending:
+			!useFixtures && projectInvestmentQuery.isPending,
 		modelTokensTrend,
-		performanceUserDailyTrend: usersDailyTrend,
 		performanceUsers,
-		repositoryDailyTrend: repositoriesDailyTrend,
-		sessionSummaryComparison,
+		projectInvestment,
+		repositoriesDailyTrend,
 		startDate: state.startDate,
-		snapshot,
 		totalSessionCount: overviewKpis?.total_sessions,
-		userLabelById,
-		usersTokenUsage,
+		userDailyTrend: usersDailyTrend,
 	};
 }

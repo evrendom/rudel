@@ -1,5 +1,11 @@
-import { addDays, format, getISODay, parseISO, startOfWeek } from "date-fns";
-import { expandAnalyticsDateRange } from "@/lib/analytics-date-range";
+import {
+	addDays,
+	eachDayOfInterval,
+	format,
+	getISODay,
+	parseISO,
+	startOfWeek,
+} from "date-fns";
 
 export type DashboardDeltaTone = "positive" | "negative" | "neutral";
 export type DashboardMetricId =
@@ -466,15 +472,35 @@ function resolveWeekStart(endDate: string) {
 	return startOfWeek(parsedEndDate, { weekStartsOn: 1 });
 }
 
-function resolveDateInterval(startDate: string, endDate: string) {
-	const interval = expandAnalyticsDateRange(startDate, endDate);
+function isValidDate(value: Date) {
+	return !Number.isNaN(value.getTime());
+}
 
-	if (interval.length > 0) {
-		return interval;
+function resolveDateInterval(startDate: string, endDate: string) {
+	const parsedStartDate = parseISO(startDate);
+	const parsedEndDate = parseISO(endDate);
+
+	if (!isValidDate(parsedStartDate) && !isValidDate(parsedEndDate)) {
+		const weekStart = resolveWeekStart(endDate);
+		return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
 	}
 
-	const weekStart = resolveWeekStart(endDate);
-	return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+	const safeEndDate = isValidDate(parsedEndDate)
+		? parsedEndDate
+		: parsedStartDate;
+	const safeStartDate = isValidDate(parsedStartDate)
+		? parsedStartDate
+		: addDays(safeEndDate, -6);
+
+	const [intervalStart, intervalEnd] =
+		safeStartDate.getTime() <= safeEndDate.getTime()
+			? [safeStartDate, safeEndDate]
+			: [safeEndDate, safeStartDate];
+
+	return eachDayOfInterval({
+		start: intervalStart,
+		end: intervalEnd,
+	});
 }
 
 function buildDailyPatternPoint(

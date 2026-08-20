@@ -32,6 +32,7 @@ export type DashboardTokenDeveloperDatum = {
 
 type DashboardTokenDeveloperChartProps = {
 	activeId?: string | null;
+	allowDecimals?: boolean;
 	barColor?: string;
 	className?: string;
 	data: DashboardTokenDeveloperDatum[];
@@ -40,10 +41,12 @@ type DashboardTokenDeveloperChartProps = {
 	formatPrimaryValue?: (value: number) => string;
 	formatSecondaryValue?: (value: number) => string;
 	highlightSource?: "chart" | "table" | null;
+	labelVariant?: "avatar" | "plain";
 	onHighlightUserChange?: DashboardHighlightChangeHandler;
 	primaryLabel?: string;
 	secondaryLabel?: string;
 	yAxisTickFormatter?: (value: number) => string;
+	yAxisWidth?: number;
 };
 
 type DashboardTokenDeveloperChartRow = DashboardTokenDeveloperDatum & {
@@ -186,6 +189,7 @@ function DashboardTokenDeveloperAxisTick({
 	activeId,
 	dataById,
 	labelWidth,
+	labelVariant,
 	payload,
 	x = 0,
 	y = 0,
@@ -193,6 +197,7 @@ function DashboardTokenDeveloperAxisTick({
 	activeId?: string | null;
 	dataById: Map<string, DashboardTokenDeveloperChartRow>;
 	labelWidth: number;
+	labelVariant: "avatar" | "plain";
 	payload?: { value?: string | number };
 	x?: number | string;
 	y?: number | string;
@@ -226,22 +231,24 @@ function DashboardTokenDeveloperAxisTick({
 						className="inline-flex min-w-0 max-w-full items-center justify-center gap-2 px-1 transition-opacity duration-300"
 						style={{ opacity: contentOpacity }}
 					>
-						<div
-							className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-[color:var(--dashboardy-surface)] shadow-sm transition-colors duration-300"
-							style={{ borderColor: avatarBorderColor }}
-						>
-							{datum.imageUrl ? (
-								<img
-									src={datum.imageUrl}
-									alt={datum.fullLabel}
-									className="size-full object-cover"
-								/>
-							) : (
-								<span className="text-[10px] font-semibold text-[color:var(--dashboardy-heading)]">
-									{getAvatarInitials(datum.fullLabel)}
-								</span>
-							)}
-						</div>
+						{labelVariant === "avatar" ? (
+							<div
+								className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-[color:var(--dashboardy-surface)] shadow-sm transition-colors duration-300"
+								style={{ borderColor: avatarBorderColor }}
+							>
+								{datum.imageUrl ? (
+									<img
+										src={datum.imageUrl}
+										alt={datum.fullLabel}
+										className="size-full object-cover"
+									/>
+								) : (
+									<span className="text-[10px] font-semibold text-[color:var(--dashboardy-heading)]">
+										{getAvatarInitials(datum.fullLabel)}
+									</span>
+								)}
+							</div>
+						) : null}
 						<span className="min-w-0 max-w-full truncate text-left text-[11px] font-semibold leading-4 text-[color:var(--dashboardy-subheading)]">
 							{datum.axisLabel}
 						</span>
@@ -254,6 +261,7 @@ function DashboardTokenDeveloperAxisTick({
 
 export function DashboardTokenDeveloperChart({
 	activeId,
+	allowDecimals = false,
 	barColor = DEFAULT_PRIMARY_COLOR,
 	className,
 	data,
@@ -265,10 +273,12 @@ export function DashboardTokenDeveloperChart({
 	formatPrimaryValue = formatCompactNumber,
 	formatSecondaryValue = (value) => value.toLocaleString(),
 	highlightSource,
+	labelVariant = "avatar",
 	onHighlightUserChange,
 	primaryLabel = "Tokens",
 	secondaryLabel = "Sessions",
 	yAxisTickFormatter = (value) => formatCompactWholeNumber(value),
+	yAxisWidth = 34,
 }: DashboardTokenDeveloperChartProps) {
 	const chartData = useMemo<DashboardTokenDeveloperChartRow[]>(
 		() =>
@@ -350,18 +360,19 @@ export function DashboardTokenDeveloperChart({
 								activeId={resolvedActiveId}
 								dataById={dataById}
 								labelWidth={labelWidth}
+								labelVariant={labelVariant}
 							/>
 						)}
 						tickLine={false}
 					/>
 					<YAxis
-						allowDecimals={false}
+						allowDecimals={allowDecimals}
 						domain={[0, axisMax]}
 						ticks={axisTicks}
 						axisLine={false}
 						tickLine={false}
 						tickMargin={12}
-						width={34}
+						width={yAxisWidth}
 						tickFormatter={(value) => yAxisTickFormatter(Number(value))}
 						tick={{
 							fontSize: 13,

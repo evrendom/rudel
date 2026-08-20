@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 type DashboardTokenDeveloperTableRow = {
 	avgTokensPerSession: number;
-	cost: number | null;
+	cost: number;
 	id: string;
 	imageUrl?: string | null;
 	inputTokens: number;
@@ -198,11 +198,11 @@ export function DashboardTokenDeveloperTable({
 				},
 				{
 					id: "cost",
-					header: "Estimated API-rate cost",
+					header: "Cost",
 					renderCell: (row) => (
 						<DashboardTokenCostCell
 							at={undefined}
-							cost={row.cost}
+							cost={row.cost > 0 ? row.cost : null}
 							inputTokens={row.inputTokens}
 							model={undefined}
 							outputTokens={row.outputTokens}

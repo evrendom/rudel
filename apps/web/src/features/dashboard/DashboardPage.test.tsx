@@ -60,6 +60,5 @@ describe("DashboardPage", () => {
 		expect(
 			screen.queryByRole("tab", { name: "Tokens" }),
 		).not.toBeInTheDocument();
-		expect(mockUseDashboardPageData).toHaveBeenCalledWith("tokens");
 	});
 });

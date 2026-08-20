@@ -33,22 +33,6 @@ vi.mock(
 );
 
 describe("DashboardDateControls", () => {
-	it("clamps oversized URL ranges before dashboard consumers receive them", () => {
-		render(
-			<MemoryRouter
-				initialEntries={["/dashboard?from=2020-01-01&to=2026-12-31"]}
-			>
-				<DateRangeProvider>
-					<DashboardDateControls />
-				</DateRangeProvider>
-			</MemoryRouter>,
-		);
-
-		expect(screen.getByTestId("picker-range")).toHaveTextContent(
-			"2026-01-01|2026-12-31",
-		);
-	});
-
 	it("reads the current date range and applies updates through the provider", async () => {
 		const user = userEvent.setup();
 

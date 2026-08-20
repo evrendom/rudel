@@ -1,5 +1,5 @@
 import type { ErrorsDashboard, ErrorTrendDataPoint } from "@rudel/api-routes";
-import { format, parseISO } from "date-fns";
+import { eachDayOfInterval, format, parseISO } from "date-fns";
 import { FolderGit2Icon, GaugeIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
@@ -26,7 +26,6 @@ import {
 } from "@/features/dashboard/components/DashboardGridTable";
 import { DashboardInteractiveTopChartSection } from "@/features/dashboard/components/DashboardTopChartSection";
 import type { DashboardHeadlineMetric } from "@/features/dashboard/data/dashboard-static-data";
-import { expandAnalyticsDateRange } from "@/lib/analytics-date-range";
 import { cn } from "@/lib/utils";
 
 type ErrorMetric =
@@ -120,6 +119,29 @@ function getErrorDailyBarSize(total: number) {
 	}
 
 	return 10;
+}
+
+function buildDateRange(startDate: string, endDate: string) {
+	const parsedStartDate = parseISO(startDate);
+	const parsedEndDate = parseISO(endDate);
+
+	if (
+		Number.isNaN(parsedStartDate.getTime()) ||
+		Number.isNaN(parsedEndDate.getTime())
+	) {
+		return [];
+	}
+
+	return eachDayOfInterval({
+		start:
+			parsedStartDate.getTime() <= parsedEndDate.getTime()
+				? parsedStartDate
+				: parsedEndDate,
+		end:
+			parsedStartDate.getTime() <= parsedEndDate.getTime()
+				? parsedEndDate
+				: parsedStartDate,
+	});
 }
 
 function estimateDenominator(totalErrors: number, average: number) {
@@ -297,7 +319,7 @@ function buildErrorDailyPoints(
 		aggregateByDate.set(row.date, current);
 	}
 
-	return expandAnalyticsDateRange(startDate, endDate).map((date) => {
+	return buildDateRange(startDate, endDate).map((date) => {
 		const isoDate = format(date, "yyyy-MM-dd");
 		const aggregate = aggregateByDate.get(isoDate);
 
@@ -416,7 +438,7 @@ function buildErrorTrendRows(
 		(rows ?? []).map((row) => [`${row.dimension}:${row.date}`, row] as const),
 	);
 
-	return expandAnalyticsDateRange(startDate, endDate).map((date) => {
+	return buildDateRange(startDate, endDate).map((date) => {
 		const isoDate = format(date, "yyyy-MM-dd");
 		const nextRow: ErrorTrendChartRow = {
 			date: isoDate,

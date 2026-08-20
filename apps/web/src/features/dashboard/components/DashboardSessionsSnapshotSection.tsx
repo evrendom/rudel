@@ -246,6 +246,7 @@ function DashboardSessionChartFallback() {
 export function DashboardSessionsSnapshotSection({
 	activeSessionId,
 	canOpenSession,
+	dimInactiveSessions = true,
 	endDate,
 	dateRangeDays,
 	isMetricsPending = false,
@@ -258,6 +259,7 @@ export function DashboardSessionsSnapshotSection({
 	sessions,
 	sessionDetailDisabledNote,
 	showChart = true,
+	showDelta = false,
 	startDate,
 	tableScrollContainerRef,
 	totalSessionCount,
@@ -266,6 +268,7 @@ export function DashboardSessionsSnapshotSection({
 }: {
 	activeSessionId?: string | null;
 	canOpenSession?: (session: SessionAnalytics) => boolean;
+	dimInactiveSessions?: boolean;
 	endDate: string;
 	dateRangeDays: number;
 	isMetricsPending?: boolean;
@@ -278,6 +281,7 @@ export function DashboardSessionsSnapshotSection({
 	sessions: SessionAnalytics[] | undefined;
 	sessionDetailDisabledNote?: string;
 	showChart?: boolean;
+	showDelta?: boolean;
 	startDate: string;
 	tableScrollContainerRef?: Ref<HTMLDivElement>;
 	totalSessionCount: number;
@@ -320,8 +324,13 @@ export function DashboardSessionsSnapshotSection({
 				key={sessionsTableKey}
 				activeSessionId={activeSessionId}
 				canOpenSession={canOpenSession}
+				dimInactiveSessions={dimInactiveSessions}
+				getSessionHref={getSessionHref}
+				getSessionLinkState={getSessionLinkState}
 				isLoading={isSessionsPending}
 				onSessionClick={onSessionClick}
+				presentation="default"
+				sessionCountLabel={overviewSessionCount}
 				sessions={latestSessions}
 				sessionDetailDisabledNote={sessionDetailDisabledNote}
 				showHeader={false}
@@ -346,7 +355,7 @@ export function DashboardSessionsSnapshotSection({
 			detail={sessionsTable}
 			isMetricsLoading={isMetricsPending}
 			metrics={metrics}
-			showDelta
+			showDelta={showDelta}
 		/>
 	);
 }

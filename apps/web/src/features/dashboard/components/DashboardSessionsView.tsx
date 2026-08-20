@@ -16,6 +16,7 @@ import {
 	buildSessionListDateInput,
 	resolveActiveSessionDateRangeOptionId,
 } from "@/features/sessions/session-date-ranges";
+import { useShellRoutePath } from "@/features/shell/hooks/use-shell-route-path";
 import { orpc } from "@/lib/orpc";
 
 export function DashboardSessionsView({
@@ -35,6 +36,7 @@ export function DashboardSessionsView({
 		meta,
 		state: { endDate, startDate },
 	} = useDateRange();
+	const getShellRoutePath = useShellRoutePath();
 	const headlineMetrics = useMemo(
 		() => buildDashboardSessionTabMetrics(sessionSummaryComparison),
 		[sessionSummaryComparison],
@@ -71,10 +73,10 @@ export function DashboardSessionsView({
 		<section className="@container/sessions-view flex flex-col gap-8">
 			<div className="flex justify-end px-1">
 				<Link
-					to={appRoutes.dashboardSessions()}
+					to={getShellRoutePath(appRoutes.session())}
 					className="dashboardy-action-button inline-flex h-8 items-center rounded-full border border-[color:var(--dashboardy-border)] bg-transparent px-3 text-[13px] font-medium text-[color:var(--dashboardy-heading)] shadow-none"
 				>
-					Open full sessions view
+					Open sessions
 				</Link>
 			</div>
 			<DashboardSessionsSnapshotSection

@@ -2,7 +2,7 @@ import type { UserDailyTrendData, UserTokenUsageData } from "@rudel/api-routes";
 
 export type DashboardPerformanceUserComparison = {
 	commits: number;
-	cost: number | null;
+	cost: number;
 	imageUrl?: string | null;
 	inputTokens: number;
 	label: string;
@@ -24,7 +24,7 @@ type DashboardPerformanceMember = {
 };
 
 type SortablePerformanceUser = {
-	cost: number | null;
+	cost: number;
 	imageUrl?: string | null;
 	inputTokens: number;
 	modelsUsed: string[];
@@ -48,7 +48,7 @@ type AggregatedTrendUsage = {
 };
 
 type ResolvedPerformanceTotals = {
-	cost: number | null;
+	cost: number;
 	inputTokens: number;
 	outputTokens: number;
 	totalCommits: number;
@@ -151,12 +151,7 @@ function resolvePerformanceTotals(
 	const totalTokens = trendUsage?.totalTokens ?? usage?.total_tokens ?? 0;
 
 	return {
-		cost:
-			usage !== undefined
-				? usage.cost
-				: (trendUsage?.totalSessions ?? 0) > 0
-					? null
-					: 0,
+		cost: usage?.cost ?? 0,
 		inputTokens,
 		outputTokens,
 		totalCommits,

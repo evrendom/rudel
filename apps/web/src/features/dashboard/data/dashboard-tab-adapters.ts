@@ -1,18 +1,18 @@
-import type {
-	ModelTokensTrendData,
-	RepositoryDailyTrendData,
-	SessionAnalyticsSummaryComparison,
-	UserDailyTrendData,
-	UserTokenUsageData,
+import {
+	calculateEstimatedCost as calculateEstimatedModelCost,
+	type ModelTokensTrendData,
+	type RepositoryDailyTrendData,
+	type SessionAnalyticsSummaryComparison,
+	type UserDailyTrendData,
+	type UserTokenUsageData,
 } from "@rudel/api-routes";
-import { format, parseISO } from "date-fns";
+import { eachDayOfInterval, format, parseISO } from "date-fns";
 import type { DashboardRepositorySummaryRow } from "@/features/dashboard/data/dashboard-repository-trend";
 import type {
 	DashboardDailyPatternPoint,
 	DashboardDeltaTone,
 	DashboardHeadlineMetric,
 } from "@/features/dashboard/data/dashboard-static-data";
-import { expandAnalyticsDateRange } from "@/lib/analytics-date-range";
 import { calculateCost, formatCompactWholeCurrency } from "@/lib/format";
 
 export type DashboardTokenDailyPoint = {
@@ -25,7 +25,6 @@ export type DashboardTokenDailyPoint = {
 	estimatedCost: number | null;
 	fullLabel: string;
 	inputTokens: number;
-	isCostPartial: boolean;
 	modelTokens: Record<string, number>;
 	outputTokens: number;
 	sessions: number;
@@ -86,6 +85,29 @@ function getDeltaTone(
 	return isPositive ? "positive" : "negative";
 }
 
+function buildDateRange(startDate: string, endDate: string) {
+	const parsedStartDate = parseISO(startDate);
+	const parsedEndDate = parseISO(endDate);
+
+	if (
+		Number.isNaN(parsedStartDate.getTime()) ||
+		Number.isNaN(parsedEndDate.getTime())
+	) {
+		return [];
+	}
+
+	return eachDayOfInterval({
+		start:
+			parsedStartDate.getTime() <= parsedEndDate.getTime()
+				? parsedStartDate
+				: parsedEndDate,
+		end:
+			parsedStartDate.getTime() <= parsedEndDate.getTime()
+				? parsedEndDate
+				: parsedStartDate,
+	});
+}
+
 function normalizeDateKey(value: string) {
 	if (/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
 		return value;
@@ -105,7 +127,7 @@ function buildDailyPattern(
 	endDate: string,
 	rowsByDate: Map<string, { commits: number; sessions: number }>,
 ): DashboardDailyPatternPoint[] {
-	return expandAnalyticsDateRange(startDate, endDate).map((date) => {
+	return buildDateRange(startDate, endDate).map((date) => {
 		const isoDate = format(date, "yyyy-MM-dd");
 		const row = rowsByDate.get(isoDate);
 		const sessions = row?.sessions ?? null;
@@ -210,7 +232,7 @@ export function buildDashboardRepositoryDailyOverviewRows(
 		rowsByDate.set(dateKey, currentRow);
 	}
 
-	return expandAnalyticsDateRange(startDate, endDate).map((date) => {
+	return buildDateRange(startDate, endDate).map((date) => {
 		const isoDate = format(date, "yyyy-MM-dd");
 		const row = rowsByDate.get(isoDate);
 		const sessions = row?.sessions ?? 0;
@@ -393,7 +415,7 @@ export function buildDashboardTokenDailyPattern(
 	const estimatedCostByDate = new Map<
 		string,
 		{
-			isPartial: boolean;
+			hasResolvedCost: boolean;
 			total: number;
 		}
 	>();
@@ -436,21 +458,20 @@ export function buildDashboardTokenDailyPattern(
 
 	for (const row of modelRows ?? []) {
 		const dateKey = normalizeDateKey(row.date);
-		const hasServerEstimatedCost = row.estimated_cost != null;
-		const estimatedCost =
-			row.estimated_cost ??
-			calculateCost(row.input_tokens, row.output_tokens, {
-				at: row.date,
-				model: row.model,
-			});
+		const estimatedCost = calculateEstimatedModelCost({
+			at: row.date,
+			inputTokens: row.input_tokens,
+			model: row.model,
+			outputTokens: row.output_tokens,
+		});
 		const currentCost = estimatedCostByDate.get(dateKey) ?? {
-			isPartial: false,
+			hasResolvedCost: false,
 			total: 0,
 		};
 
 		estimatedCostByDate.set(dateKey, {
-			isPartial: currentCost.isPartial || !hasServerEstimatedCost,
-			total: currentCost.total + estimatedCost,
+			hasResolvedCost: currentCost.hasResolvedCost || estimatedCost !== null,
+			total: currentCost.total + (estimatedCost ?? 0),
 		});
 
 		const currentBreakdown = modelTokensByDate.get(dateKey) ?? {};
@@ -463,7 +484,7 @@ export function buildDashboardTokenDailyPattern(
 		}
 	}
 
-	return expandAnalyticsDateRange(startDate, endDate).map((date) => {
+	return buildDateRange(startDate, endDate).map((date) => {
 		const isoDate = format(date, "yyyy-MM-dd");
 		const sessions = sessionsByDate.get(isoDate) ?? 0;
 		const tokensRow = tokensByDate.get(isoDate) ?? {
@@ -488,10 +509,10 @@ export function buildDashboardTokenDailyPattern(
 			date: isoDate,
 			dominantModel,
 			dominantModelTokens,
-			estimatedCost: estimatedCost?.total ?? 0,
+			estimatedCost:
+				estimatedCost?.hasResolvedCost === true ? estimatedCost.total : null,
 			fullLabel: format(date, "EEEE, MMM d"),
 			inputTokens: tokensRow.inputTokens,
-			isCostPartial: estimatedCost?.isPartial ?? false,
 			modelTokens,
 			outputTokens: tokensRow.outputTokens,
 			sessions,
@@ -516,25 +537,28 @@ export function buildDashboardTokenTabMetrics(
 	);
 	const totalTokens =
 		totalTokensFromUsage > 0 ? totalTokensFromUsage : totalTokensFromPattern;
-	const hasModelCostRows = (modelRows ?? []).length > 0;
-	const knownModelCost = (modelRows ?? []).reduce(
-		(sum, row) => sum + (row.estimated_cost ?? 0),
+	const totalCostFromUsage = (usersTokenUsage ?? []).reduce(
+		(sum, row) => sum + (row.cost ?? 0),
 		0,
 	);
-	const totalCost = hasModelCostRows
-		? knownModelCost
-		: (usersTokenUsage ?? []).reduce((sum, row) => sum + (row.cost ?? 0), 0);
+	const totalCostFromModels = (modelRows ?? []).reduce(
+		(sum, row) =>
+			sum +
+			calculateCost(row.input_tokens, row.output_tokens, {
+				at: row.date,
+				model: row.model,
+			}),
+		0,
+	);
+	const totalCost =
+		totalCostFromUsage > 0 ? totalCostFromUsage : totalCostFromModels;
 	const activeDevelopersFromUsage = (usersTokenUsage ?? []).filter(
 		(row) => row.total_tokens > 0 || row.total_sessions > 0,
 	).length;
-	const activeDevelopersFromTrend = (userTrendRows ?? []).reduce(
-		(activeUsers, row) => {
-			if (row.total_tokens > 0 || row.sessions > 0) {
-				activeUsers.add(row.user_id);
-			}
-			return activeUsers;
-		},
-		new Set<string>(),
+	const activeDevelopersFromTrend = new Set(
+		(userTrendRows ?? [])
+			.filter((row) => row.total_tokens > 0 || row.sessions > 0)
+			.map((row) => row.user_id),
 	).size;
 	const activeDevelopers =
 		activeDevelopersFromUsage > 0
@@ -557,12 +581,12 @@ export function buildDashboardTokenTabMetrics(
 		},
 		{
 			id: "uncommitted",
-			label: "Estimated API-rate cost",
+			label: "Est. spend",
 			valueLabel: formatCompactWholeCurrency(totalCost),
 			deltaLabel: "0",
 			deltaTone: "neutral",
 			description:
-				"Estimated API-rate cost using the current model pricing catalog.",
+				"Estimated token cost using the current model pricing catalog.",
 		},
 		{
 			id: "commitRate",

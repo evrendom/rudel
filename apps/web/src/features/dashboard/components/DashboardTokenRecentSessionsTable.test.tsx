@@ -58,7 +58,9 @@ describe("DashboardTokenRecentSessionsTable", () => {
 		expect(
 			screen.getByText("Session detail disabled for demo."),
 		).toBeInTheDocument();
-		expect(screen.queryByRole("button")).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { pressed: false }),
+		).not.toBeInTheDocument();
 
 		fireEvent.click(screen.getByText("obsessiondb/rudel"));
 

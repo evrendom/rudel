@@ -83,10 +83,10 @@ export function DashboardTokenModelTable({
 				},
 				{
 					id: "cost",
-					header: "Estimated API-rate cost",
+					header: "Cost",
 					renderCell: (row) => (
 						<p className="font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
-							{`${row.isCostPartial ? "≥ " : ""}${formatCurrency(row.estimatedCost)}`}
+							{formatCurrency(row.estimatedCost)}
 						</p>
 					),
 				},
