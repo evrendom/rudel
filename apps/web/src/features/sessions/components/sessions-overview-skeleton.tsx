@@ -1,7 +1,8 @@
+import { Fragment } from "react";
 import { Skeleton } from "@/app/ui/skeleton";
 import {
+	SESSION_OVERVIEW_COLUMNS,
 	SESSION_OVERVIEW_GRID_CLASS_NAME,
-	SESSION_OVERVIEW_SECOND_FROZEN_COLUMN_LEFT_CLASS_NAME,
 } from "@/features/sessions/components/sessions-overview-table-utils";
 import { cn } from "@/lib/utils";
 
@@ -25,44 +26,39 @@ export function SessionsOverviewSkeleton() {
 			{SESSION_OVERVIEW_SKELETON_ROWS.map((rowId) => (
 				<div
 					key={rowId}
-					className={cn("grid h-11 sm:h-9", SESSION_OVERVIEW_GRID_CLASS_NAME)}
+					className={cn("grid h-9", SESSION_OVERVIEW_GRID_CLASS_NAME)}
 				>
-					<div className="sticky left-0 z-10 flex items-center border-r border-b border-(--session-overview-border) bg-(--session-overview-surface) px-3 [border-right-color:transparent]">
-						<Skeleton className="h-3.5 w-20 rounded-sm" />
-					</div>
-					<div
-						className={cn(
-							"sticky z-10 flex items-center border-r border-b border-(--session-overview-border) bg-(--session-overview-surface) px-4 [border-right-color:transparent]",
-							SESSION_OVERVIEW_SECOND_FROZEN_COLUMN_LEFT_CLASS_NAME,
-						)}
-					>
-						<Skeleton className="h-3.5 w-36 rounded-sm" />
-					</div>
-					<div className="flex items-center gap-1.5 border-r border-b border-(--session-overview-border) px-3 [border-right-color:transparent]">
-						<Skeleton className="size-4 rounded-full" />
-						<Skeleton className="h-3.5 w-24 rounded-sm" />
-					</div>
-					<div className="flex items-center border-r border-b border-(--session-overview-border) px-3 [border-right-color:transparent]">
-						<Skeleton className="h-5 w-24 rounded-full" />
-					</div>
-					<div className="flex items-center justify-end border-r border-b border-(--session-overview-border) px-3 [border-right-color:transparent]">
-						<Skeleton className="h-3.5 w-20 rounded-sm" />
-					</div>
-					<div className="flex items-center justify-end border-r border-b border-(--session-overview-border) px-3 [border-right-color:transparent]">
-						<Skeleton className="h-3.5 w-14 rounded-sm" />
-					</div>
-					<div className="flex items-center justify-end border-r border-b border-(--session-overview-border) px-3 [border-right-color:transparent]">
-						<Skeleton className="h-3.5 w-10 rounded-sm" />
-					</div>
-					<div className="flex items-center justify-end border-r border-b border-(--session-overview-border) px-3 [border-right-color:transparent]">
-						<Skeleton className="h-3.5 w-12 rounded-sm" />
-					</div>
-					<div className="flex items-center justify-end border-r border-b border-(--session-overview-border) px-3 [border-right-color:transparent]">
-						<Skeleton className="h-3.5 w-16 rounded-sm" />
-					</div>
-					<div className="flex items-center border-r border-b border-(--session-overview-border) px-3 [border-right-color:transparent]">
-						<Skeleton className="h-3.5 w-52 rounded-sm" />
-					</div>
+					{SESSION_OVERVIEW_COLUMNS.map((column) => (
+						<Fragment key={column.key}>
+							<div
+								className={cn(
+									"flex min-w-0 items-center bg-(--session-overview-surface) px-3",
+									column.align === "right" && "justify-end",
+								)}
+							>
+								{column.key === "user" ? (
+									<div className="flex items-center gap-1.5">
+										<Skeleton className="size-4 rounded-full" />
+										<Skeleton className="h-3 w-20 rounded-sm" />
+									</div>
+								) : (
+									<Skeleton
+										className={cn(
+											"h-3 rounded-sm",
+											column.key === "repository" || column.key === "model"
+												? "w-28"
+												: "w-12",
+										)}
+									/>
+								)}
+							</div>
+							{column.key === "time" ? (
+								<div className="flex items-center justify-center bg-(--session-overview-surface) px-2">
+									<Skeleton className="size-7 rounded-md" />
+								</div>
+							) : null}
+						</Fragment>
+					))}
 				</div>
 			))}
 		</div>

@@ -155,6 +155,101 @@ test("the causal ledger reconstructs a synthetic mid-fling blind window", async 
 	).toBe(true);
 });
 
+test("the anchor journal attributes a synthetic main-thread stall", async ({
+	page,
+}) => {
+	const anchorLogs: string[] = [];
+	page.on("console", (message) => {
+		const text = message.text();
+		if (text.startsWith("[anchor ")) {
+			anchorLogs.push(text);
+		}
+	});
+	await page.goto(
+		`${FIXTURE_ROUTE}?mode=continuous&transcript=virtual&turns=80`,
+	);
+	const scroller = page.locator("[data-trace-fixture-continuous-scroller]");
+	await expect(scroller.locator("[data-transcript-virtual-list]")).toBeVisible({
+		timeout: 15_000,
+	});
+	await expect
+		.poll(() => page.evaluate(() => window.__transcriptTrace !== undefined))
+		.toBe(true);
+
+	await page.evaluate(async () => {
+		const trace = window.__transcriptTrace;
+		if (!trace) {
+			throw new Error("Transcript forensic ledger was not installed");
+		}
+		const jump = document.querySelector<HTMLButtonElement>(
+			"[data-trace-fixture-jump-last]",
+		);
+		if (!jump) {
+			throw new Error("Expected the jump-to-last fixture control");
+		}
+		trace.reset();
+		jump.click();
+		await new Promise<void>((resolve) => {
+			requestAnimationFrame(() => {
+				performance.mark("transcript:model-build:start");
+				trace.blockMainThread(400);
+				performance.mark("transcript:model-build:end");
+				performance.measure(
+					"transcript:model-build",
+					"transcript:model-build:start",
+					"transcript:model-build:end",
+				);
+				performance.clearMarks("transcript:model-build:start");
+				performance.clearMarks("transcript:model-build:end");
+				resolve();
+			});
+		});
+	});
+
+	await expect
+		.poll(() =>
+			page.evaluate(
+				() =>
+					window.__transcriptAnchorJournal?.some(
+						(entry) =>
+							entry.type === "mainThreadStall" &&
+							entry.attribution.includes("model-build") &&
+							entry.durationMs > 250,
+					) ?? false,
+			),
+		)
+		.toBe(true);
+	await expect
+		.poll(() =>
+			page.evaluate(
+				() =>
+					window.__transcriptTrace
+						?.dump()
+						.suspectMeasures.some(
+							(measure) =>
+								measure.name === "model-build" && measure.duration > 250,
+						) ?? false,
+			),
+		)
+		.toBe(true);
+	await expect
+		.poll(() =>
+			page.evaluate(
+				() =>
+					window.__transcriptAnchorJournal?.some(
+						(entry) => entry.type === "pin:settle" && entry.starvedMs > 250,
+					) ?? false,
+			),
+		)
+		.toBe(true);
+	expect(
+		anchorLogs.some(
+			(line) =>
+				line.includes("MAIN THREAD STALL") && line.includes("model-build"),
+		),
+	).toBe(true);
+});
+
 test("collapsed code stays unmounted and expansion survives virtual row recycling", async ({
 	page,
 }) => {

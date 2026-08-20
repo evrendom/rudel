@@ -36,6 +36,10 @@ const SessionsPage = lazyNamed(
 	() => import("@/features/sessions/sessions-page"),
 	"SessionsPage",
 );
+const NewSessionPage = lazyNamed(
+	() => import("@/features/sessions/new-session-page"),
+	"NewSessionPage",
+);
 const SkillsPage = lazyNamed(
 	() => import("@/features/skills/SkillsPage"),
 	"SkillsPage",
@@ -193,11 +197,7 @@ function getShellRouteElements(routePaths: ShellRoutePaths) {
 				element={<LazyRoute Component={DashboardPage} />}
 			/>
 			<Route
-				path={routePaths.session}
-				element={<LazyRoute Component={SessionsPage} />}
-			/>
-			<Route
-				path={`${routePaths.session}/:sessionId`}
+				path={`${routePaths.session}/:sessionId?`}
 				element={<LazyRoute Component={SessionsPage} />}
 			/>
 			<Route
@@ -282,6 +282,10 @@ export function AppRouter({
 			</Route>
 			<Route element={<LeftSidebarAppShellLayout />}>
 				{getShellRouteElements(canonicalShellRoutePaths)}
+				<Route
+					path={`${appRoutes.newSession()}/:sessionId?`}
+					element={<LazyRoute Component={NewSessionPage} />}
+				/>
 				<Route
 					path={LEGACY_DASHBOARD_SESSIONS_PATH}
 					element={<Navigate to={appRoutes.session()} replace />}

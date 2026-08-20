@@ -1,5 +1,12 @@
-import type { CSSProperties, KeyboardEvent } from "react";
+import { scanMemberLanguageSignals } from "@rudel/language-signals";
 import {
+	type CSSProperties,
+	type KeyboardEvent,
+	memo,
+	type ReactNode,
+} from "react";
+import {
+	ModelTraceIcon,
 	TraceIcon,
 	UserTraceAvatar,
 } from "@/components/conversation/conversation-trace-icons";
@@ -13,6 +20,7 @@ import {
 	SessionTurnCompactionRow,
 	SessionTurnEpisodeRow,
 } from "./session-turn-table-rows";
+import { recordAnchorJournal } from "./transcript-forensics";
 
 function SessionTurnRelativeMagnitude({
 	columnLabel,
@@ -66,7 +74,80 @@ function SessionTurnRelativeMagnitude({
 	);
 }
 
-export function SessionTurnTableRowView({
+function SessionTurnModelIconStack({
+	model,
+	subagentCount,
+}: {
+	model: string | undefined;
+	subagentCount: number;
+}) {
+	const offsetRem = subagentCount > 0 ? 0.5 / subagentCount : 0;
+	const stackWidthRem = 1.25 + offsetRem * subagentCount;
+	const subagentIcons: ReactNode[] = [];
+	for (
+		let subagentNumber = 1;
+		subagentNumber <= subagentCount;
+		subagentNumber++
+	) {
+		subagentIcons.push(
+			<span
+				key={`subagent-${subagentNumber}`}
+				className="session-turn-table-model-icon-shell absolute top-0 left-(--session-subagent-icon-offset) z-(--session-subagent-icon-layer) flex size-5 shrink-0"
+				data-subagent-model-icon
+				style={
+					{
+						"--session-subagent-icon-layer": subagentCount - subagentNumber + 1,
+						"--session-subagent-icon-offset": `${offsetRem * subagentNumber}rem`,
+					} as CSSProperties
+				}
+				title={`Subagent ${subagentNumber}`}
+			>
+				<ModelTraceIcon
+					className="session-turn-table-model-icon"
+					expandable={false}
+					expanded={false}
+					model={model}
+				/>
+			</span>,
+		);
+	}
+	return (
+		<span
+			aria-hidden="true"
+			className="relative flex h-5 w-(--session-subagent-stack-width) shrink-0"
+			data-subagent-icon-count={subagentCount}
+			style={
+				{
+					"--session-subagent-stack-width": `${stackWidthRem}rem`,
+				} as CSSProperties
+			}
+			title={
+				subagentCount === 0
+					? (model ?? "Model")
+					: `${model ?? "Model"} with ${subagentCount.toLocaleString()} ${subagentCount === 1 ? "subagent" : "subagents"}`
+			}
+		>
+			<span
+				className="session-turn-table-model-icon-shell absolute top-0 left-0 z-(--session-model-icon-layer) flex size-5 shrink-0"
+				style={
+					{
+						"--session-model-icon-layer": subagentCount + 1,
+					} as CSSProperties
+				}
+			>
+				<ModelTraceIcon
+					className="session-turn-table-model-icon"
+					expandable={false}
+					expanded={false}
+					model={model}
+				/>
+			</span>
+			{subagentIcons}
+		</span>
+	);
+}
+
+export const SessionTurnTableRowView = memo(function SessionTurnTableRowView({
 	beginsTurn,
 	collapsedEpisodeKeys,
 	columns,
@@ -75,11 +156,14 @@ export function SessionTurnTableRowView({
 	gridTemplate,
 	inViewport,
 	matchesLens,
+	model,
 	onEpisodeToggle,
 	onKeyDown,
+	onPrefetchTurn,
 	onSelect,
 	row,
 	selected,
+	showSpeakerColumn,
 	userImageUrl,
 	userLabel,
 	viewed,
@@ -93,14 +177,20 @@ export function SessionTurnTableRowView({
 	gridTemplate: string;
 	inViewport: boolean;
 	matchesLens: boolean;
+	model: string | undefined;
 	onEpisodeToggle: ((key: string) => void) | undefined;
 	onKeyDown: (
 		event: KeyboardEvent<HTMLTableRowElement>,
 		visibleIndex: number,
 	) => void;
-	onSelect: () => void;
+	onPrefetchTurn?: (turnId: string, immediate: boolean) => void;
+	onSelect: (selection: {
+		index: number;
+		speaker: SessionTurnTableRow["speaker"];
+	}) => void;
 	row: SessionTurnTableRow;
 	selected: boolean;
+	showSpeakerColumn: boolean;
 	userImageUrl: string | undefined;
 	userLabel: string;
 	viewed: boolean;
@@ -130,8 +220,7 @@ export function SessionTurnTableRowView({
 			<tr
 				aria-current={selected ? "true" : undefined}
 				className={cn(
-					"group relative isolate grid h-9 min-w-full cursor-pointer select-none outline-none [grid-template-columns:var(--session-turn-grid-template)] hover:bg-(--session-turn-row-hover) focus-visible:z-10 focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-(--session-overview-accent)",
-					emphasized && "bg-(--session-turn-row-emphasis-fill)",
+					"group relative isolate grid h-9 min-w-full cursor-pointer select-none outline-none [grid-template-columns:var(--session-turn-grid-template)] hover:bg-(--session-overview-hover) hover:[&>td]:bg-(--session-overview-hover) focus-visible:z-10 focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-(--session-overview-accent)",
 					matchesLens &&
 						"[box-shadow:inset_2px_0_0_var(--session-overview-accent)]",
 				)}
@@ -149,8 +238,20 @@ export function SessionTurnTableRowView({
 					} as CSSProperties
 				}
 				tabIndex={0}
-				onClick={onSelect}
 				onKeyDown={(event) => onKeyDown(event, visibleIndex)}
+				onPointerDown={(event) => {
+					onPrefetchTurn?.(match.option.key, true);
+					if (event.isPrimary && event.button === 0) {
+						recordAnchorJournal({
+							speaker: row.speaker,
+							turnId: match.option.key,
+							turnIndex: match.index,
+							type: "select",
+						});
+						onSelect({ index: match.index, speaker: row.speaker });
+					}
+				}}
+				onPointerEnter={() => onPrefetchTurn?.(match.option.key, false)}
 			>
 				<td
 					aria-label={
@@ -164,79 +265,97 @@ export function SessionTurnTableRowView({
 						data-viewed-indicator
 					/>
 				</td>
-				<td
-					aria-label={row.speaker === "member" ? userLabel : "Model tools"}
-					className="flex h-full min-w-0 items-center overflow-hidden py-1.5 pr-1 pl-2"
-				>
-					<div className="session-constellation-tree min-w-0 overflow-hidden">
-						<div
-							className="flex min-w-0 items-center"
-							data-trace-tree-row-content
-						>
-							{row.speaker === "member" ? (
-								<span className="relative z-20 shrink-0" title={userLabel}>
-									<UserTraceAvatar
-										expanded={false}
-										expandable={false}
-										imageUrl={userImageUrl}
-									/>
-								</span>
-							) : null}
-							{row.speaker === "model"
-								? row.toolCallGroups.map((group, groupIndex) => {
-										const toolNames = Array.from(new Set(group.names)).join(
-											", ",
-										);
-										const countLabel = `${group.count.toLocaleString()} ${group.count === 1 ? "tool call" : "tool calls"}`;
-										return (
-											<span
-												key={group.icon}
-												aria-label={`${countLabel}: ${toolNames}`}
-												className={cn(
-													"relative shrink-0",
-													groupIndex > 0 && "-ml-2.5",
-												)}
-												role="img"
-												style={{
-													zIndex: row.toolCallGroups.length - groupIndex,
-												}}
-												title={`${countLabel}: ${toolNames}`}
-											>
-												<TraceIcon
-													icon={CONVERSATION_TOOL_ICONS[group.icon]}
-													toolIcon={group.icon}
-													tone={group.tone}
-												/>
-												{group.count > 1 ? (
-													<span
-														aria-hidden="true"
-														className="absolute right-0 bottom-0 z-10 min-w-2.5 rounded-[2px] bg-(--session-overview-surface) px-px text-center text-[0.5rem] leading-[0.625rem] font-semibold text-(--session-overview-text) tabular-nums shadow-[0_0_0_1px_var(--session-overview-surface)]"
-													>
-														{group.count}x
-													</span>
-												) : null}
-											</span>
-										);
-									})
-								: null}
+				{showSpeakerColumn ? (
+					<td
+						aria-label={
+							row.speaker === "member"
+								? userLabel
+								: `${model ?? "Model"}${
+										row.subagentCount > 0
+											? ` with ${row.subagentCount.toLocaleString()} ${row.subagentCount === 1 ? "subagent" : "subagents"}`
+											: ""
+									}`
+						}
+						className="flex h-full min-w-0 items-center overflow-hidden py-1.5 pl-1"
+					>
+						<div className="session-constellation-tree min-w-0">
+							<div
+								className="flex min-w-0 items-center"
+								data-trace-tree-row-content
+							>
+								{row.speaker === "member" ? (
+									<span
+										className="relative z-20 flex size-5 shrink-0"
+										title={userLabel}
+									>
+										<UserTraceAvatar
+											expanded={false}
+											expandable={false}
+											imageUrl={userImageUrl}
+										/>
+									</span>
+								) : null}
+								{row.speaker === "model" ? (
+									<div className="flex shrink-0 items-center">
+										<SessionTurnModelIconStack
+											model={model}
+											subagentCount={row.subagentCount}
+										/>
+										{row.toolCallGroups.map((group, groupIndex) => {
+											const toolNames = Array.from(new Set(group.names)).join(
+												", ",
+											);
+											const countLabel = `${group.count.toLocaleString()} ${group.count === 1 ? "tool call" : "tool calls"}`;
+											return (
+												<span
+													key={group.icon}
+													aria-label={`${countLabel}: ${toolNames}`}
+													className="relative -ml-3 shrink-0"
+													role="img"
+													style={{
+														zIndex: row.toolCallGroups.length - groupIndex,
+													}}
+													title={`${countLabel}: ${toolNames}`}
+												>
+													<TraceIcon
+														icon={CONVERSATION_TOOL_ICONS[group.icon]}
+														toolIcon={group.icon}
+														tone={group.tone}
+													/>
+													{group.count > 1 ? (
+														<span
+															aria-hidden="true"
+															className="absolute right-0 bottom-0 z-10 min-w-2.5 rounded-[2px] bg-(--session-overview-surface) px-px text-center text-[0.5rem] leading-[0.625rem] font-semibold text-(--session-overview-text) tabular-nums shadow-[0_0_0_1px_var(--session-overview-surface)]"
+														>
+															{group.count}x
+														</span>
+													) : null}
+												</span>
+											);
+										})}
+									</div>
+								) : null}
+							</div>
 						</div>
-					</div>
-				</td>
+					</td>
+				) : null}
 				{columns.map((column) => {
 					const values = column.getValues(row);
 					return (
 						<td
 							key={column.key}
 							aria-label={column.label}
-							className="flex h-full min-w-0 items-center overflow-hidden px-1.5 py-1.5"
+							className={cn(
+								"flex h-full min-w-0 items-center overflow-hidden py-1.5",
+								column.key === "time" ? "pr-1.5 pl-0" : "px-1.5",
+							)}
 						>
 							<div className="min-w-0 w-full overflow-hidden">
 								{values.length > 0 ? (
 									<div
 										className={cn(
 											"flex min-w-0 flex-1 items-center overflow-hidden",
-											column.appearance === "tag" ||
-												column.appearance === "signal"
+											column.appearance === "tag"
 												? "flex-nowrap gap-1"
 												: "gap-1.5",
 										)}
@@ -248,20 +367,26 @@ export function SessionTurnTableRowView({
 													`${value.title ?? "value"}:${value.label}`
 												}
 												className={cn(
-													column.appearance === "signal"
-														? "max-w-full shrink-0"
-														: "min-w-0 max-w-full text-(--session-overview-muted)",
-													value.relativeMagnitude === undefined &&
-														column.appearance !== "signal" &&
-														"truncate",
+													"min-w-0 max-w-full text-(--session-overview-muted)",
+													value.relativeMagnitude === undefined && "truncate",
 													column.appearance === "tag"
 														? "rounded-full bg-(--session-overview-surface) px-1.5 py-0.5 text-xs font-medium tracking-[-0.01em]"
-														: "text-xs tabular-nums",
+														: "text-xs",
+													column.appearance !== "text" && "tabular-nums",
+													column.appearance === "text" &&
+														"[&_[data-signal]]:rounded-md [&_[data-signal]]:px-0.75 [&_[data-signal]]:py-px [&_[data-signal]]:[font:inherit]",
 												)}
 												title={value.title}
 											>
-												{column.appearance === "signal" ? (
-													<SignalText text={value.label} />
+												{column.appearance === "text" ? (
+													<SignalText
+														scanSignals={
+															row.speaker === "member"
+																? scanMemberLanguageSignals
+																: undefined
+														}
+														text={value.label}
+													/>
 												) : value.relativeMagnitude === undefined ? (
 													value.label
 												) : (
@@ -288,4 +413,4 @@ export function SessionTurnTableRowView({
 			</tr>
 		</>
 	);
-}
+});

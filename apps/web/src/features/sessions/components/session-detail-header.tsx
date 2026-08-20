@@ -35,7 +35,7 @@ const sessionInfoTouchTargetClassName =
 	"absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2 pointer-fine:hidden";
 
 const sessionHeaderNavigationButtonClassName =
-	"group relative inline-flex size-7 shrink-0 items-center justify-center rounded-lg border border-[color:var(--dashboardy-border)] bg-transparent text-[color:var(--dashboardy-muted)] outline-none transition-colors hover:bg-[color:var(--dashboardy-subsurface-strong)] hover:text-[color:var(--dashboardy-heading)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--dashboard-01-metric-button-focus-ring)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[color:var(--dashboardy-muted)]";
+	"group relative inline-flex size-7 shrink-0 items-center justify-center rounded-none bg-transparent text-[color:var(--dashboardy-muted)] outline-none transition-colors first:rounded-l-[3px] last:rounded-r-[3px] hover:bg-[color:var(--dashboardy-subsurface-strong)] hover:text-[color:var(--dashboardy-heading)] focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--dashboard-01-metric-button-focus-ring)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-[color:var(--dashboardy-muted)]";
 
 const sessionMetricsGroupClassName =
 	"flex w-fit min-w-0 max-w-full items-center divide-x divide-[color:var(--dashboardy-divider)] overflow-x-auto";
@@ -198,13 +198,13 @@ function SessionRecordNavigation({
 			>
 				{positionLabel}
 			</p>
-			<div className="flex shrink-0 items-center gap-1">
+			<div className="flex shrink-0 items-center divide-x divide-[color:var(--dashboardy-border)] rounded-sm border border-[color:var(--dashboardy-border)] bg-transparent">
 				<SessionHeaderNavigationButton
 					disabled={!navigation.hasPreviousSession}
 					icon={
 						<ChevronUp
 							aria-hidden="true"
-							className="size-3.5 shrink-0 transition-transform duration-150 group-hover:-translate-y-px group-active:translate-y-0 group-disabled:translate-y-0 motion-reduce:transition-none"
+							className="size-3.5 shrink-0"
 							strokeWidth={1.75}
 						/>
 					}
@@ -216,7 +216,7 @@ function SessionRecordNavigation({
 					icon={
 						<ChevronDown
 							aria-hidden="true"
-							className="size-3.5 shrink-0 transition-transform duration-150 group-hover:translate-y-px group-active:translate-y-0 group-disabled:translate-y-0 motion-reduce:transition-none"
+							className="size-3.5 shrink-0"
 							strokeWidth={1.75}
 						/>
 					}

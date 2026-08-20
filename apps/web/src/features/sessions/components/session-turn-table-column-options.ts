@@ -4,25 +4,14 @@ export type SessionTurnTableColumnKey =
 	| "input"
 	| "output"
 	| "cost"
-	| "tools"
 	| "errors"
 	| "files"
 	| "skills"
+	| "signals"
 	| "commands";
 
 export const DEFAULT_SESSION_TURN_TABLE_COLUMNS: readonly SessionTurnTableColumnKey[] =
-	[
-		"time",
-		"duration",
-		"input",
-		"output",
-		"cost",
-		"tools",
-		"errors",
-		"files",
-		"skills",
-		"commands",
-	];
+	["time", "duration", "input", "output", "cost", "commands"];
 
 export function isSessionTurnTableColumnVisible(
 	columnKey: string,

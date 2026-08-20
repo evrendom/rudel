@@ -3,22 +3,41 @@ import { measureTranscriptSuspect } from "./transcript-forensics";
 
 export type TranscriptSectionFoldMetadata = {
 	events: number;
+	filesEdited: number;
+	filesRead: number;
+	filesWritten: number;
 	groupId: string;
 	hasError: boolean;
 	hasSubagentSpawn: boolean;
-	hasTerminalMessage: boolean;
+	isTerminalBoundary: boolean;
+	messages: number;
+	reasoning: number;
+	skills: number;
+	subagents: number;
 	toolCalls: number;
 };
 
 export type TranscriptFoldSummary = {
 	events: number;
-	toolCalls: number;
+	filesEdited: number;
+	filesRead: number;
+	filesWritten: number;
+	messages: number;
+	reasoning: number;
+	skills: number;
+	subagents: number;
 };
+
+function normalizeToolName(toolName: string) {
+	return (
+		toolName.split(/\.|__/u).at(-1)?.toLowerCase() ?? toolName.toLowerCase()
+	);
+}
 
 export function deriveTranscriptSectionFoldMetadata(
 	events: readonly TraceEvent[],
 	groupId: string,
-	terminalMessageId: string | undefined,
+	isTerminalBoundary: boolean,
 ): TranscriptSectionFoldMetadata {
 	return measureTranscriptSuspect(
 		"fold-metadata",
@@ -27,7 +46,7 @@ export function deriveTranscriptSectionFoldMetadata(
 			deriveTranscriptSectionFoldMetadataUnmeasured(
 				events,
 				groupId,
-				terminalMessageId,
+				isTerminalBoundary,
 			),
 	);
 }
@@ -35,10 +54,26 @@ export function deriveTranscriptSectionFoldMetadata(
 function deriveTranscriptSectionFoldMetadataUnmeasured(
 	events: readonly TraceEvent[],
 	groupId: string,
-	terminalMessageId: string | undefined,
+	isTerminalBoundary: boolean,
 ): TranscriptSectionFoldMetadata {
+	const toolEvents = events.filter((event) => event.kind === "tool");
+	const normalizedToolNames = toolEvents.map((event) =>
+		normalizeToolName(event.toolName),
+	);
 	return {
 		events: events.length,
+		filesEdited: normalizedToolNames.filter(
+			(toolName) =>
+				toolName === "edit" ||
+				toolName === "notebookedit" ||
+				toolName === "apply_patch",
+		).length,
+		filesRead: normalizedToolNames.filter(
+			(toolName) => toolName === "read" || toolName === "read_file",
+		).length,
+		filesWritten: normalizedToolNames.filter(
+			(toolName) => toolName === "write" || toolName === "write_file",
+		).length,
 		groupId,
 		hasError: events.some(
 			(event) =>
@@ -48,12 +83,19 @@ function deriveTranscriptSectionFoldMetadataUnmeasured(
 		hasSubagentSpawn: events.some(
 			(event) =>
 				event.kind === "tool" &&
-				(event.toolName === "Agent" || event.toolName === "Task"),
+				["agent", "spawn_agent", "task"].includes(
+					normalizeToolName(event.toolName),
+				),
 		),
-		hasTerminalMessage: events.some(
-			(event) => event.kind === "message" && event.id === terminalMessageId,
-		),
-		toolCalls: events.filter((event) => event.kind === "tool").length,
+		isTerminalBoundary,
+		messages: events.filter((event) => event.kind === "message").length,
+		reasoning: events.filter((event) => event.kind === "reasoning").length,
+		skills: normalizedToolNames.filter((toolName) => toolName === "skill")
+			.length,
+		subagents: normalizedToolNames.filter((toolName) =>
+			["agent", "spawn_agent", "task"].includes(toolName),
+		).length,
+		toolCalls: toolEvents.length,
 	};
 }
 
@@ -84,17 +126,13 @@ function deriveTranscriptFoldPlanUnmeasured(
 	const groups = [
 		...new Map(sections.map((section) => [section.fold.groupId, section.fold])),
 	].map(([groupId, fold]) => ({ fold, groupId }));
-	const lastToolGroupId = groups
-		.filter((group) => group.fold.toolCalls > 0)
-		.at(-1)?.groupId;
-	const hiddenGroups = groups.filter(
-		(group) =>
-			group.fold.toolCalls > 0 &&
-			group.groupId !== lastToolGroupId &&
-			!group.fold.hasError &&
-			!group.fold.hasSubagentSpawn &&
-			!group.fold.hasTerminalMessage,
+	const terminalGroupIndex = groups.findIndex(
+		(group) => group.fold.isTerminalBoundary,
 	);
+	if (terminalGroupIndex <= 0) {
+		return undefined;
+	}
+	const hiddenGroups = groups.slice(0, terminalGroupIndex);
 	if (hiddenGroups.length === 0) {
 		return undefined;
 	}
@@ -108,9 +146,24 @@ function deriveTranscriptFoldPlanUnmeasured(
 		summary: hiddenGroups.reduce<TranscriptFoldSummary>(
 			(summary, group) => ({
 				events: summary.events + group.fold.events,
-				toolCalls: summary.toolCalls + group.fold.toolCalls,
+				filesEdited: summary.filesEdited + group.fold.filesEdited,
+				filesRead: summary.filesRead + group.fold.filesRead,
+				filesWritten: summary.filesWritten + group.fold.filesWritten,
+				messages: summary.messages + group.fold.messages,
+				reasoning: summary.reasoning + group.fold.reasoning,
+				skills: summary.skills + group.fold.skills,
+				subagents: summary.subagents + group.fold.subagents,
 			}),
-			{ events: 0, toolCalls: 0 },
+			{
+				events: 0,
+				filesEdited: 0,
+				filesRead: 0,
+				filesWritten: 0,
+				messages: 0,
+				reasoning: 0,
+				skills: 0,
+				subagents: 0,
+			},
 		),
 	};
 }

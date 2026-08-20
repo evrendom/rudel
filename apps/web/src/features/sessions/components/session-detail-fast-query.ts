@@ -1,5 +1,7 @@
 import {
 	SESSION_DETAIL_STALE_REVISION_CODE,
+	type SessionDetailSpine,
+	SessionDetailSpineSchema,
 	type SessionDetailSubagent,
 	type SessionDetailTurn,
 	type SessionDetailWindow,
@@ -64,6 +66,18 @@ export function sessionDetailWindowQueryKey(
 		input.sessionId,
 		debugModeKey,
 		input,
+	] as const;
+}
+
+export function sessionDetailSpineQueryKey(input: {
+	revision: string;
+	sessionId: string;
+}) {
+	return [
+		SESSION_DETAIL_FAST_QUERY_PREFIX,
+		"spine",
+		input.sessionId,
+		input.revision,
 	] as const;
 }
 
@@ -178,6 +192,22 @@ export async function fetchSessionDetailWindow(
 	} finally {
 		markSessionDetailWindowTiming("end");
 	}
+}
+
+export async function fetchSessionDetailSpine(
+	input: { revision: string; sessionId: string },
+	querySignal: AbortSignal,
+): Promise<SessionDetailSpine> {
+	const response = await runSessionDetailRequest(
+		(requestSignal) =>
+			orpc.analytics.sessions.detailSpine.call(input, {
+				signal: requestSignal,
+			}),
+		querySignal,
+	);
+	const spine = SessionDetailSpineSchema.parse(response);
+	assertExpectedSessionDetailRevision(input.revision, spine.revision);
+	return spine;
 }
 
 export async function fetchSessionDetailTurn(

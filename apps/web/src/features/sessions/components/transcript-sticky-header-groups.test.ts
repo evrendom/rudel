@@ -91,10 +91,11 @@ function section(input: {
 	}
 	return {
 		id: input.id,
+		isFirst: input.isFirst,
 		kind: "section",
 		section: {
 			estimatedHeight: 100,
-			fold: deriveTranscriptSectionFoldMetadata([event], input.id, event.id),
+			fold: deriveTranscriptSectionFoldMetadata([event], input.id, false),
 			id: input.id,
 			payload: {
 				allEvents: {

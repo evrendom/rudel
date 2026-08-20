@@ -1,5 +1,4 @@
 import type {
-	SessionDetailOverview,
 	SessionDetailTurn,
 	SessionDetailWindow,
 	SessionDetailWindowRequest,
@@ -18,7 +17,10 @@ import {
 	sessionDetailWindowQueryKey,
 	shouldRetrySessionDetailFastQuery,
 } from "./session-detail-fast-query";
-import { SessionDetailFastRevisionMismatchError } from "./session-detail-fast-response";
+import {
+	type NormalizedSessionDetailOverview,
+	SessionDetailFastRevisionMismatchError,
+} from "./session-detail-fast-response";
 import { loadRemainingSessionDetailOverviewPages } from "./session-detail-full-transcript";
 import {
 	getSessionDetailTurnSearchText,
@@ -29,15 +31,15 @@ import { WINDOW_RETENTION_LIMIT } from "./session-transcript-window-store";
 const SEARCH_WINDOW_MODE_KEY = "search";
 
 export function useSessionDetailSearchLoader(input: {
-	firstOverview: SessionDetailOverview;
-	latestPage: SessionDetailOverview;
+	firstOverview: NormalizedSessionDetailOverview;
+	latestPage: NormalizedSessionDetailOverview;
 	loadPage: (
 		cursor: string,
 		signal?: AbortSignal,
-	) => Promise<SessionDetailOverview>;
-	onPagesLoaded: (pages: readonly SessionDetailOverview[]) => void;
+	) => Promise<NormalizedSessionDetailOverview>;
+	onPagesLoaded: (pages: readonly NormalizedSessionDetailOverview[]) => void;
 	onStaleRevision: (error: unknown) => void;
-	pages: readonly SessionDetailOverview[];
+	pages: readonly NormalizedSessionDetailOverview[];
 }) {
 	const queryClient = useQueryClient();
 	const [loadState, setLoadState] = useState<SessionDetailSearchLoadState>({

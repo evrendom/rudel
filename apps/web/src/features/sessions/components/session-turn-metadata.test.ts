@@ -261,7 +261,12 @@ describe("extractSessionTurnMetrics", () => {
 		expect(first.outputTokens).toBe(100);
 		expect(first.usageEvents[0]?.modelContextWindow).toBe(258_400);
 		expect(first.errorCount).toBe(1);
-		expect(first.errorEvents).toEqual([{ at: "2026-08-10T10:00:20.000Z" }]);
+		expect(first.errorEvents).toEqual([
+			{
+				at: "2026-08-10T10:00:20.000Z",
+				content: "type check failed",
+			},
+		]);
 		expect(first.editedFiles).toEqual(["src/a.ts", "src/b.ts"]);
 		expect(first.skills).toEqual(["testing-bun"]);
 		expect(first.skillEvents).toEqual([

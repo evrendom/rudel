@@ -81,7 +81,9 @@ export function getCurrentShellRoute(pathname: string): ShellRouteDefinition {
 
 	if (
 		canonicalPathname === appRoutes.session() ||
-		canonicalPathname.startsWith(`${appRoutes.session()}/`)
+		canonicalPathname.startsWith(`${appRoutes.session()}/`) ||
+		canonicalPathname === appRoutes.newSession() ||
+		canonicalPathname.startsWith(`${appRoutes.newSession()}/`)
 	) {
 		return shellRouteMap.sessions;
 	}

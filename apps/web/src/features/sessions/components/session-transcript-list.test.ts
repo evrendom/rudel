@@ -1,12 +1,17 @@
 import type { VirtualItem } from "@tanstack/react-virtual";
 import { describe, expect, test } from "vitest";
 import {
+	getTranscriptAnchorRowIndex,
 	getTranscriptVirtualViewport,
 	getVisibleBlankGap,
 	isTranscriptAnchorCancelKey,
 	shouldAnchorTranscriptPrepend,
+	startTranscriptAnchorPin,
 } from "./session-transcript-list";
-import type { SessionTranscriptRow } from "./session-transcript-sections";
+import type {
+	SessionTranscriptRow,
+	SessionTranscriptRowModel,
+} from "./session-transcript-sections";
 
 function virtualItem(index: number, start: number, end: number): VirtualItem {
 	return {
@@ -18,6 +23,51 @@ function virtualItem(index: number, start: number, end: number): VirtualItem {
 		start,
 	};
 }
+
+describe("virtual transcript row anchors", () => {
+	test("targets the selected speaker within a turn", () => {
+		const rows: SessionTranscriptRow[] = [
+			{
+				id: "turn-1:member",
+				items: [],
+				kind: "member",
+				startsTrace: true,
+				turnId: "turn-1",
+			},
+			{ id: "turn-1:no-response", kind: "no-response", turnId: "turn-1" },
+		];
+		const model: SessionTranscriptRowModel = {
+			rowIndex: new Map(rows.map((row, index) => [row.id, index])),
+			rows,
+			rowTurnIndex: new Map(rows.map((row) => [row.id, 0])),
+			turnFirstRowIndex: new Map([["turn-1", 0]]),
+		};
+
+		expect(getTranscriptAnchorRowIndex(model, "turn-1", "member")).toBe(0);
+		expect(getTranscriptAnchorRowIndex(model, "turn-1", "model")).toBe(1);
+	});
+
+	test("falls back to the pending turn row for either speaker", () => {
+		const rows: SessionTranscriptRow[] = [
+			{
+				estimatedHeight: 420,
+				id: "turn-1:pending",
+				kind: "turn-pending",
+				option: {} as never,
+				turnId: "turn-1",
+			},
+		];
+		const model: SessionTranscriptRowModel = {
+			rowIndex: new Map([["turn-1:pending", 0]]),
+			rows,
+			rowTurnIndex: new Map([["turn-1:pending", 0]]),
+			turnFirstRowIndex: new Map([["turn-1", 0]]),
+		};
+
+		expect(getTranscriptAnchorRowIndex(model, "turn-1", "member")).toBe(0);
+		expect(getTranscriptAnchorRowIndex(model, "turn-1", "model")).toBe(0);
+	});
+});
 
 describe("virtual transcript viewport", () => {
 	test("preserves the continuous-thread start and end edge semantics", () => {
@@ -168,6 +218,234 @@ describe("virtual transcript blank-frame detector", () => {
 });
 
 describe("virtual transcript scroll ownership", () => {
+	test("pins the anchor again when a measurement shifts its start", async () => {
+		let anchorStart = 300;
+		let now = 0;
+		const frames: FrameRequestCallback[] = [];
+		const writes: number[] = [];
+		const scrollElement = {
+			clientHeight: 200,
+			scrollHeight: 1_200,
+			scrollTop: 0,
+		};
+		const pin = startTranscriptAnchorPin({
+			getAnchorStart: () => anchorStart,
+			getScrollElement: () => scrollElement,
+			isActive: () => true,
+			now: () => now,
+			onWrite: (target) => writes.push(target),
+			requestFrame: (callback) => frames.push(callback),
+		});
+		const runFrame = () => {
+			const frame = frames.shift();
+			if (!frame) {
+				throw new Error("Expected an anchor-settle frame");
+			}
+			now += 16;
+			frame(now);
+		};
+
+		runFrame();
+		anchorStart = 420;
+		pin.enforce();
+		runFrame();
+		runFrame();
+
+		await expect(pin.settled).resolves.toBe(true);
+		expect(writes).toEqual([300, 420]);
+		expect(scrollElement.scrollTop).toBe(420);
+	});
+
+	test("keeps correcting anchor drift after the settle promise resolves", async () => {
+		let anchorStart = 300;
+		let now = 0;
+		const frames: FrameRequestCallback[] = [];
+		const settlements: Array<{
+			elapsedMs: number;
+			settled: boolean;
+			starvedMs: number;
+			via: "stable-frames" | "timeout";
+		}> = [];
+		const writes: number[] = [];
+		const scrollElement = {
+			clientHeight: 200,
+			scrollHeight: 3_000,
+			scrollTop: anchorStart,
+		};
+		const pin = startTranscriptAnchorPin({
+			getAnchorStart: () => anchorStart,
+			getScrollElement: () => scrollElement,
+			isActive: () => true,
+			now: () => now,
+			onSettle: (result) => settlements.push(result),
+			onWrite: (target) => writes.push(target),
+			requestFrame: (callback) => frames.push(callback),
+		});
+		const runFrame = () => {
+			const frame = frames.shift();
+			if (!frame) {
+				throw new Error("Expected an anchor-settle frame");
+			}
+			now += 16;
+			frame(now);
+		};
+
+		runFrame();
+		runFrame();
+		await expect(pin.settled).resolves.toBe(true);
+
+		anchorStart += 1_300;
+		pin.enforce();
+
+		expect(writes).toEqual([1_600]);
+		expect(scrollElement.scrollTop).toBe(1_600);
+		expect(settlements).toEqual([
+			{ elapsedMs: 32, settled: true, starvedMs: 0, via: "stable-frames" },
+		]);
+	});
+
+	test("stops correcting after the user takes over post-settle", async () => {
+		let active = true;
+		let anchorStart = 300;
+		let now = 0;
+		let deactivationCount = 0;
+		const frames: FrameRequestCallback[] = [];
+		const writes: number[] = [];
+		const scrollElement = {
+			clientHeight: 200,
+			scrollHeight: 1_200,
+			scrollTop: anchorStart,
+		};
+		const pin = startTranscriptAnchorPin({
+			getAnchorStart: () => anchorStart,
+			getScrollElement: () => scrollElement,
+			isActive: () => active,
+			now: () => now,
+			onDeactivate: () => {
+				deactivationCount += 1;
+			},
+			onWrite: (target) => writes.push(target),
+			requestFrame: (callback) => frames.push(callback),
+		});
+		const runFrame = () => {
+			const frame = frames.shift();
+			if (!frame) {
+				throw new Error("Expected an anchor-settle frame");
+			}
+			now += 16;
+			frame(now);
+		};
+
+		runFrame();
+		runFrame();
+		await expect(pin.settled).resolves.toBe(true);
+
+		active = false;
+		anchorStart = 450;
+		pin.enforce();
+		pin.enforce();
+
+		expect(deactivationCount).toBe(1);
+		expect(writes).toEqual([]);
+		expect(scrollElement.scrollTop).toBe(300);
+	});
+
+	test("resolves false when user takeover cancels before settle", async () => {
+		let active = true;
+		const frames: FrameRequestCallback[] = [];
+		const scrollElement = {
+			clientHeight: 200,
+			scrollHeight: 1_200,
+			scrollTop: 0,
+		};
+		const pin = startTranscriptAnchorPin({
+			getAnchorStart: () => 300,
+			getScrollElement: () => scrollElement,
+			isActive: () => active,
+			onWrite: () => {},
+			requestFrame: (callback) => frames.push(callback),
+		});
+
+		active = false;
+		const frame = frames.shift();
+		if (!frame) {
+			throw new Error("Expected an anchor-settle frame");
+		}
+		frame(16);
+
+		await expect(pin.settled).resolves.toBe(false);
+		expect(pin.enforce()).toBe(false);
+	});
+
+	test("reports timeout settling when the anchor never stabilizes", async () => {
+		let now = 0;
+		const frames: FrameRequestCallback[] = [];
+		const settlements: Array<{
+			elapsedMs: number;
+			settled: boolean;
+			starvedMs: number;
+			via: "stable-frames" | "timeout";
+		}> = [];
+		const pin = startTranscriptAnchorPin({
+			getAnchorStart: () => undefined,
+			getScrollElement: () => null,
+			isActive: () => true,
+			now: () => now,
+			onSettle: (result) => settlements.push(result),
+			onWrite: () => {},
+			requestFrame: (callback) => frames.push(callback),
+		});
+
+		const frame = frames.shift();
+		if (!frame) {
+			throw new Error("Expected an anchor-settle frame");
+		}
+		now = 700;
+		frame(now);
+
+		await expect(pin.settled).resolves.toBe(true);
+		expect(settlements).toEqual([
+			{ elapsedMs: 700, settled: true, starvedMs: 0, via: "timeout" },
+		]);
+	});
+
+	test("reports main-thread starvation beyond the anchor timeout budget", async () => {
+		let now = 0;
+		const frames: FrameRequestCallback[] = [];
+		const settlements: Array<{
+			elapsedMs: number;
+			settled: boolean;
+			starvedMs: number;
+			via: "stable-frames" | "timeout";
+		}> = [];
+		const pin = startTranscriptAnchorPin({
+			getAnchorStart: () => undefined,
+			getScrollElement: () => null,
+			isActive: () => true,
+			now: () => now,
+			onSettle: (result) => settlements.push(result),
+			onWrite: () => {},
+			requestFrame: (callback) => frames.push(callback),
+		});
+
+		const frame = frames.shift();
+		if (!frame) {
+			throw new Error("Expected an anchor-settle frame");
+		}
+		now = 3_374;
+		frame(now);
+
+		await expect(pin.settled).resolves.toBe(true);
+		expect(settlements).toEqual([
+			{
+				elapsedMs: 3_374,
+				settled: true,
+				starvedMs: 2_674,
+				via: "timeout",
+			},
+		]);
+	});
+
 	test("cancels anchor mode for every navigation key in the contract", () => {
 		for (const key of [
 			"ArrowDown",

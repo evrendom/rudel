@@ -1,0 +1,203 @@
+.slider-range-input-wrapper {
+	position: relative;
+	height: 52px;
+	min-width: 0;
+	margin: 0;
+	overflow: visible;
+	padding: 0;
+	border: 0;
+	touch-action: none;
+}
+
+.slider-range-input-native {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+.slider-range-input-strip {
+	--slider-range-minimum: 0%;
+	--slider-range-maximum: 100%;
+	--slider-range-track-background: var(--session-overview-surface, #fff);
+	--slider-range-progress-overlay: rgb(25 23 21 / 10%);
+	--slider-range-handle: var(
+		--session-overview-text,
+		var(--foreground, #191715)
+	);
+	position: absolute;
+	inset: auto 0 0;
+	height: 28px;
+	overflow: hidden;
+	background: var(--slider-range-track-background);
+	border-radius: max(
+		2px,
+		calc(
+			var(--slider-range-card-radius, var(--radius-xl, 0.875rem)) -
+			var(--slider-range-card-inset, 0.5rem)
+		)
+	);
+	box-shadow:
+		inset 0 0 0 1px rgb(25 23 21 / 7%),
+		inset 0 1px 0 rgb(255 255 255 / 32%);
+	cursor: pointer;
+	user-select: none;
+}
+
+.slider-range-input-strip[data-active="true"] {
+	box-shadow:
+		inset 0 0 0 1px rgb(25 23 21 / 12%),
+		0 1px 3px rgb(25 23 21 / 8%);
+	filter: brightness(0.98);
+}
+
+.slider-range-input-strip[data-dragging="true"] {
+	box-shadow:
+		inset 0 0 0 1px rgb(25 23 21 / 16%),
+		0 1px 2px rgb(25 23 21 / 10%);
+}
+
+.slider-range-input-strip[data-disabled="true"] {
+	cursor: not-allowed;
+	opacity: 0.52;
+}
+
+.slider-range-input-fill {
+	position: absolute;
+	inset: 0 auto 0 var(--slider-range-minimum);
+	width: calc(var(--slider-range-maximum) - var(--slider-range-minimum));
+	background: var(--slider-range-progress-overlay);
+	border-radius: inherit;
+	pointer-events: none;
+	transition: background 150ms ease;
+}
+
+.slider-range-input-strip[data-active="true"] .slider-range-input-fill {
+	background: color-mix(
+		in srgb,
+		var(--slider-range-progress-overlay) 76%,
+		rgb(25 23 21 / 8%)
+	);
+}
+
+.slider-range-input-hashmarks {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	border-radius: inherit;
+	pointer-events: none;
+}
+
+.slider-range-input-hashmark {
+	position: absolute;
+	top: 50%;
+	width: 1px;
+	height: 6px;
+	background: transparent;
+	border-radius: 999px;
+	transform: translate(-50%, -50%);
+	transition: background 200ms ease;
+}
+
+.slider-range-input-strip[data-active="true"] .slider-range-input-hashmark {
+	background: rgb(25 23 21 / 15%);
+}
+
+.slider-range-input-handle {
+	position: absolute;
+	z-index: 2;
+	top: 50%;
+	width: 3px;
+	height: 18px;
+	background: var(--slider-range-handle);
+	border-radius: 999px;
+	pointer-events: none;
+	transition:
+		opacity 150ms ease,
+		transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.slider-range-input-handle-minimum {
+	left: clamp(5px, var(--slider-range-minimum), calc(100% - 5px));
+}
+
+.slider-range-input-handle-maximum {
+	left: clamp(5px, var(--slider-range-maximum), calc(100% - 5px));
+}
+
+.slider-range-input-values {
+	position: absolute;
+	z-index: 3;
+	top: 0;
+	left: 0;
+	display: flex;
+	width: 100%;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	pointer-events: none;
+}
+
+.slider-range-input-label {
+	display: inline-flex;
+	min-width: 0;
+	align-items: center;
+	gap: 5px;
+	color: var(--session-overview-muted, #625a54);
+	font-weight: 500;
+	font-size: 13px;
+	line-height: 1;
+	transition: color 150ms ease;
+}
+
+.slider-range-input-label > span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.slider-range-input-label strong {
+	flex: none;
+	color: var(--session-overview-text, var(--foreground, #3e3934));
+	font-weight: 500;
+	font-family: "Geist Mono", monospace;
+	white-space: nowrap;
+}
+
+.slider-range-input-label-minimum {
+	justify-content: flex-start;
+}
+
+.slider-range-input-label-maximum {
+	justify-content: flex-end;
+	margin-left: auto;
+	text-align: right;
+}
+
+.slider-range-input-wrapper[data-active="true"] .slider-range-input-label {
+	color: var(--session-overview-text, var(--foreground, #191715));
+}
+
+.dark .slider-range-input-strip {
+	box-shadow:
+		inset 0 0 0 1px rgb(255 255 255 / 9%),
+		inset 0 1px 0 rgb(255 255 255 / 5%);
+}
+
+.dark
+	.slider-range-input-strip[data-active="true"]
+	.slider-range-input-hashmark {
+	background: rgb(255 255 255 / 16%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.slider-range-input-fill,
+	.slider-range-input-handle,
+	.slider-range-input-label {
+		transition: none;
+	}
+}

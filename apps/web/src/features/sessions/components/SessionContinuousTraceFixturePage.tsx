@@ -77,7 +77,12 @@ function buildContinuousFixtureOptions(): ContinuousFixtureOption[] {
 				skillEvents: [],
 				usageEvents: fixtureTurn.requestUsage,
 			},
+			modelSignalCount: 0,
 			preview: `Fixture response for turn ${index + 1}`,
+			signalCount: 0,
+			signalOccurrences: [],
+			signalOccurrencesOmittedCount: 0,
+			signalOccurrencesTruncated: false,
 			slashCommands: [],
 			timing: {
 				durationLabel: "2 min",
@@ -262,7 +267,6 @@ export function SessionContinuousTraceFixturePage() {
 	}
 	const renderProfile = renderProfileRef.current;
 	const searchParams = new URLSearchParams(window.location.search);
-	const usesConstellationV2 = searchParams.get("constellation") === "v2";
 	const modelHeaderFixture = searchParams.get("modelHeader");
 	const usesModelHeaderFixture =
 		modelHeaderFixture === "split" || modelHeaderFixture === "no-response";
@@ -336,13 +340,9 @@ export function SessionContinuousTraceFixturePage() {
 	const protectedTurnIds = useMemo(
 		() =>
 			new Set(
-				usesModelHeaderFixture
-					? options.map((option) => option.turnId)
-					: selectedVirtualTurnId
-						? [selectedVirtualTurnId]
-						: [],
+				usesModelHeaderFixture ? options.map((option) => option.turnId) : [],
 			),
-		[options, selectedVirtualTurnId, usesModelHeaderFixture],
+		[options, usesModelHeaderFixture],
 	);
 	const virtualModel = useMemo(
 		() =>
@@ -574,8 +574,8 @@ export function SessionContinuousTraceFixturePage() {
 			data-trace-fixture-hydrated-turns={hydratedTurnCount}
 			data-trace-fixture-scroller
 			data-trace-fixture-total-turns={fixtureOptions.length}
-			data-session-constellation-version={usesConstellationV2 ? "v2" : "v1"}
-			className={`${usesConstellationV2 ? "session-constellation-tree session-constellation-tree-v2 " : ""}session-transcript-mask isolate h-dvh min-w-0 overflow-y-auto overscroll-contain bg-(--session-overview-surface) antialiased [--session-overview-accent:#266df0] [--session-overview-border:#eeeff1] [--session-overview-hover:#f6f7f7] [--session-overview-muted:rgba(0,0,0,0.63)] [--session-overview-subtle:rgba(0,0,0,0.5)] [--session-overview-surface:#fff] [--session-overview-text:#101112] [font-family:Inter,sans-serif] [overflow-anchor:none] [scrollbar-gutter:stable]`}
+			data-session-constellation-version="v2"
+			className="session-constellation-tree session-constellation-tree-v2 session-transcript-mask isolate h-dvh min-w-0 overflow-y-auto overscroll-contain bg-(--session-overview-surface) antialiased [--session-overview-accent:#266df0] [--session-overview-border:#eeeff1] [--session-overview-hover:#f6f7f7] [--session-overview-muted:rgba(0,0,0,0.63)] [--session-overview-subtle:rgba(0,0,0,0.5)] [--session-overview-surface:#fff] [--session-overview-text:#101112] [font-family:Inter,sans-serif] [overflow-anchor:none] [scrollbar-gutter:stable]"
 		>
 			{mountsThread ? (
 				<SessionTranscriptList
@@ -621,10 +621,6 @@ export function SessionContinuousTraceFixturePage() {
 					Reset render profile
 				</button>
 			) : null}
-			<output
-				className="pointer-events-none fixed top-2 right-2 z-[100] rounded border border-(--session-overview-border) bg-(--session-overview-surface) px-2 py-1 text-[0.6875rem] text-(--session-overview-muted)"
-				data-transcript-debug-hud
-			/>
 			<button
 				className="sr-only"
 				data-trace-fixture-prepend

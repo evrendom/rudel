@@ -6,17 +6,13 @@ import {
 } from "./session-turn-table-column-options";
 
 describe("session turn table columns", () => {
-	test("uses the complete fixed column set", () => {
+	test("uses the streamlined fixed column set", () => {
 		expect(DEFAULT_SESSION_TURN_TABLE_COLUMNS).toEqual([
 			"time",
 			"duration",
 			"input",
 			"output",
 			"cost",
-			"tools",
-			"errors",
-			"files",
-			"skills",
 			"commands",
 		]);
 	});

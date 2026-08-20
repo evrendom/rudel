@@ -4,6 +4,7 @@ import type {
 	SessionTurnTableSpeaker,
 } from "./session-turn-table";
 import type { SessionTurnTableSortKey } from "./session-turn-table-filters";
+import { buildSessionTurnMemberTextDisplay } from "./session-turn-table-member-text";
 import {
 	formatCompactTurnDuration,
 	formatCompactTurnTokens,
@@ -27,7 +28,7 @@ type TurnTableSummary = {
 };
 
 export type TurnTableColumn = {
-	appearance: "plain" | "signal" | "tag";
+	appearance: "plain" | "tag" | "text";
 	getValues: (row: SessionTurnTableRow) => readonly TurnTableValue[];
 	key: string;
 	label: string;
@@ -71,61 +72,57 @@ function buildIndexedColumns({
 	}));
 }
 
+function buildTimeColumn(speaker: SessionTurnTableSpeaker): TurnTableColumn {
+	return {
+		appearance: "plain",
+		getValues: (row) =>
+			row.speaker === speaker
+				? [
+						{
+							label: row.match.option.timing.startTime || "—",
+							relativeMagnitude: undefined,
+							title: row.match.option.timing.startTime
+								? "Turn start time"
+								: "Start time unavailable",
+						},
+					]
+				: [],
+		key: "time",
+		label: "Time",
+		sortKey: "time",
+		summary: undefined,
+		widthClassName: "w-16-fixed",
+	};
+}
+
 export function buildSessionTurnTableColumns(
 	options: readonly SessionTurnTableOption[],
 	primarySpeaker: SessionTurnTableSpeaker,
 	rows: readonly SessionTurnTableRow[] = [],
 ): TurnTableColumn[] {
 	if (primarySpeaker === "member") {
-		const maximumCharacterCount = getMaximumRowValue(
-			rows,
-			(row) => row.characterCount,
-		);
-		const totalCharacterCount = getRowTotal(rows, (row) => row.characterCount);
 		return [
+			buildTimeColumn("member"),
 			{
-				appearance: "plain",
-				getValues: (row) =>
-					row.characterCount === undefined
-						? []
-						: [
-								{
-									label: row.characterCount.toLocaleString(),
-									relativeMagnitude: getRelativeMagnitude(
-										row.characterCount,
-										maximumCharacterCount,
-									),
-									title: `${row.characterCount.toLocaleString()} characters`,
-								},
-							],
-				key: "characters",
-				label: "Characters",
-				sortKey: undefined,
-				summary:
-					totalCharacterCount === undefined
-						? undefined
-						: {
-								label: totalCharacterCount.toLocaleString(),
-								title: `${totalCharacterCount.toLocaleString()} total characters`,
-							},
-				widthClassName: "w-28",
-			},
-			{
-				appearance: "signal",
-				getValues: (row) =>
-					row.speaker === "member"
-						? row.sentimentWords.map((word, index) => ({
-								key: `${row.key}:sentiment:${index}`,
-								label: word,
-								relativeMagnitude: undefined,
-								title: "Detected in user message",
-							}))
-						: [],
-				key: "sentiment-words",
-				label: "Sentiment words",
+				appearance: "text",
+				getValues: (row) => {
+					if (row.speaker !== "member" || !row.memberText) {
+						return [];
+					}
+					const display = buildSessionTurnMemberTextDisplay(row.memberText);
+					return [
+						{
+							label: display.excerpt,
+							relativeMagnitude: undefined,
+							title: display.fullText,
+						},
+					];
+				},
+				key: "text",
+				label: "Text",
 				sortKey: undefined,
 				summary: undefined,
-				widthClassName: "w-32",
+				widthClassName: "w-60",
 			},
 		];
 	}
@@ -182,29 +179,10 @@ export function buildSessionTurnTableColumns(
 			modelRows,
 			(row) => row.match.option.metrics.skills.length,
 		),
-		tools: getRowTotal(modelRows, (row) => row.match.option.toolCallCount),
+		signals: getRowTotal(modelRows, (row) => row.signalCount),
 	};
 	const scalarColumns: TurnTableColumn[] = [
-		{
-			appearance: "plain",
-			getValues: (row) =>
-				row.speaker === "member"
-					? []
-					: [
-							{
-								label: row.match.option.timing.startTime || "—",
-								relativeMagnitude: undefined,
-								title: row.match.option.timing.startTime
-									? "Turn start time"
-									: "Start time unavailable",
-							},
-						],
-			key: "time",
-			label: "Time",
-			sortKey: "time",
-			summary: undefined,
-			widthClassName: "w-18",
-		},
+		buildTimeColumn("model"),
 		{
 			appearance: "plain",
 			getValues: (row) => {
@@ -226,7 +204,7 @@ export function buildSessionTurnTableColumns(
 				return value ? [value] : [];
 			},
 			key: "duration",
-			label: "Duration",
+			label: "Length",
 			sortKey: "duration",
 			summary:
 				totals.duration === undefined
@@ -235,7 +213,7 @@ export function buildSessionTurnTableColumns(
 							label: formatTotalTurnDuration(totals.duration),
 							title: `${totals.duration.toLocaleString()} total seconds`,
 						},
-			widthClassName: "w-16",
+			widthClassName: "w-16-fixed",
 		},
 		{
 			appearance: "plain",
@@ -270,7 +248,7 @@ export function buildSessionTurnTableColumns(
 							label: formatCompactTurnTokens(totals.input),
 							title: `${totals.input.toLocaleString()} total input tokens`,
 						},
-			widthClassName: "w-16",
+			widthClassName: "w-16-fixed",
 		},
 		{
 			appearance: "plain",
@@ -305,7 +283,7 @@ export function buildSessionTurnTableColumns(
 							label: formatCompactTurnTokens(totals.output),
 							title: `${totals.output.toLocaleString()} total output tokens`,
 						},
-			widthClassName: "w-16",
+			widthClassName: "w-16-fixed",
 		},
 		{
 			appearance: "plain",
@@ -338,33 +316,7 @@ export function buildSessionTurnTableColumns(
 							label: formatTurnCost(totals.cost),
 							title: "Total estimated cost",
 						},
-			widthClassName: "w-24",
-		},
-		{
-			appearance: "plain",
-			getValues: (row) => {
-				if (row.speaker === "member" || row.match.option.toolCallCount === 0) {
-					return [];
-				}
-				return [
-					{
-						label: String(row.match.option.toolCallCount),
-						relativeMagnitude: undefined,
-						title: undefined,
-					},
-				];
-			},
-			key: "tools",
-			label: "Tools",
-			sortKey: "tools",
-			summary:
-				totals.tools === undefined
-					? undefined
-					: {
-							label: totals.tools.toLocaleString(),
-							title: "Total tool calls",
-						},
-			widthClassName: "w-12",
+			widthClassName: "w-16",
 		},
 		{
 			appearance: "plain",
@@ -440,6 +392,30 @@ export function buildSessionTurnTableColumns(
 					: {
 							label: totals.skills.toLocaleString(),
 							title: "Total skills across turns",
+						},
+			widthClassName: "w-12",
+		},
+		{
+			appearance: "plain",
+			getValues: (row) =>
+				row.speaker === "member"
+					? []
+					: [
+							{
+								label: row.signalCount.toLocaleString(),
+								relativeMagnitude: undefined,
+								title: `${row.signalCount.toLocaleString()} negative or apologetic model signals in this turn`,
+							},
+						],
+			key: "signals",
+			label: "Signals",
+			sortKey: undefined,
+			summary:
+				totals.signals === undefined
+					? undefined
+					: {
+							label: totals.signals.toLocaleString(),
+							title: "Total negative or apologetic model signals",
 						},
 			widthClassName: "w-12",
 		},

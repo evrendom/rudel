@@ -41,6 +41,9 @@ describe("session constellation tree tokens", () => {
 		expect(css).toContain('data-trace-icon-tone="claude"');
 		expect(css).toContain('data-trace-icon-tone="openai"');
 		expect(css).toContain('data-trace-icon-tone="tomato"');
+		expect(css).toContain(".session-turn-table-model-icon-shell");
+		expect(css).toContain("filter: drop-shadow(0 0 0.75px rgb(0 0 0 / 14%))");
+		expect(css).not.toContain("box-shadow: inset 0 0 0 1px rgb(0 0 0 / 5%)");
 		for (const toolIcon of [
 			"bot",
 			"file",
@@ -95,9 +98,13 @@ describe("session constellation tree tokens", () => {
 		expect(css).toContain('content: "·"');
 	});
 
-	test("matches the Interfere rail and content arrangement on the v2 route", () => {
+	test("uses the Interfere rail and content arrangement by default", () => {
 		const css = readFileSync(
 			new URL("./session-constellation-tree.css", import.meta.url),
+			"utf8",
+		);
+		const responsePane = readFileSync(
+			new URL("./session-detail-fast-response-pane.tsx", import.meta.url),
 			"utf8",
 		);
 		const stickyHeaders = readFileSync(
@@ -136,6 +143,11 @@ describe("session constellation tree tokens", () => {
 		expect(css).not.toContain("&::after");
 		expect(stickyHeaders).toContain("<ConversationTraceTreeItem");
 		expect(stickyHeaders).not.toContain("<ConversationTraceTreeNode");
+		expect(responsePane).toContain(
+			"session-constellation-tree session-constellation-tree-v2 session-transcript-mask",
+		);
+		expect(responsePane).toContain('data-session-constellation-version="v2"');
+		expect(responsePane).not.toContain("usesConstellationV2");
 	});
 
 	test("does not paint hover fills behind trace rows", () => {

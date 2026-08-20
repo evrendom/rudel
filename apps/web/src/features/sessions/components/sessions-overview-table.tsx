@@ -1,14 +1,12 @@
 import type { SessionAnalytics } from "@rudel/api-routes";
 import { ArrowDownWideNarrow, ChevronDown, ChevronUp } from "lucide-react";
-import { type Ref, useCallback, useRef, useState } from "react";
+import { type Ref, useCallback, useRef } from "react";
 import { useLoadMoreIntersectionObserver } from "@/app/hooks/useLoadMoreIntersectionObserver";
 import { DashboardDateControls } from "@/features/dashboard/components/DashboardDateControls";
 import { useUserMap } from "@/features/workspace/hooks/useUserMap";
 import { formatUsername } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { SessionsOverviewFiltersMenu } from "./sessions-overview-filters-menu";
-import { SessionsOverviewFooter } from "./sessions-overview-footer";
-import { SessionsOverviewFrozenEdgeShadow } from "./sessions-overview-frozen-edge-shadow";
 import { SessionsOverviewHeader } from "./sessions-overview-header";
 import { SessionsOverviewRow } from "./sessions-overview-row";
 import { getContainedWheelScroll } from "./sessions-overview-scroll";
@@ -43,8 +41,6 @@ export function SessionsOverviewTable({
 	sessionDetailDisabledNote,
 	totalSessionCount,
 }: SessionsOverviewTableProps) {
-	const [isFrozenEdgeShadowVisible, setIsFrozenEdgeShadowVisible] =
-		useState(false);
 	const tableScrollElementRef = useRef<HTMLDivElement | null>(null);
 	const { avatarMap, userMap } = useUserMap();
 	const tableState = useSessionsOverviewTableState({
@@ -95,10 +91,9 @@ export function SessionsOverviewTable({
 		},
 		[handleContainedWheel, scrollContainerRef],
 	);
-
 	return (
-		<div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-(--session-overview-surface) [--session-overview-accent:#266df0] [--session-overview-border:#eeeff1] [--session-overview-hover:#f6f7f7] [--session-overview-muted:rgba(0,0,0,0.63)] [--session-overview-subtle:rgba(0,0,0,0.5)] [--session-overview-surface:#fff] [--session-overview-text:#101112] [font-family:Inter,sans-serif] dark:[--session-overview-border:rgba(255,255,255,0.08)] dark:[--session-overview-hover:rgba(255,255,255,0.05)] dark:[--session-overview-muted:rgba(255,255,255,0.65)] dark:[--session-overview-subtle:rgba(255,255,255,0.5)] dark:[--session-overview-surface:#111827] dark:[--session-overview-text:#f8fafc]">
-			<div className="flex min-h-14 min-w-0 shrink-0 items-center justify-between gap-3 overflow-x-auto px-3 sm:min-h-12">
+		<div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-(--session-overview-surface) [--session-overview-accent:#266df0] [--session-overview-border:#eeeff1] [--session-overview-hover:#f6f7f7] [--session-overview-muted:rgba(0,0,0,0.63)] [--session-overview-subtle:rgba(0,0,0,0.5)] [--session-overview-surface:#fcfcfc] [--session-overview-text:#101112] [font-family:Inter,sans-serif] dark:[--session-overview-border:rgba(255,255,255,0.08)] dark:[--session-overview-hover:rgba(255,255,255,0.05)] dark:[--session-overview-muted:rgba(255,255,255,0.65)] dark:[--session-overview-subtle:rgba(255,255,255,0.5)] dark:[--session-overview-surface:#111827] dark:[--session-overview-text:#f8fafc]">
+			<div className="flex min-h-10 min-w-0 shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-(--session-overview-border) px-3">
 				<div
 					data-slot="sessions-overview-controls"
 					className="flex shrink-0 items-center gap-1"
@@ -106,7 +101,7 @@ export function SessionsOverviewTable({
 					<button
 						type="button"
 						aria-label={`Sort by ${tableState.activeSortLabel}, ${tableState.sort.direction === "asc" ? "descending" : "ascending"}`}
-						className="relative flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-(--session-overview-surface) py-1 pr-2 pl-1.5 text-base font-medium tracking-[-0.01em] text-(--session-overview-text) shadow-[inset_0_0_0_1px_#e6e7ea] outline-none hover:bg-(--session-overview-hover) focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-(--session-overview-accent) sm:h-7 sm:text-sm dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]"
+						className="relative flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-(--session-overview-surface) py-1 pr-2 pl-1.5 text-base font-medium tracking-[-0.01em] text-(--session-overview-text) shadow-[inset_0_0_0_0.5px_#e6e7ea] outline-none hover:bg-(--session-overview-hover) focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-(--session-overview-accent) sm:text-sm dark:shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.1)]"
 						onClick={tableState.toggleSortDirection}
 					>
 						<ArrowDownWideNarrow
@@ -149,7 +144,7 @@ export function SessionsOverviewTable({
 					/>
 				</div>
 				<DashboardDateControls
-					className="h-10 shrink-0 rounded-md border-0 bg-(--session-overview-surface) py-1 pr-2 pl-1.5 text-base font-medium tracking-[-0.01em] text-(--session-overview-text) shadow-[inset_0_0_0_1px_#e6e7ea] hover:bg-(--session-overview-hover) sm:h-7 sm:text-sm dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]"
+					className="h-7 shrink-0 rounded-md border-0 bg-(--session-overview-surface) py-1 pr-2 pl-1.5 text-base font-medium tracking-[-0.01em] text-(--session-overview-text) shadow-[inset_0_0_0_0.5px_#e6e7ea] hover:bg-(--session-overview-hover) sm:text-sm dark:shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.1)]"
 					sourceComponent="sessions_date_picker"
 				/>
 			</div>
@@ -165,11 +160,6 @@ export function SessionsOverviewTable({
 					ref={setTableScrollContainer}
 					className="isolate h-full min-h-0 min-w-0 touch-pan-x touch-pan-y overflow-auto overscroll-none [overflow-anchor:none] [scrollbar-gutter:stable]"
 					data-slot="sessions-overview-scroll-container"
-					onScroll={() =>
-						setIsFrozenEdgeShadowVisible(
-							(tableScrollElementRef.current?.scrollLeft ?? 0) > 0,
-						)
-					}
 				>
 					<div
 						className={cn(
@@ -179,7 +169,6 @@ export function SessionsOverviewTable({
 					>
 						<SessionsOverviewHeader
 							onSort={tableState.handleSort}
-							sessionCountLabel={tableState.visibleSessionCountLabel}
 							sort={tableState.sort}
 						/>
 						{isLoading ? (
@@ -211,7 +200,13 @@ export function SessionsOverviewTable({
 											getSessionHref={getSessionHref}
 											getSessionLinkState={getSessionLinkState}
 											maximumSessionCost={tableState.maximumSessionCost}
-											maximumSessionTokens={tableState.maximumSessionTokens}
+											maximumSessionDuration={tableState.maximumSessionDuration}
+											maximumSessionInputTokens={
+												tableState.maximumSessionInputTokens
+											}
+											maximumSessionOutputTokens={
+												tableState.maximumSessionOutputTokens
+											}
 											onSessionClick={onSessionClick}
 											session={session}
 											userLabel={formatUsername(session.user_id, userMap)}
@@ -237,14 +232,8 @@ export function SessionsOverviewTable({
 								) : null}
 							</>
 						)}
-						<SessionsOverviewFooter
-							sessionCountLabel={tableState.visibleSessionCountLabel}
-						/>
 					</div>
 				</div>
-				<SessionsOverviewFrozenEdgeShadow
-					isVisible={isFrozenEdgeShadowVisible}
-				/>
 			</div>
 		</div>
 	);

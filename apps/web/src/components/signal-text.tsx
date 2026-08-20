@@ -31,8 +31,13 @@ const SignalTextSearchQueryContext = createContext<string | undefined>(
 
 interface SignalTextProps {
 	readonly searchQuery?: string;
+	readonly scanSignals?: SignalScanner;
 	readonly text: string;
 }
+
+export type SignalScanner = (
+	text: string,
+) => ReadonlyArray<LanguageSignalMatch>;
 
 interface TextRange {
 	readonly start: number;
@@ -53,10 +58,20 @@ export function SignalTextSearchQueryProvider({
 	);
 }
 
-export function SignalText({ searchQuery, text }: SignalTextProps) {
+export function SignalText({
+	scanSignals,
+	searchQuery,
+	text,
+}: SignalTextProps) {
 	const inheritedSearchQuery = useContext(SignalTextSearchQueryContext);
 	const effectiveSearchQuery = searchQuery ?? inheritedSearchQuery;
-	const matches = useMemo(() => scanLanguageSignalsCached(text), [text]);
+	const matches = useMemo(
+		() =>
+			scanSignals === undefined
+				? scanLanguageSignalsCached(text)
+				: scanSignals(text),
+		[scanSignals, text],
+	);
 	const searchRanges = useMemo(
 		() => findSearchHighlightRanges(text, effectiveSearchQuery),
 		[effectiveSearchQuery, text],

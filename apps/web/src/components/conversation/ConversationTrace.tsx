@@ -7,7 +7,6 @@ import {
 import { cn } from "@/lib/utils";
 import { SignalText } from "../signal-text";
 import {
-	compactPreview,
 	formatClockTime,
 	type TraceEvent,
 	type TraceItem,
@@ -19,7 +18,7 @@ import {
 	type TraceCallDisplayMode,
 } from "./conversation-trace-call-display";
 import {
-	conversationTraceProsePreviewClassName as previewClassName,
+	conversationTraceSignalAwarePreviewClassName as previewClassName,
 	conversationTraceLabelClassName as traceLabelClassName,
 } from "./conversation-trace-class-names";
 import { ConversationTraceEventRow as EventRow } from "./conversation-trace-event-row";
@@ -40,11 +39,13 @@ import type {
 import type { ConversationTraceDerivedSection } from "./conversation-trace-sections";
 import { deriveConversationTraceSections } from "./conversation-trace-sections";
 import { ConversationTraceTag } from "./conversation-trace-tag";
+import { TraceTextCollapsedPreview } from "./conversation-trace-text-disclosure";
 import { AgentToolStrip } from "./conversation-trace-tool-strip";
 import {
 	AgentTraceRequestDisplay,
 	AgentTraceTreeContinuationSection,
 	type AgentTraceTreeRenderedBranch,
+	type AgentTraceTreeRenderedNode,
 	type AgentTraceTreeRenderedSection,
 	AgentTraceTreeSection,
 	ConversationTraceRootNode,
@@ -65,6 +66,25 @@ import { MessageContent } from "./MessageContent";
 
 export type { TraceCallDisplayMode } from "./conversation-trace-call-display";
 export type { ConversationTraceSpeakerLayout } from "./conversation-trace-tree";
+export type ConversationTraceEventSubtreeReplacement = {
+	content: ReactNode;
+	kind: "replace-event";
+};
+export type ConversationTraceEventSubtreeRenderer = (
+	event: TraceEvent,
+) => ReactNode | ConversationTraceEventSubtreeReplacement | undefined;
+
+function isEventSubtreeReplacement(
+	value: ReactNode | ConversationTraceEventSubtreeReplacement | undefined,
+): value is ConversationTraceEventSubtreeReplacement {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		"kind" in value &&
+		value.kind === "replace-event"
+	);
+}
+
 export {
 	ConversationTraceCollapsiblePanel,
 	ConversationTraceTreeConnectorStyleProvider,
@@ -112,7 +132,7 @@ function AgentSection({
 	// vendors fall back to the generic agent glyph.
 	const eventRows = events.map((event) => (
 		<TraceExpansionIdProvider key={event.id} expansionId={event.id}>
-			<EventRow event={event} />
+			<EventRow agentModel={agentModel} event={event} />
 		</TraceExpansionIdProvider>
 	));
 
@@ -299,10 +319,6 @@ function TraceRow({
 	}
 
 	if (item.kind === "summary") {
-		const collapsedPreviewText = compactPreview(
-			item.text,
-			Number.POSITIVE_INFINITY,
-		);
 		return (
 			<ConversationTraceRootNode
 				continues={!isLast}
@@ -313,7 +329,7 @@ function TraceRow({
 					compact
 					collapsedBody={
 						<span className={previewClassName} data-trace-preview>
-							<SignalText text={collapsedPreviewText} />
+							<TraceTextCollapsedPreview text={item.text} />
 						</span>
 					}
 					focus={focus}
@@ -321,6 +337,7 @@ function TraceRow({
 					fullPreviewText={item.text}
 					label={<span className={traceLabelClassName}>Summary</span>}
 					leading={<TraceIcon icon={TraceFileIcon} tone="grass" />}
+					textDisclosure
 					body={
 						<p className="whitespace-pre-wrap text-[0.8125rem] leading-6 text-[color:var(--dashboardy-heading)]">
 							<SignalText text={item.text} />
@@ -332,10 +349,6 @@ function TraceRow({
 	}
 
 	if (item.kind === "system") {
-		const collapsedPreviewText = compactPreview(
-			item.text,
-			Number.POSITIVE_INFINITY,
-		);
 		return (
 			<ConversationTraceRootNode
 				continues={!isLast}
@@ -346,7 +359,7 @@ function TraceRow({
 					compact
 					collapsedBody={
 						<span className={previewClassName} data-trace-preview>
-							{collapsedPreviewText}
+							<TraceTextCollapsedPreview text={item.text} />
 						</span>
 					}
 					focus={focus}
@@ -355,6 +368,7 @@ function TraceRow({
 					label={<span className={traceLabelClassName}>System</span>}
 					leading={<TraceIcon icon={TraceSettingsIcon} tone="neutral" />}
 					timestamp={timestamp}
+					textDisclosure
 					body={
 						<p className="whitespace-pre-wrap font-mono text-[0.8125rem] leading-6 text-[color:var(--dashboardy-heading)]">
 							{item.text}
@@ -366,10 +380,6 @@ function TraceRow({
 	}
 
 	const previewText = userContentText(item.content);
-	const collapsedPreviewText = compactPreview(
-		previewText,
-		Number.POSITIVE_INFINITY,
-	);
 
 	return (
 		<ConversationTraceRootNode
@@ -380,15 +390,15 @@ function TraceRow({
 				anchorId={anchorId}
 				compact
 				collapsedBody={
-					collapsedPreviewText ? (
+					previewText ? (
 						<span className={previewClassName} data-trace-preview>
-							<SignalText text={collapsedPreviewText} />
+							<TraceTextCollapsedPreview text={previewText} />
 						</span>
 					) : undefined
 				}
 				focus={focus}
 				expansionId={item.id}
-				fullPreviewText={undefined}
+				fullPreviewText={previewText}
 				label={<span className={speakerLabelClassName}>{userLabel}</span>}
 				leading={
 					<UserTraceAvatar
@@ -398,6 +408,7 @@ function TraceRow({
 					/>
 				}
 				timestamp={timestamp}
+				textDisclosure
 				className={cn(
 					expandedSpeakerLayout !== "trace-tree" &&
 						"overflow-clip rounded-[0.75rem] border border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface)]",
@@ -409,45 +420,59 @@ function TraceRow({
 }
 
 function toRenderedBranches(
+	agentModel: string | undefined,
 	treeBranches: readonly AgentTraceTreeBranch[],
 	trailing: ReactNode | undefined,
+	renderEventSubtree: ConversationTraceEventSubtreeRenderer | undefined,
 ): AgentTraceTreeRenderedBranch[] {
+	const renderNode = (
+		event: TraceEvent,
+		trailingContent: ReactNode | undefined,
+	): AgentTraceTreeRenderedNode => {
+		const renderedSubtree = renderEventSubtree?.(event);
+		if (isEventSubtreeReplacement(renderedSubtree)) {
+			return {
+				content: renderedSubtree.content,
+				key: event.id,
+				kind: "replacement",
+			};
+		}
+
+		return {
+			key: event.id,
+			kind: "row",
+			row: (
+				<TraceExpansionIdProvider expansionId={event.id}>
+					<EventRow
+						agentModel={agentModel}
+						event={event}
+						trailing={trailingContent}
+					/>
+				</TraceExpansionIdProvider>
+			),
+			subtree: renderedSubtree,
+		};
+	};
 	const renderedBranchCount = treeBranches.reduce(
 		(count, branch) => count + (branch.root ? 1 : branch.children.length),
 		0,
 	);
 	return treeBranches.map<AgentTraceTreeRenderedBranch>((branch) => ({
 		childStartIndex: branch.childStartIndex,
-		children: branch.children.map((event) => ({
-			key: event.id,
-			row: (
-				<TraceExpansionIdProvider expansionId={event.id}>
-					<EventRow
-						event={event}
-						trailing={
-							!branch.hasRoot && renderedBranchCount === 1
-								? trailing
-								: undefined
-						}
-					/>
-				</TraceExpansionIdProvider>
+		children: branch.children.map((event) =>
+			renderNode(
+				event,
+				!branch.hasRoot && renderedBranchCount === 1 ? trailing : undefined,
 			),
-		})),
+		),
 		hasFollowingBranch: branch.hasFollowingBranch,
 		hasRoot: branch.hasRoot,
 		key: branch.id,
 		root: branch.root
-			? {
-					key: branch.root.id,
-					row: (
-						<TraceExpansionIdProvider expansionId={branch.root.id}>
-							<EventRow
-								event={branch.root}
-								trailing={renderedBranchCount === 1 ? trailing : undefined}
-							/>
-						</TraceExpansionIdProvider>
-					),
-				}
+			? renderNode(
+					branch.root,
+					renderedBranchCount === 1 ? trailing : undefined,
+				)
 			: undefined,
 		totalChildren: branch.totalChildren,
 	}));
@@ -457,12 +482,20 @@ function toRenderedSection(input: {
 	agentLabel: string;
 	agentModel: string | undefined;
 	focus?: TraceFocusRequest;
+	renderEventSubtree: ConversationTraceEventSubtreeRenderer | undefined;
 	section: ConversationTraceDerivedSection;
 	userImageUrl: string | undefined;
 	userLabel: string;
 }): AgentTraceTreeRenderedSection {
-	const { agentLabel, agentModel, focus, section, userImageUrl, userLabel } =
-		input;
+	const {
+		agentLabel,
+		agentModel,
+		focus,
+		renderEventSubtree,
+		section,
+		userImageUrl,
+		userLabel,
+	} = input;
 	if (section.kind === "agent") {
 		const inlineUsage =
 			section.usage && section.inlineUsage ? (
@@ -480,7 +513,12 @@ function toRenderedSection(input: {
 		const separator = isTraceCallSeparator(section.config);
 		return {
 			branchDepth: section.branchDepth,
-			branches: toRenderedBranches(section.branches, inlineUsage),
+			branches: toRenderedBranches(
+				agentModel,
+				section.branches,
+				inlineUsage,
+				renderEventSubtree,
+			),
 			continuesFromPrevious: section.continuesFromPrevious,
 			continuesToNext: section.continuesToNext,
 			events: [...section.events],
@@ -522,6 +560,7 @@ function toRenderedSection(input: {
 				key: section.item.id,
 				root: {
 					key: section.item.id,
+					kind: "row",
 					row: (
 						<TraceRow
 							agentHeaderTrailing={undefined}
@@ -538,6 +577,7 @@ function toRenderedSection(input: {
 							userLabel={userLabel}
 						/>
 					),
+					subtree: undefined,
 				},
 				sticky: section.item.kind === "user",
 				totalChildren: 0,
@@ -554,17 +594,55 @@ function toRenderedSection(input: {
 	};
 }
 
+function toRenderedIntroSection(
+	row: ReactNode,
+	key = "agent-intro-row",
+): AgentTraceTreeRenderedSection {
+	return {
+		branchDepth: 2,
+		branches: [
+			{
+				childStartIndex: 0,
+				children: [],
+				hasFollowingBranch: false,
+				hasRoot: true,
+				key,
+				root: {
+					key,
+					kind: "row",
+					row,
+					subtree: undefined,
+				},
+				totalChildren: 0,
+			},
+		],
+		continuesFromPrevious: false,
+		continuesToNext: false,
+		events: [],
+		flatRequestRows: true,
+		groupIndex: undefined,
+		groupTreatment: "none",
+		header: undefined,
+		key,
+	};
+}
+
 export function ConversationTraceDerivedSectionRow({
 	agentLabel = "Agent",
 	agentModel,
 	allEvents,
 	continuesAfter,
 	focus,
+	introRow,
 	isFirst,
 	modelDisclosureId,
+	modelExpandable = true,
 	modelHeaderHeight,
+	modelHeaderTrailing,
 	modelHeaderTerminal,
+	modelSetting,
 	planMode,
+	renderEventSubtree,
 	section,
 	stickyModelHeader = true,
 	userImageUrl,
@@ -575,12 +653,17 @@ export function ConversationTraceDerivedSectionRow({
 	allEvents: readonly TraceEvent[];
 	continuesAfter: boolean;
 	focus?: TraceFocusRequest;
+	introRow?: ReactNode;
 	isFirst: boolean;
 	modelDisclosureId?: string;
+	modelExpandable?: boolean;
 	modelHeaderHeight?: number;
+	modelHeaderTrailing?: ReactNode;
 	modelHeaderTerminal?: boolean;
+	modelSetting?: string;
 	planMode: boolean;
-	section: ConversationTraceDerivedSection;
+	renderEventSubtree?: ConversationTraceEventSubtreeRenderer;
+	section?: ConversationTraceDerivedSection;
 	stickyModelHeader?: boolean;
 	userImageUrl?: string;
 	userLabel?: string;
@@ -589,21 +672,28 @@ export function ConversationTraceDerivedSectionRow({
 	const { open: collapsed, setOpen: setCollapsed } = useTraceExpansionState(
 		`${modelDisclosureId ?? fallbackDisclosureId}:model-collapsed`,
 	);
-	const modelOpen = modelDisclosureId === undefined ? undefined : !collapsed;
+	const modelOpen = modelExpandable
+		? modelDisclosureId === undefined
+			? undefined
+			: !collapsed
+		: true;
 	const onModelOpenChange =
-		modelDisclosureId === undefined
+		!modelExpandable || modelDisclosureId === undefined
 			? undefined
 			: (nextOpen: boolean) => setCollapsed(!nextOpen);
-	const renderedSection = toRenderedSection({
-		agentLabel,
-		agentModel,
-		focus,
-		section,
-		userImageUrl,
-		userLabel,
-	});
+	const renderedSection = section
+		? toRenderedSection({
+				agentLabel,
+				agentModel,
+				focus,
+				renderEventSubtree,
+				section,
+				userImageUrl,
+				userLabel,
+			})
+		: undefined;
 	if (!isFirst) {
-		if (modelOpen === false) {
+		if (modelOpen === false || !renderedSection) {
 			return null;
 		}
 		return (
@@ -613,6 +703,10 @@ export function ConversationTraceDerivedSectionRow({
 			/>
 		);
 	}
+	const renderedSections = [
+		...(introRow ? [toRenderedIntroSection(introRow, "model-intro-row")] : []),
+		...(renderedSection ? [renderedSection] : []),
+	];
 	return (
 		<ol className="grid">
 			<li className="min-w-0">
@@ -623,12 +717,15 @@ export function ConversationTraceDerivedSectionRow({
 					continuesAfter={continuesAfter}
 					defaultOpen
 					events={[...allEvents]}
+					expandable={modelExpandable}
 					focus={focus}
 					headerHeight={modelHeaderHeight}
+					headerTrailing={modelHeaderTrailing}
+					modelSetting={modelSetting}
 					onOpenChange={onModelOpenChange}
 					open={modelOpen}
 					planMode={planMode}
-					sections={[renderedSection]}
+					sections={renderedSections}
 					stickyHeader={stickyModelHeader}
 					terminal={modelHeaderTerminal}
 				/>
@@ -637,7 +734,17 @@ export function ConversationTraceDerivedSectionRow({
 	);
 }
 
+function getConversationTraceModelSetting(items: readonly TraceItem[]) {
+	for (const item of items) {
+		if (item.kind === "agent" && item.modelSetting) {
+			return item.modelSetting;
+		}
+	}
+	return undefined;
+}
+
 function ConversationTraceTurnTree({
+	agentIntroRow,
 	agentHeaderTrailing,
 	agentLabel,
 	agentModel,
@@ -648,10 +755,12 @@ function ConversationTraceTurnTree({
 	items,
 	requestUsage,
 	requestUsagePlacement = "start",
+	renderEventSubtree,
 	traceCallDisplayMode = "request",
 	userImageUrl,
 	userLabel,
 }: {
+	agentIntroRow?: ReactNode;
 	agentHeaderTrailing?: ReactNode;
 	agentLabel: string;
 	agentModel: string | undefined;
@@ -662,27 +771,36 @@ function ConversationTraceTurnTree({
 	items: TraceItem[];
 	requestUsage?: readonly AgentTraceRequestUsage[];
 	requestUsagePlacement?: AgentTraceRequestUsagePlacement;
+	renderEventSubtree?: ConversationTraceEventSubtreeRenderer;
 	traceCallDisplayMode?: TraceCallDisplayMode;
 	userImageUrl: string | undefined;
 	userLabel: string;
 }) {
+	const modelSetting = getConversationTraceModelSetting(items);
 	const derivation = deriveConversationTraceSections({
 		items,
 		requestUsage,
 		requestUsagePlacement,
 		traceCallDisplayMode,
 	});
-	const sections = derivation.sections.map<AgentTraceTreeRenderedSection>(
-		(section) =>
+	const derivedSections =
+		derivation.sections.map<AgentTraceTreeRenderedSection>((section) =>
 			toRenderedSection({
 				agentLabel,
 				agentModel,
 				focus,
+				renderEventSubtree,
 				section,
 				userImageUrl,
 				userLabel,
 			}),
-	);
+		);
+	const introSection = agentIntroRow
+		? toRenderedIntroSection(agentIntroRow)
+		: undefined;
+	const sections = introSection
+		? [introSection, ...derivedSections]
+		: derivedSections;
 
 	return (
 		<ol className={cn("grid", className)}>
@@ -696,6 +814,7 @@ function ConversationTraceTurnTree({
 					events={[...derivation.events]}
 					focus={focus}
 					headerTrailing={agentHeaderTrailing}
+					modelSetting={modelSetting}
 					planMode={derivation.planMode}
 					sections={sections}
 				/>
@@ -710,6 +829,7 @@ export function ConversationTrace({
 	userImageUrl,
 	agentLabel = "Agent",
 	agentModel,
+	agentIntroRow,
 	agentHeaderTrailing,
 	agentSectionMode = "collapsible",
 	expandedSpeakerLayout = "inline",
@@ -719,6 +839,7 @@ export function ConversationTrace({
 	defaultTraceTreeOpen = true,
 	requestUsage,
 	requestUsagePlacement,
+	renderEventSubtree,
 	traceCallDisplayMode = "request",
 }: {
 	items: TraceItem[];
@@ -726,6 +847,7 @@ export function ConversationTrace({
 	userImageUrl?: string;
 	agentLabel?: string;
 	agentModel?: string;
+	agentIntroRow?: ReactNode;
 	agentHeaderTrailing?: ReactNode;
 	agentSectionMode?: "collapsible" | "expanded";
 	expandedSpeakerLayout?: ConversationTraceSpeakerLayout;
@@ -735,12 +857,14 @@ export function ConversationTrace({
 	defaultTraceTreeOpen?: boolean;
 	requestUsage?: readonly AgentTraceRequestUsage[];
 	requestUsagePlacement?: AgentTraceRequestUsagePlacement;
+	renderEventSubtree?: ConversationTraceEventSubtreeRenderer;
 	traceCallDisplayMode?: TraceCallDisplayMode;
 }) {
 	if (expandedSpeakerLayout === "trace-tree") {
 		return (
 			<TraceExpansionStoreScope>
 				<ConversationTraceTurnTree
+					agentIntroRow={agentIntroRow}
 					agentHeaderTrailing={agentHeaderTrailing}
 					agentLabel={agentLabel}
 					agentModel={agentModel}
@@ -751,6 +875,7 @@ export function ConversationTrace({
 					items={items}
 					requestUsage={requestUsage}
 					requestUsagePlacement={requestUsagePlacement}
+					renderEventSubtree={renderEventSubtree}
 					traceCallDisplayMode={traceCallDisplayMode}
 					userImageUrl={userImageUrl}
 					userLabel={userLabel}

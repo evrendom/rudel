@@ -6,7 +6,6 @@ const SESSION_TURN_TABLE_SORT_COLUMNS = [
 	"input",
 	"output",
 	"cost",
-	"tools",
 	"errors",
 	"files",
 	"skills",
@@ -98,8 +97,6 @@ function getSessionTurnTableNumericValue(
 			return option.metrics.outputTokens ?? 0;
 		case "cost":
 			return option.metrics.estimatedCost ?? 0;
-		case "tools":
-			return option.toolCallCount;
 		case "errors":
 			return option.metrics.errorCount;
 		case "duration":

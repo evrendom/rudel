@@ -2,7 +2,9 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import {
 	type CSSProperties,
 	type KeyboardEvent,
+	type ReactNode,
 	type Ref,
+	type RefObject,
 	useCallback,
 	useImperativeHandle,
 	useLayoutEffect,
@@ -26,15 +28,15 @@ import type {
 	SessionTurnTableSortKey,
 	SessionTurnTableSortState,
 } from "./session-turn-table-filters";
-import { SessionTurnTableFooter } from "./session-turn-table-footer";
+import { SessionTurnTableScrollbar } from "./session-turn-table-scrollbar";
 import {
 	getSessionTurnTableSelectedRowKey,
 	type SessionTurnSelection,
 	type SessionTurnTableSpeaker,
 } from "./session-turn-table-selection";
 import { SessionTurnTableSortableHeader } from "./session-turn-table-sortable-header";
-import { SessionTurnTableSpeakerFocusToggle } from "./session-turn-table-view-tabs";
 import "./session-constellation-tree.css";
+import "./session-turn-table.css";
 
 export type SessionTurnTableOption = {
 	compactionsBefore: readonly SessionCompaction[];
@@ -75,30 +77,33 @@ export type SessionTurnTableVirtualizerHandle = {
 };
 
 export type SessionTurnTableRow = {
-	characterCount: number | undefined;
 	key: string;
 	match: SessionTurnTableMatch;
-	sentimentWords: readonly string[];
+	memberText: string | undefined;
+	signalCount: number;
 	speaker: SessionTurnTableSpeaker;
+	subagentCount: number;
 	toolCallGroups: readonly SessionTurnTableToolCallGroup[];
 };
 
 const GRID_TRACK_BY_WIDTH_CLASS: Readonly<Record<string, string>> = {
 	"w-12": "minmax(3rem, 12fr)",
+	"w-16-fixed": "4rem",
 	"w-16": "minmax(4rem, 16fr)",
-	"w-18": "minmax(4.5rem, 18fr)",
 	"w-20": "minmax(5rem, 20fr)",
 	"w-24": "minmax(6rem, 24fr)",
 	"w-28": "minmax(7rem, 28fr)",
 	"w-32": "minmax(8rem, 32fr)",
+	"w-60": "minmax(15rem, 60fr)",
 };
 
 function getSessionTurnGridTemplate(
 	columns: readonly { widthClassName: string }[],
+	showSpeakerColumn: boolean,
 ) {
 	return [
 		"0.375rem",
-		"minmax(3.5rem, 8fr)",
+		...(showSpeakerColumn ? ["2.5rem"] : []),
 		...columns.map(
 			(column) =>
 				GRID_TRACK_BY_WIDTH_CLASS[column.widthClassName] ??
@@ -119,7 +124,7 @@ type SessionTurnTableProps = {
 	matchedIndices?: ReadonlySet<number>;
 	model: string | undefined;
 	onEpisodeToggle?: (key: string) => void;
-	onPrimarySpeakerChange: (speaker: SessionTurnTableSpeaker) => void;
+	onPrefetchTurn?: (turnId: string, immediate: boolean) => void;
 	onSort: (sortKey: SessionTurnTableSortKey) => void;
 	onSelect: (selection: SessionTurnSelection) => void;
 	options: readonly SessionTurnTableOption[];
@@ -127,6 +132,8 @@ type SessionTurnTableProps = {
 	rows?: readonly SessionTurnTableRow[];
 	selection: SessionTurnSelection;
 	sessionDurationLabel: string;
+	speakerVisibilityControls: ReactNode;
+	showSpeakerColumn?: boolean;
 	showSpeakerHighlights?: boolean;
 	sort: SessionTurnTableSortState;
 	userImageUrl?: string;
@@ -141,7 +148,7 @@ type SessionTurnTableProps = {
 type ViewedRowsOffscreenDirection = "above" | "below" | undefined;
 
 function getViewedRows(
-	scrollElement: HTMLDivElement,
+	scrollElement: HTMLElement,
 ): readonly HTMLTableRowElement[] {
 	return Array.from(
 		scrollElement.querySelectorAll<HTMLTableRowElement>(
@@ -151,7 +158,7 @@ function getViewedRows(
 }
 
 function getViewedRowsOffscreenDirection(
-	scrollElement: HTMLDivElement,
+	scrollElement: HTMLElement,
 ): ViewedRowsOffscreenDirection {
 	const viewedRows = getViewedRows(scrollElement);
 	if (viewedRows.length === 0) {
@@ -159,20 +166,10 @@ function getViewedRowsOffscreenDirection(
 	}
 
 	const scrollRect = scrollElement.getBoundingClientRect();
-	const headerRect = scrollElement
-		.querySelector<HTMLElement>("thead")
-		?.getBoundingClientRect();
-	const footerRect = scrollElement
-		.querySelector<HTMLElement>("tfoot")
-		?.getBoundingClientRect();
-	const viewportTop = Math.max(
-		scrollRect.top,
-		headerRect?.bottom ?? scrollRect.top,
-	);
-	const viewportBottom = Math.min(
-		scrollRect.bottom,
-		footerRect?.top ?? scrollRect.bottom,
-	);
+	const headerBottom =
+		scrollElement.querySelector<HTMLElement>("thead")?.getBoundingClientRect()
+			.bottom ?? scrollRect.top;
+	const viewportTop = Math.max(scrollRect.top, headerBottom);
 	const viewedTop = Math.min(
 		...viewedRows.map((row) => row.getBoundingClientRect().top),
 	);
@@ -183,10 +180,99 @@ function getViewedRowsOffscreenDirection(
 	if (viewedBottom < viewportTop) {
 		return "above";
 	}
-	if (viewedTop > viewportBottom) {
+	if (viewedTop > scrollRect.bottom) {
 		return "below";
 	}
 	return undefined;
+}
+
+function SessionTurnTableViewedRowsButton({
+	scrollElementRef,
+	viewedRowKeys,
+}: {
+	scrollElementRef: RefObject<HTMLDivElement | null>;
+	viewedRowKeys: ReadonlySet<string>;
+}) {
+	const [direction, setDirection] =
+		useState<ViewedRowsOffscreenDirection>(undefined);
+	const directionRef = useRef<ViewedRowsOffscreenDirection>(undefined);
+	const updateDirection = useCallback(() => {
+		const scrollElement = scrollElementRef.current;
+		if (!scrollElement) {
+			return;
+		}
+		const nextDirection = getViewedRowsOffscreenDirection(scrollElement);
+		if (nextDirection === directionRef.current) {
+			return;
+		}
+		directionRef.current = nextDirection;
+		setDirection(nextDirection);
+	}, [scrollElementRef]);
+
+	useLayoutEffect(() => {
+		void viewedRowKeys;
+		updateDirection();
+	}, [updateDirection, viewedRowKeys]);
+
+	useMountEffect(() => {
+		const scrollElement = scrollElementRef.current;
+		if (!scrollElement) {
+			return;
+		}
+
+		scrollElement.addEventListener("scroll", updateDirection, {
+			passive: true,
+		});
+		const resizeObserver =
+			typeof ResizeObserver === "undefined"
+				? undefined
+				: new ResizeObserver(updateDirection);
+		resizeObserver?.observe(scrollElement);
+		return () => {
+			scrollElement.removeEventListener("scroll", updateDirection);
+			resizeObserver?.disconnect();
+		};
+	});
+
+	function scrollToViewedRows() {
+		const scrollElement = scrollElementRef.current;
+		if (!scrollElement || !direction) {
+			return;
+		}
+		const viewedRows = getViewedRows(scrollElement);
+		const targetRow = direction === "above" ? viewedRows.at(-1) : viewedRows[0];
+		targetRow?.scrollIntoView({ behavior: "smooth", block: "center" });
+	}
+
+	return (
+		<button
+			type="button"
+			aria-hidden={direction === undefined}
+			aria-label={
+				direction
+					? `Scroll ${direction === "above" ? "up" : "down"} to visible transcript rows`
+					: "Scroll to visible transcript rows"
+			}
+			className="group absolute left-2 z-30 flex size-6 items-center justify-center rounded-full bg-white opacity-100 shadow-[0_2px_6px_#00000024] outline-none data-[direction=above]:top-16 data-[direction=below]:bottom-11 data-[direction=none]:pointer-events-none data-[direction=none]:opacity-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.67_0.164_262.589)] dark:shadow-none"
+			data-direction={direction ?? "none"}
+			disabled={direction === undefined}
+			onClick={scrollToViewedRows}
+			tabIndex={direction === undefined ? -1 : 0}
+		>
+			<ChevronUp
+				aria-hidden="true"
+				className="hidden size-4 shrink-0 stroke-[oklch(0.67_0.164_262.589)] group-data-[direction=above]:block"
+			/>
+			<ChevronDown
+				aria-hidden="true"
+				className="hidden size-4 shrink-0 stroke-[oklch(0.67_0.164_262.589)] group-data-[direction=below]:block"
+			/>
+			<span
+				aria-hidden="true"
+				className="pointer-fine:hidden absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2"
+			/>
+		</button>
+	);
 }
 
 export function SessionTurnTable({
@@ -195,14 +281,15 @@ export function SessionTurnTable({
 	matchedIndices,
 	model,
 	onEpisodeToggle,
-	onPrimarySpeakerChange,
+	onPrefetchTurn,
 	onSort,
 	onSelect,
 	options,
 	primarySpeaker = "model",
 	rows,
 	selection,
-	sessionDurationLabel,
+	speakerVisibilityControls,
+	showSpeakerColumn = true,
 	showSpeakerHighlights = true,
 	sort,
 	userImageUrl,
@@ -214,17 +301,16 @@ export function SessionTurnTable({
 	virtualizerRef,
 }: SessionTurnTableProps) {
 	const scrollElementRef = useRef<HTMLDivElement>(null);
-	const [viewedRowsOffscreenDirection, setViewedRowsOffscreenDirection] =
-		useState<ViewedRowsOffscreenDirection>(undefined);
 	const tableRows = useMemo<readonly SessionTurnTableRow[]>(
 		() =>
 			rows ??
 			visibleOptions.map((match) => ({
-				characterCount: undefined,
 				key: `${match.option.key}:model`,
 				match,
-				sentimentWords: [],
+				memberText: undefined,
+				signalCount: 0,
 				speaker: "model",
+				subagentCount: 0,
 				toolCallGroups: [],
 			})),
 		[rows, visibleOptions],
@@ -241,18 +327,14 @@ export function SessionTurnTable({
 		() => buildSessionTurnTableColumns(options, "member", tableRows),
 		[options, tableRows],
 	);
-	const headerColumns =
-		primarySpeaker === "member" ? memberColumns : modelColumns;
 	const memberGridTemplate = useMemo(
-		() => getSessionTurnGridTemplate(memberColumns),
-		[memberColumns],
+		() => getSessionTurnGridTemplate(memberColumns, showSpeakerColumn),
+		[memberColumns, showSpeakerColumn],
 	);
 	const modelGridTemplate = useMemo(
-		() => getSessionTurnGridTemplate(modelColumns),
-		[modelColumns],
+		() => getSessionTurnGridTemplate(modelColumns, showSpeakerColumn),
+		[modelColumns, showSpeakerColumn],
 	);
-	const headerGridTemplate =
-		primarySpeaker === "member" ? memberGridTemplate : modelGridTemplate;
 	const episodeByStartIndex = useMemo(
 		() =>
 			new Map(
@@ -285,58 +367,6 @@ export function SessionTurnTable({
 			),
 		[tableRows, viewedSelections],
 	);
-	const updateViewedRowsOffscreenDirection = useCallback(() => {
-		const scrollElement = scrollElementRef.current;
-		if (!scrollElement) {
-			return;
-		}
-		setViewedRowsOffscreenDirection(
-			getViewedRowsOffscreenDirection(scrollElement),
-		);
-	}, []);
-
-	useLayoutEffect(() => {
-		updateViewedRowsOffscreenDirection();
-	});
-
-	useMountEffect(() => {
-		const scrollElement = scrollElementRef.current;
-		if (!scrollElement) {
-			return;
-		}
-
-		scrollElement.addEventListener(
-			"scroll",
-			updateViewedRowsOffscreenDirection,
-			{ passive: true },
-		);
-		const resizeObserver =
-			typeof ResizeObserver === "undefined"
-				? undefined
-				: new ResizeObserver(updateViewedRowsOffscreenDirection);
-		resizeObserver?.observe(scrollElement);
-		return () => {
-			scrollElement.removeEventListener(
-				"scroll",
-				updateViewedRowsOffscreenDirection,
-			);
-			resizeObserver?.disconnect();
-		};
-	});
-
-	function scrollToViewedRows() {
-		const scrollElement = scrollElementRef.current;
-		if (!scrollElement || !viewedRowsOffscreenDirection) {
-			return;
-		}
-
-		const viewedRows = getViewedRows(scrollElement);
-		const targetRow =
-			viewedRowsOffscreenDirection === "above"
-				? viewedRows.at(-1)
-				: viewedRows[0];
-		targetRow?.scrollIntoView({ behavior: "smooth", block: "center" });
-	}
 	useImperativeHandle(
 		virtualizerRef,
 		() => ({
@@ -399,52 +429,57 @@ export function SessionTurnTable({
 		<div className="relative min-h-0 flex-1">
 			<div
 				ref={scrollElementRef}
-				className="h-full min-h-0 overflow-x-auto overflow-y-auto overscroll-none bg-(--session-turn-table-surface)"
+				className="session-turn-table-scroll h-full min-h-0 overflow-auto overscroll-none bg-(--session-turn-table-surface)"
 				data-session-turn-table-scroll
 			>
 				<table
 					aria-label="Session turn ledger"
-					className="block min-w-full bg-(--session-turn-table-surface) [--session-turn-row-hover:#f0f0f0] dark:[--session-turn-row-hover:#222]"
+					className="block min-w-full bg-(--session-turn-table-surface)"
 				>
-					<thead className="sticky top-0 z-10 block min-w-full bg-(--session-turn-table-surface)">
+					<thead className="sticky top-0 z-10 block min-w-full border-b-[0.5px] border-(--session-overview-border) bg-(--session-turn-table-surface)">
 						<tr
-							className="grid min-w-full border-b border-(--session-overview-border) bg-(--session-turn-table-surface) [grid-template-columns:var(--session-turn-grid-template)]"
-							style={getSessionTurnGridStyle(headerGridTemplate)}
+							className="grid h-(--session-turn-table-header-height) min-w-full bg-(--session-turn-table-surface) [grid-template-columns:var(--session-turn-grid-template)]"
+							style={getSessionTurnGridStyle(modelGridTemplate)}
 						>
-							<th className="h-8 bg-(--session-turn-table-surface)" scope="col">
-								<span className="sr-only">Visible in transcript</span>
-							</th>
 							<th
-								aria-label="Speaker and tool calls"
-								className="h-8 bg-(--session-turn-table-surface)"
+								className="h-full bg-(--session-turn-table-surface)"
 								scope="col"
 							>
-								<SessionTurnTableSpeakerFocusToggle
-									className="h-8"
-									model={model}
-									onPrimarySpeakerChange={onPrimarySpeakerChange}
-									primarySpeaker={primarySpeaker}
-									userImageUrl={userImageUrl}
-								/>
+								<span className="sr-only">Visible in transcript</span>
 							</th>
-							{headerColumns.map((column, columnIndex) => (
+							{showSpeakerColumn ? (
+								<th
+									aria-label="Speaker and tool calls"
+									className="h-full bg-(--session-turn-table-surface)"
+									scope="col"
+								>
+									{speakerVisibilityControls ?? (
+										<span className="sr-only">Speaker and tool calls</span>
+									)}
+								</th>
+							) : null}
+							{modelColumns.map((column, columnIndex) => (
 								<th
 									key={column.key}
-									className="h-8 min-w-0 bg-(--session-turn-table-surface) text-left text-xs font-medium whitespace-nowrap text-(--session-overview-subtle)"
+									className="h-full min-w-0 bg-(--session-turn-table-surface) text-left text-xs font-medium whitespace-nowrap text-(--session-overview-subtle)"
 									scope="col"
 								>
 									{column.sortKey ? (
 										<SessionTurnTableSortableHeader
-											className={undefined}
-											columnIndex={columnIndex + 1}
+											className={
+												column.key === "time" ? "pr-1.5 pl-0" : undefined
+											}
+											columnIndex={columnIndex + (showSpeakerColumn ? 1 : 0)}
 											label={column.label}
 											onSort={onSort}
 											sort={sort}
 											sortKey={column.sortKey}
 										/>
 									) : (
-										<div className="flex h-8 items-center px-1.5">
-											{column.label}
+										<div className="flex h-full items-center px-1.5">
+											<span className="max-w-full truncate">
+												{column.label}
+											</span>
 										</div>
 									)}
 								</th>
@@ -457,61 +492,41 @@ export function SessionTurnTable({
 						matchedIndices={matchedIndices}
 						memberColumns={memberColumns}
 						memberGridTemplate={memberGridTemplate}
+						model={model}
 						modelColumns={modelColumns}
 						modelGridTemplate={modelGridTemplate}
 						onEpisodeToggle={onEpisodeToggle}
 						onKeyDown={handleRowKeyDown}
+						onPrefetchTurn={onPrefetchTurn}
 						onSelect={onSelect}
 						primarySpeaker={primarySpeaker}
 						rows={tableRows}
 						selectedRowKey={selectedRowKey}
+						showSpeakerColumn={showSpeakerColumn}
 						showSpeakerHighlights={showSpeakerHighlights}
 						userImageUrl={userImageUrl}
 						userLabel={userLabel}
 						viewedRowKeys={viewedRowKeys}
 						viewportRange={viewportRange}
 					/>
-					{tableRows.length > 0 ? (
-						<SessionTurnTableFooter
-							columns={modelColumns}
-							gridTemplate={modelGridTemplate}
-							sessionDurationLabel={sessionDurationLabel}
-							turnCount={visibleOptions.length}
-						/>
-					) : null}
 				</table>
-				{tableRows.length === 0 ? (
-					<div className="flex min-h-40 items-center justify-center px-6 text-center">
-						<p className="text-sm text-(--session-overview-muted)">
-							No turns available.
-						</p>
-					</div>
-				) : null}
 			</div>
-			{viewedRowsOffscreenDirection ? (
-				<button
-					type="button"
-					aria-label={`Scroll ${viewedRowsOffscreenDirection === "above" ? "up" : "down"} to visible transcript rows`}
-					className={`absolute left-2 z-30 flex size-6 items-center justify-center rounded-full bg-white shadow-[0_2px_6px_#00000024] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.67_0.164_262.589)] dark:shadow-none ${viewedRowsOffscreenDirection === "above" ? "top-10" : "bottom-11"}`}
-					onClick={scrollToViewedRows}
-				>
-					{viewedRowsOffscreenDirection === "above" ? (
-						<ChevronUp
-							aria-hidden="true"
-							className="size-4 shrink-0 stroke-[oklch(0.67_0.164_262.589)]"
-						/>
-					) : (
-						<ChevronDown
-							aria-hidden="true"
-							className="size-4 shrink-0 stroke-[oklch(0.67_0.164_262.589)]"
-						/>
-					)}
-					<span
-						aria-hidden="true"
-						className="pointer-fine:hidden absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2"
-					/>
-				</button>
+			<SessionTurnTableScrollbar scrollElementRef={scrollElementRef} />
+			{tableRows.length === 0 ? (
+				<div className="absolute inset-x-0 top-(--session-turn-table-header-height) bottom-0 flex items-center justify-center px-6 text-center">
+					<p className="text-sm text-(--session-overview-muted)">
+						No turns available.
+					</p>
+				</div>
 			) : null}
+			<div
+				aria-hidden="true"
+				className="pointer-events-none absolute inset-x-0 top-0 z-20 h-(--session-turn-table-header-height) border-t-[0.5px] border-(--session-overview-border)"
+			/>
+			<SessionTurnTableViewedRowsButton
+				scrollElementRef={scrollElementRef}
+				viewedRowKeys={viewedRowKeys}
+			/>
 		</div>
 	);
 }

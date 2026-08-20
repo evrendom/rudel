@@ -31,6 +31,12 @@ const baseSession: SessionAnalytics = {
 	total_tokens: 10_000,
 	used_plan_mode: false,
 	user_id: "user-1",
+	member_swears: 0,
+	member_apologies: 0,
+	member_positive: 0,
+	model_swears: 0,
+	model_apologies: 0,
+	model_positive: 0,
 };
 
 const otherSession: SessionAnalytics = {
@@ -62,8 +68,9 @@ function createRangeFilters(
 		cost: { maximum: null, minimum: null },
 		duration: { maximum: null, minimum: null },
 		errors: { maximum: null, minimum: null },
+		input: { maximum: null, minimum: null },
+		output: { maximum: null, minimum: null },
 		subagents: { maximum: null, minimum: null },
-		tokens: { maximum: null, minimum: null },
 		...overrides,
 	};
 }
@@ -146,11 +153,18 @@ describe("sessions overview filters", () => {
 			),
 		).toBe(false);
 
+		const largerSession = {
+			...otherSession,
+			duration_min: 25,
+			input_tokens: 12_000,
+			output_tokens: 8_000,
+		};
 		const bounds = buildSessionOverviewRangeBounds([
 			baseSession,
-			{ ...otherSession, duration_min: 25, total_tokens: 20_000 },
+			largerSession,
 		]);
-		expect(bounds.tokens).toMatchObject({ maximum: 20_000, minimum: 10_000 });
+		expect(bounds.input).toMatchObject({ maximum: 12_000, minimum: 6_000 });
+		expect(bounds.output).toMatchObject({ maximum: 8_000, minimum: 4_000 });
 		expect(bounds.duration).toMatchObject({ maximum: 25, minimum: 12 });
 		expect(
 			matchesSessionOverviewRangeFilters(

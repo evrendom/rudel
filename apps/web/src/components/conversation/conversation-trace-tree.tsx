@@ -96,13 +96,26 @@ const COLLAPSED_TRACE_COUNT_STYLE: CollapsedTraceCountStyle = {
 	width: 16,
 };
 
+export type AgentTraceTreeRenderedNode =
+	| {
+			key: string;
+			kind: "row";
+			row: ReactNode;
+			subtree: ReactNode | undefined;
+	  }
+	| {
+			content: ReactNode;
+			key: string;
+			kind: "replacement";
+	  };
+
 export type AgentTraceTreeRenderedBranch = {
 	childStartIndex: number;
-	children: readonly { key: string; row: ReactNode }[];
+	children: readonly AgentTraceTreeRenderedNode[];
 	hasFollowingBranch: boolean;
 	hasRoot: boolean;
 	key: string;
-	root: { key: string; row: ReactNode } | undefined;
+	root: AgentTraceTreeRenderedNode | undefined;
 	sticky?: boolean;
 	totalChildren: number;
 };
@@ -135,25 +148,29 @@ type ConversationTraceTreeConnectorShape = "branch" | "through";
 
 function InterfereEventIconRailSegments({
 	depth,
+	hideIncomingRail,
 	markerY,
 	railX,
 	rowHeight,
 }: {
 	depth: number;
+	hideIncomingRail: boolean;
 	markerY: number;
 	railX: number;
 	rowHeight: number;
 }) {
 	return (
 		<>
-			<path
-				className="hidden"
-				d={`M ${railX} 0 V ${Math.max(markerY - INTERFERE_EVENT_ICON_RAIL_OFFSET, 0)}`}
-				data-trace-tree-line
-				data-trace-tree-line-depth={depth}
-				data-trace-tree-marker-geometry="icon"
-				data-trace-tree-rail-segment="incoming"
-			/>
+			{hideIncomingRail ? null : (
+				<path
+					className="hidden"
+					d={`M ${railX} 0 V ${Math.max(markerY - INTERFERE_EVENT_ICON_RAIL_OFFSET, 0)}`}
+					data-trace-tree-line
+					data-trace-tree-line-depth={depth}
+					data-trace-tree-marker-geometry="icon"
+					data-trace-tree-rail-segment="incoming"
+				/>
+			)}
 			<path
 				className="hidden"
 				d={`M ${railX} ${markerY + INTERFERE_EVENT_ICON_RAIL_OFFSET} V ${rowHeight}`}
@@ -221,12 +238,14 @@ export function ConversationTraceTreeConnectorStyleProvider({
 function ConversationTraceTreeRail({
 	continues,
 	depth,
+	hideIncomingRail,
 	ownedByStickyConnector,
 	rowHeight,
 	shape,
 }: {
 	continues: boolean;
 	depth: number;
+	hideIncomingRail: boolean;
 	ownedByStickyConnector: boolean;
 	rowHeight: number;
 	shape: ConversationTraceTreeConnectorShape;
@@ -274,15 +293,17 @@ function ConversationTraceTreeRail({
 					strokeWidth: "var(--conversation-trace-connector-width, 1)",
 				}}
 			>
-				<path
-					d={`M ${railX} 0 V ${Math.max(markerY - lineOffset, 0)}`}
-					data-trace-tree-line
-					data-trace-tree-line-depth={depth}
-					data-trace-tree-marker-geometry={
-						isDottedInterfereBranchStyle(connectorStyle) ? "dot" : undefined
-					}
-					data-trace-tree-rail-segment="incoming"
-				/>
+				{hideIncomingRail ? null : (
+					<path
+						d={`M ${railX} 0 V ${Math.max(markerY - lineOffset, 0)}`}
+						data-trace-tree-line
+						data-trace-tree-line-depth={depth}
+						data-trace-tree-marker-geometry={
+							isDottedInterfereBranchStyle(connectorStyle) ? "dot" : undefined
+						}
+						data-trace-tree-rail-segment="incoming"
+					/>
+				)}
 				<path
 					d={`M ${railX} ${markerY + lineOffset} V ${rowHeight}`}
 					data-trace-tree-line
@@ -295,6 +316,7 @@ function ConversationTraceTreeRail({
 				{isDottedInterfereBranchStyle(connectorStyle) ? (
 					<InterfereEventIconRailSegments
 						depth={depth}
+						hideIncomingRail={hideIncomingRail}
 						markerY={markerY}
 						railX={railX}
 						rowHeight={rowHeight}
@@ -322,7 +344,7 @@ function ConversationTraceTreeRail({
 			}}
 		>
 			<path
-				d={`M ${railX} 0 V ${rowHeight}`}
+				d={`M ${railX} ${hideIncomingRail ? rowHeight / 2 : 0} V ${rowHeight}`}
 				data-trace-tree-continuation
 				data-trace-tree-line
 				data-trace-tree-line-depth={depth}
@@ -353,10 +375,12 @@ function ConversationTraceTreeExpandedBodyRails({
 			: [],
 	);
 	if (continues) {
-		activeRails.push({
-			depth,
-			x: getConversationTraceTreeX(depth, connectorStyle),
-		});
+		const currentX = getConversationTraceTreeX(depth, connectorStyle);
+		if (
+			!activeRails.some((rail) => rail.depth === depth && rail.x === currentX)
+		) {
+			activeRails.push({ depth, x: currentX });
+		}
 	}
 	if (activeRails.length === 0) {
 		return null;
@@ -398,6 +422,7 @@ function ConversationTraceTreeConnector({
 	ancestorRails,
 	continues,
 	depth,
+	hideIncomingRail,
 	rowHeight,
 	shape,
 	sticky,
@@ -405,6 +430,7 @@ function ConversationTraceTreeConnector({
 	ancestorRails: readonly boolean[];
 	continues: boolean;
 	depth: number;
+	hideIncomingRail: boolean;
 	rowHeight: number;
 	shape: ConversationTraceTreeConnectorShape;
 	sticky: boolean;
@@ -426,14 +452,16 @@ function ConversationTraceTreeConnector({
 			: [],
 	);
 	const branchPath = getConversationTraceTreeBranchPath({
-		continues,
+		continues: hideIncomingRail ? true : continues,
 		currentX,
 		elbowY,
 		style: connectorStyle,
 		width,
 	});
 	const iconTerminalFeedPath =
-		connectorStyle === "interfere-branch-dots-no-horizontal" && !continues
+		!hideIncomingRail &&
+		connectorStyle === "interfere-branch-dots-no-horizontal" &&
+		!continues
 			? `M ${currentX} 0 V ${Math.max(elbowY - INTERFERE_EVENT_ICON_RAIL_OFFSET, 0)}`
 			: undefined;
 	const stickyRailOffset =
@@ -475,7 +503,7 @@ function ConversationTraceTreeConnector({
 			{shape === "through" ? (
 				sticky ? (
 					<path
-						d={`M ${currentX} 0 V ${rowHeight}`}
+						d={`M ${currentX} ${hideIncomingRail ? elbowY : 0} V ${rowHeight}`}
 						data-trace-tree-continuation
 						data-trace-tree-line-depth={depth}
 					/>
@@ -486,16 +514,18 @@ function ConversationTraceTreeConnector({
 						connectorStyle === "interfere" ||
 						isDottedInterfereBranchStyle(connectorStyle) ? (
 							<>
-								<path
-									d={`M ${currentX} 0 V ${Math.max(elbowY - stickyRailOffset, 0)}`}
-									data-trace-tree-line-depth={depth}
-									data-trace-tree-marker-geometry={
-										isDottedInterfereBranchStyle(connectorStyle)
-											? "dot"
-											: undefined
-									}
-									data-trace-tree-rail-segment="incoming"
-								/>
+								{hideIncomingRail ? null : (
+									<path
+										d={`M ${currentX} 0 V ${Math.max(elbowY - stickyRailOffset, 0)}`}
+										data-trace-tree-line-depth={depth}
+										data-trace-tree-marker-geometry={
+											isDottedInterfereBranchStyle(connectorStyle)
+												? "dot"
+												: undefined
+										}
+										data-trace-tree-rail-segment="incoming"
+									/>
+								)}
 								<path
 									d={`M ${currentX} ${elbowY + stickyRailOffset} V ${rowHeight}`}
 									data-trace-tree-line-depth={depth}
@@ -509,6 +539,7 @@ function ConversationTraceTreeConnector({
 								{isDottedInterfereBranchStyle(connectorStyle) ? (
 									<InterfereEventIconRailSegments
 										depth={depth}
+										hideIncomingRail={hideIncomingRail}
 										markerY={elbowY}
 										railX={currentX}
 										rowHeight={rowHeight}
@@ -517,7 +548,7 @@ function ConversationTraceTreeConnector({
 							</>
 						) : (
 							<path
-								d={`M ${currentX} 0 V ${rowHeight}`}
+								d={`M ${currentX} ${hideIncomingRail ? elbowY : 0} V ${rowHeight}`}
 								data-trace-tree-continuation
 								data-trace-tree-line-depth={depth}
 							/>
@@ -580,6 +611,7 @@ export function ConversationTraceTreeNode({
 	descends = false,
 	depth,
 	expanded = false,
+	hideIncomingRail = false,
 	rowHeight = CONVERSATION_TRACE_TREE_ROW_HEIGHT,
 	sticky: stickyOverride,
 	stickyTop: stickyTopOverride,
@@ -592,6 +624,7 @@ export function ConversationTraceTreeNode({
 	descends?: boolean;
 	depth: number;
 	expanded?: boolean;
+	hideIncomingRail?: boolean;
 	rowHeight?: number;
 	sticky?: boolean;
 	stickyTop?: number;
@@ -641,6 +674,7 @@ export function ConversationTraceTreeNode({
 				ancestorRails={ancestorRails}
 				continues={continues}
 				depth={depth}
+				hideIncomingRail={hideIncomingRail}
 				rowHeight={rowHeight}
 				shape={connectorShape}
 				sticky={sticky}
@@ -690,6 +724,7 @@ export function ConversationTraceTreeItem({
 	continuesThroughSubtree = false,
 	descends = false,
 	depth,
+	hideIncomingRail = false,
 	incomingRailExtension = 0,
 	rowHeight = CONVERSATION_TRACE_TREE_ROW_HEIGHT,
 	sticky,
@@ -703,6 +738,7 @@ export function ConversationTraceTreeItem({
 	continuesThroughSubtree?: boolean;
 	descends?: boolean;
 	depth: number;
+	hideIncomingRail?: boolean;
 	incomingRailExtension?: number;
 	rowHeight?: number;
 	sticky?: boolean;
@@ -759,6 +795,7 @@ export function ConversationTraceTreeItem({
 				<ConversationTraceTreeRail
 					continues={continues}
 					depth={depth}
+					hideIncomingRail={hideIncomingRail}
 					ownedByStickyConnector={rowSticky}
 					rowHeight={rowHeight}
 					shape={connectorShape}
@@ -772,6 +809,7 @@ export function ConversationTraceTreeItem({
 						descends={descends}
 						depth={depth}
 						expanded={rowBody?.expanded === true}
+						hideIncomingRail={hideIncomingRail}
 						rowHeight={rowHeight}
 						sticky={rowSticky}
 						stickyTop={inheritedStickyOffset}
@@ -1277,22 +1315,30 @@ function AgentTraceTreeBranchList({
 		<ol className="list-none">
 			{branches.map((branch) => {
 				const branchHasNext = branch.hasFollowingBranch || hasNextSibling;
-				const childRows = branch.children.map((child, childIndex) => (
-					<li key={child.key}>
-						<ConversationTraceTreeItem
-							continues={
-								branch.childStartIndex + childIndex < branch.totalChildren - 1
-							}
-							depth={depth + 1}
-							incomingRailExtension={
-								branch.root !== undefined && childIndex === 0 ? 2 : 0
-							}
-							rowHeight={CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT}
-						>
-							<div className="-ml-3">{child.row}</div>
-						</ConversationTraceTreeItem>
-					</li>
-				));
+				const childRows = branch.children.map((child, childIndex) => {
+					if (child.kind === "replacement") {
+						return <li key={child.key}>{child.content}</li>;
+					}
+					const continues =
+						branch.childStartIndex + childIndex < branch.totalChildren - 1;
+					return (
+						<li key={child.key}>
+							<ConversationTraceTreeItem
+								continues={continues}
+								continuesThroughSubtree={continues}
+								depth={depth + 1}
+								descends={child.subtree !== undefined}
+								incomingRailExtension={
+									branch.root !== undefined && childIndex === 0 ? 2 : 0
+								}
+								rowHeight={CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT}
+								subtree={child.subtree}
+							>
+								<div className="-ml-3">{child.row}</div>
+							</ConversationTraceTreeItem>
+						</li>
+					);
+				});
 				if (branch.hasRoot && !branch.root) {
 					return (
 						<ConversationTraceTreeRailContext.Provider
@@ -1304,15 +1350,30 @@ function AgentTraceTreeBranchList({
 					);
 				}
 				if (branch.root) {
+					if (branch.root.kind === "replacement") {
+						return (
+							<li key={branch.key}>
+								{branch.root.content}
+								{branch.totalChildren > 0 ? (
+									<ol className="list-none">{childRows}</ol>
+								) : null}
+							</li>
+						);
+					}
 					const subtree =
-						branch.totalChildren > 0 ? (
-							<ol className="list-none">{childRows}</ol>
+						branch.totalChildren > 0 || branch.root.subtree !== undefined ? (
+							<>
+								{branch.root.subtree}
+								{branch.totalChildren > 0 ? (
+									<ol className="list-none">{childRows}</ol>
+								) : null}
+							</>
 						) : undefined;
 					return (
 						<li key={branch.key}>
 							<ConversationTraceTreeItem
 								continues={branchHasNext}
-								descends={branch.totalChildren > 0}
+								descends={subtree !== undefined}
 								depth={depth}
 								rowHeight={CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT}
 								sticky={branch.sticky}
@@ -1323,20 +1384,28 @@ function AgentTraceTreeBranchList({
 						</li>
 					);
 				}
-				return branch.children.map((child, childIndex) => (
-					<li key={child.key}>
-						<ConversationTraceTreeItem
-							continues={
-								branch.childStartIndex + childIndex <
-									branch.totalChildren - 1 || branchHasNext
-							}
-							depth={depth}
-							rowHeight={CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT}
-						>
-							<div className="-ml-3">{child.row}</div>
-						</ConversationTraceTreeItem>
-					</li>
-				));
+				return branch.children.map((child, childIndex) => {
+					if (child.kind === "replacement") {
+						return <li key={child.key}>{child.content}</li>;
+					}
+					const continues =
+						branch.childStartIndex + childIndex < branch.totalChildren - 1 ||
+						branchHasNext;
+					return (
+						<li key={child.key}>
+							<ConversationTraceTreeItem
+								continues={continues}
+								continuesThroughSubtree={continues}
+								depth={depth}
+								descends={child.subtree !== undefined}
+								rowHeight={CONVERSATION_TRACE_TREE_COMPACT_ROW_HEIGHT}
+								subtree={child.subtree}
+							>
+								<div className="-ml-3">{child.row}</div>
+							</ConversationTraceTreeItem>
+						</li>
+					);
+				});
 			})}
 		</ol>
 	);
@@ -1482,10 +1551,12 @@ export function AgentTraceTreeContinuationSection({
 export function AgentTraceTreeSection({
 	agentLabel,
 	agentModel,
+	modelSetting,
 	anchorId,
 	continuesAfter = false,
 	defaultOpen = true,
 	events,
+	expandable = true,
 	focus,
 	headerHeight,
 	headerTrailing,
@@ -1498,10 +1569,12 @@ export function AgentTraceTreeSection({
 }: {
 	agentLabel: string;
 	agentModel: string | undefined;
+	modelSetting?: string;
 	anchorId?: string;
 	continuesAfter?: boolean;
 	defaultOpen?: boolean;
 	events: TraceEvent[];
+	expandable?: boolean;
 	focus?: TraceFocusRequest;
 	headerHeight?: number;
 	headerTrailing?: ReactNode;
@@ -1513,16 +1586,19 @@ export function AgentTraceTreeSection({
 	terminal?: boolean;
 }) {
 	const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
-	const open = controlledOpen ?? uncontrolledOpen;
+	const open = expandable ? (controlledOpen ?? uncontrolledOpen) : true;
 	const setOpen = useCallback(
 		(next: SetStateAction<boolean>) => {
+			if (!expandable) {
+				return;
+			}
 			const nextOpen = typeof next === "function" ? next(open) : next;
 			if (controlledOpen === undefined) {
 				setUncontrolledOpen(nextOpen);
 			}
 			onOpenChange?.(nextOpen);
 		},
-		[controlledOpen, onOpenChange, open],
+		[controlledOpen, expandable, onOpenChange, open],
 	);
 	const panelId = useId();
 
@@ -1535,10 +1611,19 @@ export function AgentTraceTreeSection({
 	const modelHeaderData = {
 		agentLabel,
 		agentModel,
+		...(modelSetting ? { modelSetting } : {}),
 		continues: continuesAfter,
 		planMode,
 		terminal: terminal ?? !continuesAfter,
 	};
+	const modelHeader = (
+		<ModelSectionHeader
+			collapsedContent={<AgentCollapsedTraceIcons events={events} />}
+			data={modelHeaderData}
+			expanded={open}
+			expandable={expandable}
+		/>
+	);
 	const sectionPanel = (
 		<Collapsible.Panel id={panelId} className="transition-none">
 			<ol className="list-none">
@@ -1573,21 +1658,23 @@ export function AgentTraceTreeSection({
 					subtree={sectionPanel}
 				>
 					<div
-						className="flex min-h-10 min-w-0 items-center gap-2 pr-3"
+						className="@container/model-header flex min-h-10 min-w-0 items-center gap-2 pr-3"
 						data-transcript-model-header-source="row"
 						data-transcript-model-header-terminal={
 							modelHeaderData.terminal || undefined
 						}
-						data-trace-hover-row
+						data-trace-hover-row={expandable || undefined}
 						style={headerHeight ? { minHeight: headerHeight } : undefined}
 					>
-						<Collapsible.Trigger className="group flex min-h-10 min-w-0 flex-1 items-center gap-2 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)">
-							<ModelSectionHeader
-								collapsedContent={<AgentCollapsedTraceIcons events={events} />}
-								data={modelHeaderData}
-								expanded={open}
-							/>
-						</Collapsible.Trigger>
+						{expandable ? (
+							<Collapsible.Trigger className="group flex min-h-10 min-w-0 flex-1 items-center gap-2 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)">
+								{modelHeader}
+							</Collapsible.Trigger>
+						) : (
+							<div className="flex min-h-10 min-w-0 flex-1 items-center gap-2 text-left">
+								{modelHeader}
+							</div>
+						)}
 						{headerTrailing ? (
 							<div className="ml-auto min-w-0" data-trace-model-metadata>
 								{headerTrailing}

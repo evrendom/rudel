@@ -40,7 +40,7 @@ const structuralReasoningText = [
 	"First reasoning line.",
 	"Second reasoning line.",
 	"Third reasoning line.",
-	"Fourth reasoning line.",
+	`Fourth reasoning line. ${"reasoning ".repeat(170)}`,
 ].join("\n");
 const structuralAgentTurn: TraceItem = {
 	executionMode: "unknown",
@@ -75,10 +75,18 @@ const structuralMessageTurn: TraceItem = {
 			kind: "message",
 			id: "message-1",
 			timestamp: "2026-07-27T10:00:05Z",
-			content: ["First message line.", "Second.", "Third.", "Fourth."].join(
-				"\n",
-			),
-			text: ["First message line.", "Second.", "Third.", "Fourth."].join("\n"),
+			content: [
+				"First message line.",
+				"Second.",
+				"Third.",
+				`Fourth. ${"message ".repeat(190)}`,
+			].join("\n"),
+			text: [
+				"First message line.",
+				"Second.",
+				"Third.",
+				`Fourth. ${"message ".repeat(190)}`,
+			].join("\n"),
 		},
 		{
 			kind: "tool",
@@ -95,18 +103,18 @@ const topLevelExpandableItems: TraceItem[] = [
 	{
 		id: "summary-1",
 		kind: "summary",
-		text: ["First summary line.", "Second.", "Third.", "Fourth."].join("\n"),
+		text: `First summary line. ${"summary ".repeat(190)}`,
 		timestamp: undefined,
 	},
 	{
 		id: "system-1",
 		kind: "system",
 		systemType: "system",
-		text: ["First system line.", "Second.", "Third.", "Fourth."].join("\n"),
+		text: `First system line. ${"system ".repeat(220)}`,
 		timestamp: "2026-07-27T10:00:01Z",
 	},
 	{
-		content: "A user message with expandable content.",
+		content: `A user message with expandable content. ${"prompt ".repeat(220)}`,
 		id: "user-1",
 		kind: "user",
 		timestamp: "2026-07-27T10:00:02Z",
@@ -191,62 +199,12 @@ const longAgentTurn: TraceItem = {
 	),
 };
 
-function userItem(id: string, timestamp: string): TraceItem {
+function userItem(
+	id: string,
+	timestamp: string,
+): Extract<TraceItem, { kind: "user" }> {
 	return { kind: "user", id, timestamp, content: `text of ${id}` };
 }
-
-describe("ConversationTrace jump-to-row", () => {
-	it("opens the collapsed agent turn hiding the targeted row", () => {
-		const { rerender } = render(
-			<ConversationTrace items={[buriedAgentTurn]} />,
-		);
-
-		expect(screen.queryByText("the buried reply")).not.toBeInTheDocument();
-
-		rerender(
-			<ConversationTrace
-				items={[buriedAgentTurn]}
-				focus={{ anchorId: "message-0", requestId: 1 }}
-			/>,
-		);
-
-		expect(screen.getByText("the buried reply")).toBeInTheDocument();
-	});
-
-	it("leaves rows the jump does not target alone", () => {
-		render(
-			<ConversationTrace
-				items={[buriedAgentTurn]}
-				focus={{ anchorId: "message-7", requestId: 1 }}
-			/>,
-		);
-
-		expect(screen.queryByText("the buried reply")).not.toBeInTheDocument();
-	});
-});
-
-describe("ConversationTrace timestamps", () => {
-	it("bookends the trace without relative gaps and keeps user rows collapsible", () => {
-		const { container } = render(
-			<ConversationTrace
-				items={[
-					userItem("u1", "2026-07-27T10:00:00Z"),
-					userItem("u2", "2026-07-27T10:00:05Z"),
-					userItem("u3", "2026-07-27T10:00:20Z"),
-				]}
-			/>,
-		);
-
-		expect(screen.queryByText("+5s")).not.toBeInTheDocument();
-		expect(screen.queryByText("+15s")).not.toBeInTheDocument();
-		expect(container.querySelectorAll("[data-trace-timestamp]")).toHaveLength(
-			2,
-		);
-		expect(
-			container.querySelectorAll("[data-trace-content-disclosure]")[0],
-		).toHaveAttribute("aria-expanded", "false");
-	});
-});
 
 describe("ConversationTrace conditional row bodies", () => {
 	it("toggles every top-level expandable row kind without retained body DOM", () => {
@@ -395,7 +353,10 @@ describe("ConversationTrace sticky surfaces", () => {
 				expandedSpeakerLayout="trace-tree"
 				items={[
 					buriedAgentTurn,
-					userItem("sticky-user", "2026-07-27T10:00:10Z"),
+					{
+						...userItem("sticky-user", "2026-07-27T10:00:10Z"),
+						content: `sticky ${"user ".repeat(320)}`,
+					},
 				]}
 			/>,
 		);

@@ -47,6 +47,7 @@ type BodyWindowRecord = {
 export function createSessionTranscriptWindowStore(input: {
 	fetchWindow: (
 		request: SessionDetailWindowRequest,
+		signal?: AbortSignal,
 	) => Promise<SessionDetailWindow>;
 	initialWindow: SessionDetailWindow;
 	onEvictWindow?: (request: SessionDetailWindowRequest) => void;
@@ -69,10 +70,8 @@ export function createSessionTranscriptWindowStore(input: {
 		initialWindow.turns.map((turn) => [turn.turnId, turn]),
 	);
 	const listeners = new Set<() => void>();
-	const pending = new Map<
-		TranscriptWindowDirection | "anchor" | "rehydrate",
-		Promise<boolean>
-	>();
+	const pending = new Map<string, Promise<boolean>>();
+	const anchorControllers = new Map<string, AbortController>();
 	const bodyWindows: BodyWindowRecord[] = [
 		createBodyWindowRecord(initialWindow, initialRequest, "initial:0"),
 	];
@@ -203,9 +202,24 @@ export function createSessionTranscriptWindowStore(input: {
 	const store: SessionTranscriptWindowStore = {
 		getSnapshot: () => snapshot,
 		loadAnchor: (turnId) => {
-			const active = pending.get("anchor");
+			const existingTurn = turnById.get(turnId);
+			if (
+				existingTurn &&
+				(existingTurn.body ||
+					!existingTurn.hasBody ||
+					existingTurn.bodyOmitted === "oversized")
+			) {
+				return Promise.resolve(true);
+			}
+			const key = `anchor:${turnId}`;
+			const active = pending.get(key);
 			if (active) {
 				return active;
+			}
+			for (const [pendingKey, controller] of anchorControllers) {
+				if (pendingKey !== key) {
+					controller.abort();
+				}
 			}
 			const request = {
 				anchorTurnId: turnId,
@@ -214,13 +228,24 @@ export function createSessionTranscriptWindowStore(input: {
 				revision: snapshot.revision,
 				sessionId,
 			};
-			const operation = fetchWindow(request)
+			const controller = new AbortController();
+			anchorControllers.set(key, controller);
+			const operation = fetchWindow(request, controller.signal)
 				.then((window) => store.mergeWindow(window, "anchor", request))
+				.catch((error: unknown) => {
+					if (controller.signal.aborted) {
+						return false;
+					}
+					throw error;
+				})
 				.finally(() => {
-					pending.delete("anchor");
+					if (anchorControllers.get(key) === controller) {
+						anchorControllers.delete(key);
+					}
+					pending.delete(key);
 					publish();
 				});
-			pending.set("anchor", operation);
+			pending.set(key, operation);
 			publish();
 			return operation;
 		},
@@ -313,6 +338,10 @@ export function createSessionTranscriptWindowStore(input: {
 			const changed = enforceRetention();
 			if (changed) {
 				publish();
+			}
+			const missingTurnId = turnIds.find((turnId) => !turnById.has(turnId));
+			if (missingTurnId) {
+				return store.loadAnchor(missingTurnId);
 			}
 			return rehydrateVisibleWindow();
 		},

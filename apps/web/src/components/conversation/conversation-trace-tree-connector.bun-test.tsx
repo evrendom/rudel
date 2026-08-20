@@ -267,4 +267,37 @@ describe("ConversationTraceTree connector styles", () => {
 		expect(promptMarkup).toContain('x1="16"');
 		expect(promptMarkup).toContain('y2="100%"');
 	});
+
+	test("renders an overlapping current and ancestor rail only once", () => {
+		const nestedMarkup = renderToStaticMarkup(
+			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
+				<ConversationTraceTreeItem
+					continues
+					depth={1}
+					subtree={
+						<ConversationTraceTreeItem
+							continues
+							depth={2}
+							subtree={
+								<ConversationTraceTreeItem
+									continues
+									continuesThroughSubtree
+									depth={2}
+									subtree={<p>Nested trace content</p>}
+								>
+									<span>Nested model</span>
+								</ConversationTraceTreeItem>
+							}
+						>
+							<span>Outer event</span>
+						</ConversationTraceTreeItem>
+					}
+				>
+					<span>Outer model</span>
+				</ConversationTraceTreeItem>
+			</ConversationTraceTreeConnectorStyleProvider>,
+		);
+
+		expect([...nestedMarkup.matchAll(/<line[^>]*x1="39"/g)]).toHaveLength(1);
+	});
 });

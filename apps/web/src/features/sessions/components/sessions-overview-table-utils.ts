@@ -1,4 +1,4 @@
-import type { SessionAnalytics } from "@rudel/api-routes";
+import { resolveRepoIdentity, type SessionAnalytics } from "@rudel/api-routes";
 import {
 	resolveSessionErrorCount,
 	resolveSessionSubagentCount,
@@ -7,21 +7,20 @@ import { getSessionTimestamp } from "@/features/sessions/session-ordering";
 import { calculateCost, formatUsername } from "@/lib/format";
 
 export const SESSION_OVERVIEW_GRID_CLASS_NAME =
-	"grid-cols-[80px_288px_215px_200px_150px_150px_170px_180px_140px_320px]";
-export const SESSION_OVERVIEW_MIN_WIDTH_CLASS_NAME = "min-w-[1893px]";
-export const SESSION_OVERVIEW_SECOND_FROZEN_COLUMN_LEFT_CLASS_NAME =
-	"left-[80px]";
+	"grid-cols-[112px_48px_264px_180px_180px_112px_112px_112px_112px_88px_88px_104px]";
+export const SESSION_OVERVIEW_MIN_WIDTH_CLASS_NAME = "min-w-[1512px]";
 export const SESSION_OVERVIEW_COLUMNS = [
-	{ align: "left", key: "time", label: "Date" },
+	{ align: "left", key: "time", label: "Time" },
 	{ align: "left", key: "repository", label: "Repository" },
 	{ align: "left", key: "user", label: "Member" },
 	{ align: "left", key: "model", label: "Model" },
-	{ align: "right", key: "tokens", label: "Tokens" },
+	{ align: "right", key: "duration", label: "Length" },
+	{ align: "right", key: "input", label: "Input" },
+	{ align: "right", key: "output", label: "Output" },
 	{ align: "right", key: "cost", label: "Cost" },
-	{ align: "right", key: "subagents", label: "Subagents Used" },
-	{ align: "right", key: "errors", label: "Tool/API Errors" },
-	{ align: "right", key: "duration", label: "Duration" },
-	{ align: "left", key: "skills", label: "Skills Used" },
+	{ align: "right", key: "errors", label: "Errors" },
+	{ align: "right", key: "skills", label: "Skills" },
+	{ align: "right", key: "subagents", label: "Subagents" },
 ] as const;
 
 export type SessionOverviewColumnKey =
@@ -35,7 +34,8 @@ export const SESSION_OVERVIEW_FILTER_KEYS = [
 export type SessionOverviewFilterKey =
 	(typeof SESSION_OVERVIEW_FILTER_KEYS)[number];
 export const SESSION_OVERVIEW_RANGE_FILTER_KEYS = [
-	"tokens",
+	"input",
+	"output",
 	"cost",
 	"subagents",
 	"errors",
@@ -73,7 +73,6 @@ export type SessionSortState = {
 	key: SessionOverviewColumnKey;
 	direction: SortDirection;
 };
-
 export function buildSessionOverviewFilterOptions(
 	sessions: readonly SessionAnalytics[],
 	filterKey: SessionOverviewFilterKey,
@@ -118,8 +117,9 @@ export function buildSessionOverviewRangeBounds(
 		cost: buildSessionOverviewRangeBound(sessions, "cost"),
 		duration: buildSessionOverviewRangeBound(sessions, "duration"),
 		errors: buildSessionOverviewRangeBound(sessions, "errors"),
+		input: buildSessionOverviewRangeBound(sessions, "input"),
+		output: buildSessionOverviewRangeBound(sessions, "output"),
 		subagents: buildSessionOverviewRangeBound(sessions, "subagents"),
-		tokens: buildSessionOverviewRangeBound(sessions, "tokens"),
 	};
 }
 
@@ -173,8 +173,10 @@ export function compareSessions(
 					rightSession.subagent_types,
 				)
 			);
-		case "tokens":
-			return leftSession.total_tokens - rightSession.total_tokens;
+		case "input":
+			return leftSession.input_tokens - rightSession.input_tokens;
+		case "output":
+			return leftSession.output_tokens - rightSession.output_tokens;
 		case "cost":
 			return (
 				calculateCost(leftSession.input_tokens, leftSession.output_tokens, {
@@ -207,7 +209,8 @@ export function getInitialSortDirection(
 	switch (sortKey) {
 		case "skills":
 		case "subagents":
-		case "tokens":
+		case "input":
+		case "output":
 		case "cost":
 		case "errors":
 		case "duration":
@@ -219,7 +222,46 @@ export function getInitialSortDirection(
 }
 
 export function getRepositoryLabel(session: SessionAnalytics) {
-	return session.repository || "Untitled project";
+	const repository = session.repository?.trim();
+	const isRawRepository =
+		repository === session.project_path || repository === session.git_remote;
+
+	if (repository && !isRawRepository) {
+		return repository;
+	}
+
+	return resolveRepoIdentity({
+		gitRemote: session.git_remote ?? null,
+		packageName: null,
+		projectPath: session.project_path,
+	}).repoLabel;
+}
+
+export function getSessionBranchLabel(session: SessionAnalytics) {
+	const branch = session.git_branch?.trim().replace(/^refs\/heads\//, "");
+	if (!branch) {
+		return null;
+	}
+
+	const repositoryName = getRepositoryLabel(session)
+		.split("/")
+		.filter(Boolean)
+		.at(-1);
+	if (!repositoryName) {
+		return branch;
+	}
+
+	const repositoryNames = [
+		repositoryName,
+		repositoryName.replace(/[-_.]?v\d+$/i, ""),
+	].filter((name, index, names) => name && names.indexOf(name) === index);
+	const matchingRepositoryName = repositoryNames.find((name) =>
+		branch.toLowerCase().startsWith(`${name.toLowerCase()}/`),
+	);
+
+	return matchingRepositoryName
+		? branch.slice(matchingRepositoryName.length + 1)
+		: branch;
 }
 
 function getSessionOverviewFilterValues(
@@ -294,8 +336,10 @@ function getSessionOverviewRangeValue(
 	filterKey: SessionOverviewRangeFilterKey,
 ) {
 	switch (filterKey) {
-		case "tokens":
-			return session.total_tokens;
+		case "input":
+			return session.input_tokens;
+		case "output":
+			return session.output_tokens;
 		case "cost":
 			return calculateCost(session.input_tokens, session.output_tokens, {
 				at: session.session_date,

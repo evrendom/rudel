@@ -2,11 +2,13 @@ import {
 	SessionDetailOverviewSchema,
 	SessionDetailWindowSchema,
 } from "@rudel/api-routes";
-import { describe, expect, it } from "vitest";
+import { SCAN_VERSION } from "@rudel/language-signals";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	SESSION_DETAIL_BODY_CACHE_TIME_MS,
 	SESSION_DETAIL_OVERVIEW_STALE_TIME_MS,
 	sessionDetailOverviewPageQueryKey,
+	sessionDetailSpineQueryKey,
 	sessionDetailSubagentQueryKey,
 	sessionDetailTurnQueryKey,
 	sessionDetailWindowQueryKey,
@@ -22,6 +24,16 @@ const revision = "2026-08-16T08:30:00.123Z";
 
 function overviewFixture() {
 	return SessionDetailOverviewSchema.parse({
+		activityTotals: {
+			edit: 0,
+			error: 0,
+			read: 0,
+			signal: 0,
+			signalScanVersion: 1,
+			skill: 0,
+			subagent: 0,
+			write: 0,
+		},
 		revision,
 		session: {
 			durationMinutes: 90,
@@ -56,9 +68,15 @@ function overviewFixture() {
 					hasBody: true,
 					index: 0,
 					inputTokens: 900,
+					modelSignalCount: 0,
 					outputTokens: 50,
 					responsePreview: "Done",
+					signalCount: 0,
+					signalOccurrences: [],
+					signalOccurrencesOmittedCount: 0,
+					signalOccurrencesTruncated: false,
 					skills: [],
+					skillCount: 0,
 					skillEvents: [],
 					slashCommands: [],
 					startedAt: "2026-08-16T08:00:00.123Z",
@@ -75,6 +93,46 @@ function overviewFixture() {
 }
 
 describe("session detail fast-path query boundaries", () => {
+	afterEach(() => vi.restoreAllMocks());
+
+	it("keeps the server signal total and logs a client scan-version skew", () => {
+		const fixture = overviewFixture();
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+		const parsed = parseSessionDetailOverviewResponse(
+			{
+				...fixture,
+				activityTotals: {
+					...fixture.activityTotals,
+					signal: 7,
+					signalScanVersion: SCAN_VERSION + 1,
+				},
+			},
+			"session-1",
+		);
+
+		expect(parsed.overview.activityTotals.signal).toBe(7);
+		expect(warn).toHaveBeenCalledWith(
+			"[SessionDetailView] Language signal scan version skew",
+			{
+				clientSignalScanVersion: SCAN_VERSION,
+				serverSignalScanVersion: SCAN_VERSION + 1,
+				sessionId: "session-1",
+			},
+		);
+	});
+
+	it("marks activity totals synthesized for an older API as page-local", () => {
+		vi.spyOn(console, "warn").mockImplementation(() => undefined);
+		const { activityTotals: _activityTotals, ...legacyFixture } =
+			overviewFixture();
+		const parsed = parseSessionDetailOverviewResponse(
+			legacyFixture,
+			"session-1",
+		);
+
+		expect(parsed.overview.activityTotalsScope).toBe("page");
+	});
+
 	it("keeps revision and body identity in every immutable query key", () => {
 		expect(
 			sessionDetailOverviewPageQueryKey({
@@ -103,6 +161,9 @@ describe("session detail fast-path query boundaries", () => {
 				subagentId: "agent-1",
 			}),
 		).toContain("agent-1");
+		expect(
+			sessionDetailSpineQueryKey({ revision, sessionId: "session-1" }),
+		).toEqual(["session-detail-v2", "spine", "session-1", revision]);
 		expect(
 			sessionDetailWindowQueryKey(
 				{

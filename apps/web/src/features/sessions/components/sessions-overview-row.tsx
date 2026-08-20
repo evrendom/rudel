@@ -2,14 +2,15 @@ import type { SessionAnalytics } from "@rudel/api-routes";
 import { User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
+import { SessionModelMark } from "@/features/sessions/components/session-model-mark";
 import {
 	resolveSessionErrorCount,
 	resolveSessionSubagentCount,
 } from "@/features/sessions/components/session-overview-metrics";
 import {
 	getRepositoryLabel,
+	getSessionBranchLabel,
 	SESSION_OVERVIEW_GRID_CLASS_NAME,
-	SESSION_OVERVIEW_SECOND_FROZEN_COLUMN_LEFT_CLASS_NAME,
 } from "@/features/sessions/components/sessions-overview-table-utils";
 import {
 	calculateCost,
@@ -17,7 +18,6 @@ import {
 	formatCurrency,
 	formatRoundedDuration,
 } from "@/lib/format";
-import { formatExactDateTime, formatRelativeTime } from "@/lib/time-utils";
 import { cn } from "@/lib/utils";
 
 type SessionsOverviewRowProps = {
@@ -27,13 +27,15 @@ type SessionsOverviewRowProps = {
 	getSessionHref: ((session: SessionAnalytics) => string) | undefined;
 	getSessionLinkState: ((session: SessionAnalytics) => unknown) | undefined;
 	maximumSessionCost: number;
-	maximumSessionTokens: number;
+	maximumSessionDuration: number;
+	maximumSessionInputTokens: number;
+	maximumSessionOutputTokens: number;
 	onSessionClick: ((session: SessionAnalytics) => void) | undefined;
 	session: SessionAnalytics;
 	userLabel: string;
 };
 
-function SessionMetricProgress({
+function SessionMetricMagnitude({
 	label,
 	maximumValue,
 	value,
@@ -42,14 +44,71 @@ function SessionMetricProgress({
 	maximumValue: number;
 	value: number;
 }) {
-	return (
-		<progress
-			aria-label={label}
-			className="h-1.5 w-8 shrink-0 appearance-none overflow-hidden rounded-full bg-(--session-overview-border) [&::-moz-progress-bar]:rounded-full [&::-moz-progress-bar]:bg-(--session-overview-accent) [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-(--session-overview-border) [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-(--session-overview-accent)"
-			max={maximumValue > 0 ? maximumValue : 1}
-			value={value}
-		/>
+	const magnitude = Math.min(
+		100,
+		Math.max(0, maximumValue > 0 ? (value / maximumValue) * 100 : 0),
 	);
+	const roundedMagnitude = Math.round(magnitude);
+
+	return (
+		<div
+			aria-label={label}
+			aria-valuemax={100}
+			aria-valuemin={0}
+			aria-valuenow={roundedMagnitude}
+			className="relative flex size-4 shrink-0 items-center justify-center"
+			role="progressbar"
+			title={`${roundedMagnitude}% of the largest value in this table`}
+		>
+			<svg
+				aria-hidden="true"
+				className="size-4 shrink-0 overflow-visible fill-none"
+				viewBox="0 0 16 16"
+			>
+				<circle
+					className="stroke-(--session-overview-border)"
+					cx="8"
+					cy="8"
+					r="6.25"
+					strokeWidth="2.5"
+				/>
+				{magnitude > 0 ? (
+					<circle
+						className="stroke-(--session-overview-accent)"
+						cx="8"
+						cy="8"
+						pathLength="100"
+						r="6.25"
+						strokeDasharray={`${magnitude} ${100 - magnitude}`}
+						strokeLinecap="round"
+						strokeWidth="2.5"
+						transform="rotate(-90 8 8)"
+					/>
+				) : null}
+			</svg>
+		</div>
+	);
+}
+
+function getSessionClockParts(dateString: string) {
+	const normalizedDate = dateString.endsWith("Z")
+		? dateString
+		: `${dateString}Z`;
+	const date = new Date(normalizedDate);
+
+	if (Number.isNaN(date.getTime())) {
+		return { date: "", hour: "—", minute: "", period: "" };
+	}
+
+	return {
+		date: date.toLocaleDateString("en-US", {
+			month: "short",
+			day: "numeric",
+		}),
+		hour: (date.getHours() % 12 || 12).toString().padStart(2, "0"),
+		minute: date.getMinutes().toString().padStart(2, "0"),
+		period: date.getHours() >= 12 ? "PM" : "AM",
+	};
 }
 
 export function SessionsOverviewRow({
@@ -59,13 +118,16 @@ export function SessionsOverviewRow({
 	getSessionHref,
 	getSessionLinkState,
 	maximumSessionCost,
-	maximumSessionTokens,
+	maximumSessionDuration,
+	maximumSessionInputTokens,
+	maximumSessionOutputTokens,
 	onSessionClick,
 	session,
 	userLabel,
 }: SessionsOverviewRowProps) {
 	const sessionHref = getSessionHref?.(session);
 	const repositoryLabel = getRepositoryLabel(session);
+	const branchLabel = getSessionBranchLabel(session);
 	const sessionCost = calculateCost(
 		session.input_tokens,
 		session.output_tokens,
@@ -73,11 +135,6 @@ export function SessionsOverviewRow({
 			at: session.session_date,
 			model: session.model_used,
 		},
-	);
-	const visibleSkills = session.skills.slice(0, 2);
-	const additionalSkillCount = Math.max(
-		session.skills.length - visibleSkills.length,
-		0,
 	);
 	const errorCount = resolveSessionErrorCount(session.error_count);
 	const subagentCount = resolveSessionSubagentCount(
@@ -90,41 +147,71 @@ export function SessionsOverviewRow({
 		(onSessionClick !== undefined || sessionHref !== undefined) &&
 		(canOpenSession?.(session) ?? true);
 	const isActive = activeSessionId === session.session_id;
+	const clock = getSessionClockParts(session.session_date);
 	const rowClassName = cn(
-		"group/session grid h-11 w-full text-left outline-none focus-visible:z-20 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent) sm:h-9",
+		"group/session grid h-9 w-full text-left outline-none focus-visible:z-20 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)",
 		SESSION_OVERVIEW_GRID_CLASS_NAME,
 		isClickable ? "cursor-pointer" : "cursor-default opacity-65",
 	);
 	const cellClassName = cn(
-		"flex min-w-0 items-center border-r border-b border-(--session-overview-border) bg-(--session-overview-surface) px-3 [border-right-color:transparent]",
+		"flex min-w-0 items-center bg-(--session-overview-surface) px-3",
 		isClickable &&
 			"group-hover/session:bg-(--session-overview-hover) group-focus-visible/session:bg-(--session-overview-hover)",
 		isActive && "bg-(--session-overview-hover)",
 	);
 	const rowContents = (
 		<>
-			<div className={cn(cellClassName, "sticky left-0 z-10")}>
+			<div className={cn(cellClassName, "justify-start px-1.5")}>
 				<time
 					dateTime={session.session_date}
-					title={formatExactDateTime(session.session_date)}
-					className="whitespace-nowrap text-base font-medium tracking-[-0.01em] text-(--session-overview-muted) tabular-nums sm:text-sm"
+					className="grid w-full grid-cols-[2.25rem_1fr] items-baseline gap-0.5 whitespace-nowrap text-xs font-normal tracking-normal text-[#787774] tabular-nums [font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe_UI_Variable_Display','Segoe_UI',Helvetica,Arial,sans-serif] dark:text-white/65"
 				>
-					{formatRelativeTime(session.session_date)}
+					<span className="text-left">{clock.date}</span>
+					<span className="flex items-baseline justify-start">
+						<span>
+							{clock.hour}
+							{clock.minute ? ":" : ""}
+						</span>
+						<span>
+							{clock.minute}
+							{clock.period ? ` ${clock.period}` : ""}
+						</span>
+					</span>
 				</time>
 			</div>
-			<div
-				className={cn(
-					cellClassName,
-					"sticky z-10 px-4",
-					SESSION_OVERVIEW_SECOND_FROZEN_COLUMN_LEFT_CLASS_NAME,
-				)}
-			>
+			<div className={cn(cellClassName, "justify-center px-2")}>
+				<SessionModelMark
+					avatarUrl={avatarUrl}
+					model={session.model_used}
+					userLabel={userLabel}
+				/>
+			</div>
+			<div className={cellClassName}>
 				<p
-					className="min-w-0 truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-text) sm:text-sm"
+					className={cn(
+						"min-w-0 truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-text) sm:text-sm",
+						branchLabel && "max-w-[55%]",
+					)}
 					title={repositoryLabel}
 				>
 					{repositoryLabel}
 				</p>
+				{branchLabel ? (
+					<>
+						<span
+							aria-hidden="true"
+							className="shrink-0 px-1.5 text-(--session-overview-subtle)"
+						>
+							·
+						</span>
+						<p
+							className="min-w-0 flex-1 truncate text-base font-normal tracking-[-0.01em] text-(--session-overview-muted) sm:text-sm"
+							title={branchLabel}
+						>
+							{branchLabel}
+						</p>
+					</>
+				) : null}
 			</div>
 			<div className={cellClassName} title={userLabel}>
 				{avatarUrl ? (
@@ -151,41 +238,57 @@ export function SessionsOverviewRow({
 				</div>
 			</div>
 			<div className={cn(cellClassName, "justify-end")}>
-				<div className="flex min-w-0 items-center justify-end gap-2">
-					<p className="truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-muted) tabular-nums sm:text-sm">
-						{formatCompactNumber(session.total_tokens)}
-					</p>
-					<SessionMetricProgress
-						label={`${session.total_tokens.toLocaleString()} tokens relative to the largest session`}
-						maximumValue={maximumSessionTokens}
-						value={session.total_tokens}
+				<div className="flex min-w-0 items-center justify-end gap-1.5">
+					<SessionMetricMagnitude
+						label={`${formatRoundedDuration(session.duration_min)} relative session length`}
+						maximumValue={maximumSessionDuration}
+						value={session.duration_min}
 					/>
+					<p className="truncate font-mono text-base font-light text-(--session-overview-muted) tabular-nums sm:text-sm">
+						{formatRoundedDuration(session.duration_min)}
+					</p>
 				</div>
 			</div>
 			<div className={cn(cellClassName, "justify-end")}>
-				<div className="flex min-w-0 items-center justify-end gap-2">
-					<p className="truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-muted) tabular-nums sm:text-sm">
-						{formatCurrency(sessionCost)}
+				<div className="flex min-w-0 items-center justify-end gap-1.5">
+					<SessionMetricMagnitude
+						label={`${session.input_tokens.toLocaleString()} input tokens relative to the largest session`}
+						maximumValue={maximumSessionInputTokens}
+						value={session.input_tokens}
+					/>
+					<p className="truncate font-mono text-base font-light text-(--session-overview-muted) tabular-nums sm:text-sm">
+						{formatCompactNumber(session.input_tokens)}
 					</p>
-					<SessionMetricProgress
+				</div>
+			</div>
+			<div className={cn(cellClassName, "justify-end")}>
+				<div className="flex min-w-0 items-center justify-end gap-1.5">
+					<SessionMetricMagnitude
+						label={`${session.output_tokens.toLocaleString()} output tokens relative to the largest session`}
+						maximumValue={maximumSessionOutputTokens}
+						value={session.output_tokens}
+					/>
+					<p className="truncate font-mono text-base font-light text-(--session-overview-muted) tabular-nums sm:text-sm">
+						{formatCompactNumber(session.output_tokens)}
+					</p>
+				</div>
+			</div>
+			<div className={cn(cellClassName, "justify-end")}>
+				<div className="flex min-w-0 items-center justify-end gap-1.5">
+					<SessionMetricMagnitude
 						label={`${formatCurrency(sessionCost)} cost relative to the most expensive session`}
 						maximumValue={maximumSessionCost}
 						value={sessionCost}
 					/>
+					<p className="truncate font-mono text-base font-light text-(--session-overview-muted) tabular-nums sm:text-sm">
+						{formatCurrency(sessionCost)}
+					</p>
 				</div>
 			</div>
 			<div className={cn(cellClassName, "justify-end")}>
 				<p
-					className="truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-muted) tabular-nums sm:text-sm"
-					title={`${subagentCount.toLocaleString()} ${subagentCount === 1 ? "subagent" : "subagents"} used`}
-				>
-					{subagentCount.toLocaleString()}
-				</p>
-			</div>
-			<div className={cn(cellClassName, "justify-end")}>
-				<p
 					className={cn(
-						"truncate text-base font-medium tracking-[-0.01em] tabular-nums sm:text-sm",
+						"truncate font-mono text-base font-light tabular-nums sm:text-sm",
 						errorCount > 0
 							? "text-red-600 dark:text-red-400"
 							: "text-(--session-overview-muted)",
@@ -196,32 +299,20 @@ export function SessionsOverviewRow({
 				</p>
 			</div>
 			<div className={cn(cellClassName, "justify-end")}>
-				<p className="truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-muted) tabular-nums sm:text-sm">
-					{formatRoundedDuration(session.duration_min)}
+				<p
+					className="truncate font-mono text-base font-light text-(--session-overview-muted) tabular-nums sm:text-sm"
+					title={skillsTitle}
+				>
+					{session.skills.length.toLocaleString()}
 				</p>
 			</div>
-			<div className={cellClassName} title={skillsTitle}>
-				{visibleSkills.length > 0 ? (
-					<div className="flex min-w-0 items-center gap-1.5">
-						{visibleSkills.map((skill) => (
-							<span
-								key={skill}
-								className="min-w-0 truncate rounded-full bg-(--session-overview-hover) px-2 py-0.5 text-base font-medium tracking-[-0.01em] text-(--session-overview-text) sm:text-sm"
-							>
-								{skill}
-							</span>
-						))}
-						{additionalSkillCount > 0 ? (
-							<span className="shrink-0 rounded-full bg-(--session-overview-hover) px-1.5 py-0.5 text-base font-medium tracking-[-0.01em] text-(--session-overview-muted) tabular-nums sm:text-sm">
-								+{additionalSkillCount}
-							</span>
-						) : null}
-					</div>
-				) : (
-					<span className="text-base font-medium tracking-[-0.01em] text-(--session-overview-muted) sm:text-sm">
-						—
-					</span>
-				)}
+			<div className={cn(cellClassName, "justify-end")}>
+				<p
+					className="truncate font-mono text-base font-light text-(--session-overview-muted) tabular-nums sm:text-sm"
+					title={`${subagentCount.toLocaleString()} ${subagentCount === 1 ? "subagent" : "subagents"} used`}
+				>
+					{subagentCount.toLocaleString()}
+				</p>
 			</div>
 		</>
 	);

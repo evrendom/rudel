@@ -33,8 +33,9 @@ const createEmptyRangeFilters = (): SessionOverviewRangeFilterValues => ({
 	cost: { maximum: null, minimum: null },
 	duration: { maximum: null, minimum: null },
 	errors: { maximum: null, minimum: null },
+	input: { maximum: null, minimum: null },
+	output: { maximum: null, minimum: null },
 	subagents: { maximum: null, minimum: null },
-	tokens: { maximum: null, minimum: null },
 });
 
 export function useSessionsOverviewTableState({
@@ -121,10 +122,26 @@ export function useSessionsOverviewTableState({
 		[filteredSessions, sort.direction, sort.key, userMap],
 	);
 	const visibleSessions = sortedSessions.slice(0, visibleRowCount);
-	const maximumSessionTokens = useMemo(
+	const maximumSessionDuration = useMemo(
 		() =>
 			filteredSessions.reduce(
-				(maximum, session) => Math.max(maximum, session.total_tokens),
+				(maximum, session) => Math.max(maximum, session.duration_min),
+				0,
+			),
+		[filteredSessions],
+	);
+	const maximumSessionInputTokens = useMemo(
+		() =>
+			filteredSessions.reduce(
+				(maximum, session) => Math.max(maximum, session.input_tokens),
+				0,
+			),
+		[filteredSessions],
+	);
+	const maximumSessionOutputTokens = useMemo(
+		() =>
+			filteredSessions.reduce(
+				(maximum, session) => Math.max(maximum, session.output_tokens),
 				0,
 			),
 		[filteredSessions],
@@ -156,6 +173,7 @@ export function useSessionsOverviewTableState({
 	const resetVisibleRows = () => setVisibleRowCount(SESSION_ROW_BATCH_SIZE);
 
 	function handleSort(sortKey: SessionOverviewColumnKey) {
+		resetVisibleRows();
 		setSort((current) => ({
 			direction:
 				current.key === sortKey
@@ -211,7 +229,9 @@ export function useSessionsOverviewTableState({
 		hasActiveFilters,
 		loadNextSessionBatch,
 		maximumSessionCost,
-		maximumSessionTokens,
+		maximumSessionDuration,
+		maximumSessionInputTokens,
+		maximumSessionOutputTokens,
 		rangeFilterBounds,
 		rangeFilterValues,
 		recentSessions,
@@ -228,11 +248,14 @@ export function useSessionsOverviewTableState({
 			resetVisibleRows();
 		},
 		sort,
-		toggleSortDirection: () =>
+		sortedSessions,
+		toggleSortDirection: () => {
+			resetVisibleRows();
 			setSort((current) => ({
 				...current,
 				direction: current.direction === "asc" ? "desc" : "asc",
-			})),
+			}));
+		},
 		unloadedSessionCount: Math.max(
 			totalSessionCount - recentSessions.length,
 			0,

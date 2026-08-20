@@ -23,7 +23,12 @@ const option = {
 		skillEvents: [],
 		usageEvents: [],
 	},
+	modelSignalCount: 0,
 	preview: "ordinary response",
+	signalCount: 0,
+	signalOccurrences: [],
+	signalOccurrencesOmittedCount: 0,
+	signalOccurrencesTruncated: false,
 	slashCommands: [],
 	timing: {
 		durationLabel: undefined,

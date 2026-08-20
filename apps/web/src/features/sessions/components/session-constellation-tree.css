@@ -581,6 +581,19 @@
 	--trace-icon-fg: var(--trace-icon-violet-fg);
 }
 
+.session-constellation-tree
+	[data-trace-tree-row-content]
+	.session-turn-table-model-icon-shell {
+	filter: drop-shadow(0 0 0.75px rgb(0 0 0 / 14%));
+}
+
+.session-constellation-tree
+	[data-trace-tree-row-content]
+	.session-turn-table-model-icon {
+	--trace-icon-bg: #fff;
+	box-shadow: none;
+}
+
 .session-constellation-tree [data-trace-tool-icon] {
 	--trace-tool-icon-pastel-chroma: 0.045;
 	--trace-icon-bg: oklch(

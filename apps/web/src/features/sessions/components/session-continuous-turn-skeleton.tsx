@@ -1,3 +1,4 @@
+import { scanMemberLanguageSignals } from "@rudel/language-signals";
 import type { CSSProperties } from "react";
 import { Skeleton } from "@/app/ui/skeleton";
 import { ConversationTraceTreeItem } from "@/components/conversation/ConversationTrace";
@@ -40,13 +41,19 @@ export function SessionContinuousTurnSkeleton({
 								{userLabel}
 							</p>
 							<p className="min-w-0 flex-1 truncate text-[0.8125rem] leading-5 text-(--session-overview-text)">
-								<SignalText text={option.memberPreview} />
+								<SignalText
+									scanSignals={scanMemberLanguageSignals}
+									text={option.memberPreview}
+								/>
 							</p>
 						</div>
 					</ConversationTraceTreeItem>
 					<div className="grid min-w-0 gap-2 py-2 pr-3 pl-[3.25rem]">
 						<p className="line-clamp-3 whitespace-pre-wrap break-words text-[0.8125rem] leading-6 text-(--session-overview-text)">
-							<SignalText text={option.memberPreview} />
+							<SignalText
+								scanSignals={scanMemberLanguageSignals}
+								text={option.memberPreview}
+							/>
 						</p>
 						{previewTruncated ? (
 							<Skeleton

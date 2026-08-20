@@ -8,6 +8,16 @@ import {
 describe("session detail overview client model", () => {
 	it("maps a Codex overview into the existing ledger without pricing again", () => {
 		const overview = SessionDetailOverviewSchema.parse({
+			activityTotals: {
+				edit: 0,
+				error: 1,
+				read: 0,
+				signal: 0,
+				signalScanVersion: 1,
+				skill: 1,
+				subagent: 0,
+				write: 0,
+			},
 			revision: "2026-08-16T08:30:00.123Z",
 			session: {
 				durationMinutes: 90,
@@ -42,9 +52,15 @@ describe("session detail overview client model", () => {
 						hasBody: true,
 						index: 0,
 						inputTokens: 900,
+						modelSignalCount: 2,
 						outputTokens: 50,
 						responsePreview: "Done",
+						signalCount: 1,
+						signalOccurrences: [{ category: "positive", matchedText: "Great" }],
+						signalOccurrencesOmittedCount: 0,
+						signalOccurrencesTruncated: false,
 						skills: ["testing-bun"],
+						skillCount: 1,
 						skillEvents: [
 							{ at: "2026-08-16T08:00:30.123Z", skill: "testing-bun" },
 						],
@@ -63,7 +79,7 @@ describe("session detail overview client model", () => {
 								outputTokens: 50,
 							},
 						],
-						userPreview: "Do the work",
+						userPreview: "x".repeat(140),
 					},
 				],
 				nextCursor: null,
@@ -91,5 +107,10 @@ describe("session detail overview client model", () => {
 		});
 		expect(options[0]?.turn).toBeUndefined();
 		expect(options[0]?.turnId).toBe("codex-stable-turn");
+		expect(options[0]?.signalCount).toBe(1);
+		expect(options[0]?.signalOccurrences).toEqual([
+			{ category: "positive", matchedText: "Great" },
+		]);
+		expect(options[0]?.modelSignalCount).toBe(2);
 	});
 });

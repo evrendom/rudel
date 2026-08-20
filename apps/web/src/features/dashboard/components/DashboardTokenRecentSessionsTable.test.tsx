@@ -28,6 +28,12 @@ const session: SessionAnalytics = {
 	has_commit: true,
 	model_used: "gpt-5",
 	used_plan_mode: false,
+	member_swears: 0,
+	member_apologies: 0,
+	member_positive: 0,
+	model_swears: 0,
+	model_apologies: 0,
+	model_positive: 0,
 };
 
 const otherSession: SessionAnalytics = {

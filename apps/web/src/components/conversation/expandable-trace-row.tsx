@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { compactPreview } from "./conversation-trace";
 import { TraceTreeRowBodySlotContext } from "./conversation-trace-row-body-context";
+import { isTraceTextCollapsible } from "./conversation-trace-text-disclosure";
 
 // min-h-10 matches CONVERSATION_TRACE_TREE_ROW_HEIGHT (40px): the tree's
 // connector elbows and depth-derived sticky slots both assume this height,
@@ -231,6 +232,7 @@ export function ExpandableTraceRow({
 	timestamp,
 	trailing,
 	treeBodyClassName,
+	textDisclosure = false,
 }: {
 	children?: ReactNode;
 	body?: ReactNode;
@@ -246,6 +248,7 @@ export function ExpandableTraceRow({
 	timestamp?: string;
 	trailing?: ReactNode;
 	treeBodyClassName?: string;
+	textDisclosure?: boolean;
 }) {
 	const generatedId = useId();
 	const contextExpansionId = React.useContext(TraceExpansionIdContext);
@@ -260,7 +263,9 @@ export function ExpandableTraceRow({
 	const setTreeRowBody = React.useContext(TraceTreeRowBodySlotContext);
 	const hasBody = body !== undefined && body !== null;
 	const hasProsePreview = collapsedBody !== undefined && collapsedBody !== null;
-	const truncated = isPreviewTruncated(fullPreviewText);
+	const truncated = textDisclosure
+		? fullPreviewText !== undefined && isTraceTextCollapsible(fullPreviewText)
+		: isPreviewTruncated(fullPreviewText);
 	const expandable = hasBody && (fullPreviewText === undefined || truncated);
 	const expanded = expandable && open;
 	const collapsedPreviewBody =
@@ -288,7 +293,20 @@ export function ExpandableTraceRow({
 			{body}
 		</div>
 	) : undefined;
-	const visibleBody = expandedContentBody ?? collapsedPreviewBody;
+	const staticTextBody =
+		textDisclosure && hasBody && !truncated ? (
+			<div
+				className={cn(
+					hasProsePreview ? proseBodyClassName : expandedBodyClassName,
+					treeBodyClassName,
+				)}
+				data-trace-static-content
+			>
+				{body}
+			</div>
+		) : undefined;
+	const visibleBody =
+		expandedContentBody ?? staticTextBody ?? collapsedPreviewBody;
 
 	useTraceFocus(anchorId, focus, setOpen);
 	React.useLayoutEffect(() => {

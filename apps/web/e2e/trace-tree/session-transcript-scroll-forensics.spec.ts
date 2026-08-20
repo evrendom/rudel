@@ -6,6 +6,7 @@ import {
 	SessionDetailWindowRequestSchema,
 } from "@rudel/api-routes";
 import {
+	buildSessionDetailFastIntegrationSpine,
 	buildSessionDetailFastIntegrationWindow,
 	SESSION_DETAIL_INTEGRATION_SESSION_ID,
 } from "../../src/features/sessions/components/session-detail-fast-integration-data";
@@ -34,6 +35,13 @@ async function waitForFrames(page: Page, count: number) {
 
 async function installWindowTransport(page: Page) {
 	const windowRequests: SessionDetailWindowRequest[] = [];
+	await page.route("**/rpc/analytics/sessions/detailSpine", async (route) => {
+		await route.fulfill({
+			body: JSON.stringify({ json: buildSessionDetailFastIntegrationSpine() }),
+			contentType: "application/json",
+			status: 200,
+		});
+	});
 	await page.route("**/rpc/analytics/sessions/detailWindow", async (route) => {
 		const requestBody: unknown = route.request().postDataJSON();
 		if (

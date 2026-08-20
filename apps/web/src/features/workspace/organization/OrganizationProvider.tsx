@@ -36,6 +36,64 @@ function OrganizationAutoSelectMount({
 }
 
 export function OrganizationProvider({ children }: { children: ReactNode }) {
+	const { data: session, isPending } = authClient.useSession();
+
+	if (isPending) {
+		return (
+			<OrganizationProviderFallback isLoading={true}>
+				{children}
+			</OrganizationProviderFallback>
+		);
+	}
+
+	if (!session) {
+		return (
+			<OrganizationProviderFallback isLoading={false}>
+				{children}
+			</OrganizationProviderFallback>
+		);
+	}
+
+	return (
+		<AuthenticatedOrganizationProvider>
+			{children}
+		</AuthenticatedOrganizationProvider>
+	);
+}
+
+function OrganizationProviderFallback({
+	children,
+	isLoading,
+}: {
+	children: ReactNode;
+	isLoading: boolean;
+}) {
+	const contextValue: WorkspaceContextValue = {
+		state: {
+			activeOrg: null,
+			organizations: [],
+			isLoading,
+		},
+		actions: {
+			switchOrganization: () => Promise.resolve(),
+		},
+		meta: {
+			isOrgAdmin: false,
+		},
+	};
+
+	return (
+		<OrganizationContext.Provider value={contextValue}>
+			{children}
+		</OrganizationContext.Provider>
+	);
+}
+
+function AuthenticatedOrganizationProvider({
+	children,
+}: {
+	children: ReactNode;
+}) {
 	const { data: activeOrg, isPending: activeLoading } =
 		authClient.useActiveOrganization();
 	const { data: orgs, isPending: listLoading } =

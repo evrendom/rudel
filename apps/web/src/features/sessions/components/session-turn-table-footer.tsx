@@ -1,15 +1,18 @@
 import type { CSSProperties } from "react";
+import { cn } from "@/lib/utils";
 import type { TurnTableColumn } from "./session-turn-table-columns";
 
 export function SessionTurnTableFooter({
 	columns,
 	gridTemplate,
 	sessionDurationLabel,
+	showSpeakerColumn,
 	turnCount,
 }: {
 	columns: readonly TurnTableColumn[];
 	gridTemplate: string;
 	sessionDurationLabel: string;
+	showSpeakerColumn: boolean;
 	turnCount: number;
 }) {
 	return (
@@ -24,12 +27,14 @@ export function SessionTurnTableFooter({
 				}
 			>
 				<td aria-label="Transcript visibility" />
-				<th
-					className="flex min-w-0 items-center py-1.5 pr-1 pl-2 text-left text-xs font-medium text-(--session-overview-text) tabular-nums"
-					scope="row"
-				>
-					{turnCount.toLocaleString()}x
-				</th>
+				{showSpeakerColumn ? (
+					<th
+						className="flex min-w-0 items-center py-1.5 pl-1 text-left text-xs font-medium text-(--session-overview-text) tabular-nums"
+						scope="row"
+					>
+						{turnCount.toLocaleString()}x
+					</th>
+				) : null}
 				{columns.map((column) => {
 					const summary =
 						column.key === "time"
@@ -43,7 +48,10 @@ export function SessionTurnTableFooter({
 						<td
 							key={column.key}
 							aria-label={column.label}
-							className="flex min-w-0 items-center px-1.5 py-1.5"
+							className={cn(
+								"flex min-w-0 items-center py-1.5",
+								column.key === "time" ? "pr-1.5 pl-0" : "px-1.5",
+							)}
 						>
 							<p
 								className={

@@ -27,9 +27,11 @@ export interface SessionTurnTablePaneOption extends SessionTurnTableOption {
 		NonNullable<SessionDetailTurnSummary["fileEvents"]>[number]
 	>;
 	hasBody?: boolean;
-	memberCharacterCount?: number;
 	memberPreview: string;
+	modelSignalCount?: number;
 	preview: string;
+	signalCount?: number;
+	signalOccurrences?: readonly SessionDetailTurnSummary["signalOccurrences"][number][];
 	subagentEvents?: ReadonlyArray<
 		NonNullable<SessionDetailTurnSummary["subagentEvents"]>[number]
 	>;
@@ -41,6 +43,7 @@ export type SessionTurnTablePaneMatch =
 
 export function SessionTurnTablePane({
 	model,
+	onPrefetchTurn,
 	onSelect,
 	options,
 	selection,
@@ -51,6 +54,7 @@ export function SessionTurnTablePane({
 	virtualizerRef,
 }: {
 	model: string | undefined;
+	onPrefetchTurn?: (turnId: string, immediate: boolean) => void;
 	onSelect: (selection: SessionTurnSelection) => void;
 	options: readonly SessionTurnTablePaneOption[];
 	selection: SessionTurnSelection;
@@ -93,40 +97,40 @@ export function SessionTurnTablePane({
 	}
 
 	return (
-		<>
-			<div className="flex min-h-12 shrink-0 items-center gap-2 overflow-x-auto border-b border-(--session-overview-border) px-3">
-				<SessionTurnTableSpeakerVisibilityControls
-					className={undefined}
-					model={model}
-					onPrimarySpeakerChange={setPrimarySpeaker}
-					onVisibleSpeakersChange={handleVisibleSpeakersChange}
-					primarySpeaker={primarySpeaker}
-					userImageUrl={userImageUrl}
-					visibleSpeakers={visibleSpeakers}
-				/>
-			</div>
-			<div className="flex min-h-0 flex-1 flex-col">
-				<SessionTurnTable
-					model={model}
-					onPrimarySpeakerChange={setPrimarySpeaker}
-					onSort={handleSort}
-					onSelect={onSelect}
-					options={options}
-					primarySpeaker={primarySpeaker}
-					rows={tableRows}
-					selection={effectiveSelection}
-					sessionDurationLabel={sessionDurationLabel}
-					showSpeakerHighlights={visibleSpeakers.size > 1}
-					sort={sort}
-					userImageUrl={userImageUrl}
-					userLabel={userLabel}
-					visibleColumnKeys={effectiveVisibleColumnKeys}
-					visibleOptions={visibleMatches}
-					viewedSelections={viewedSelections}
-					viewportRange={viewportRange}
-					virtualizerRef={virtualizerRef}
-				/>
-			</div>
-		</>
+		<div className="flex min-h-0 flex-1 flex-col">
+			<SessionTurnTable
+				model={model}
+				onPrefetchTurn={onPrefetchTurn}
+				onSort={handleSort}
+				onSelect={onSelect}
+				options={options}
+				primarySpeaker={primarySpeaker}
+				rows={tableRows}
+				selection={effectiveSelection}
+				sessionDurationLabel={sessionDurationLabel}
+				showSpeakerColumn
+				showSpeakerHighlights={visibleSpeakers.size > 1}
+				speakerVisibilityControls={
+					<SessionTurnTableSpeakerVisibilityControls
+						className={undefined}
+						model={model}
+						onPrimarySpeakerChange={setPrimarySpeaker}
+						onVisibleSpeakersChange={handleVisibleSpeakersChange}
+						primarySpeaker={primarySpeaker}
+						userImageUrl={userImageUrl}
+						userLabel={userLabel}
+						visibleSpeakers={visibleSpeakers}
+					/>
+				}
+				sort={sort}
+				userImageUrl={userImageUrl}
+				userLabel={userLabel}
+				visibleColumnKeys={effectiveVisibleColumnKeys}
+				visibleOptions={visibleMatches}
+				viewedSelections={viewedSelections}
+				viewportRange={viewportRange}
+				virtualizerRef={virtualizerRef}
+			/>
+		</div>
 	);
 }

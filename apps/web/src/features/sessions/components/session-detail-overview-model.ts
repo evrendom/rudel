@@ -1,6 +1,7 @@
 import {
 	formatClockTime,
 	type SessionDetailOverview,
+	type SessionDetailSpineTurn,
 	type SessionDetailTurn,
 } from "@rudel/api-routes";
 import type { TraceItem } from "@/components/conversation/conversation-trace";
@@ -17,6 +18,11 @@ export interface SessionDetailOverviewTurnOption
 	extends SessionTurnTablePaneOption {
 	hasBody: boolean;
 	memberText: string;
+	modelSignalCount: number;
+	signalCount: number;
+	signalOccurrences: TurnSummary["signalOccurrences"];
+	signalOccurrencesOmittedCount: number;
+	signalOccurrencesTruncated: boolean;
 	turnId: string;
 }
 
@@ -74,6 +80,48 @@ export function buildSessionDetailOverviewTurnOptions(
 	});
 }
 
+export function buildSessionDetailSpineTurnOption(
+	turn: SessionDetailSpineTurn,
+	index: number,
+): SessionDetailOverviewTurnOption {
+	return {
+		compactionsBefore: [],
+		fileEvents: [],
+		hasBody: true,
+		key: turn.turnId,
+		memberPreview: "No member message",
+		memberText: "",
+		metrics: {
+			editedFiles: [],
+			errorCount: 0,
+			errorEvents: [],
+			estimatedCost: undefined,
+			inputTokens: undefined,
+			outputTokens: undefined,
+			skills: [],
+			skillEvents: [],
+			usageEvents: [],
+		},
+		modelSignalCount: 0,
+		preview: "Loading assistant response",
+		signalCount: 0,
+		signalOccurrences: [],
+		signalOccurrencesOmittedCount: 0,
+		signalOccurrencesTruncated: false,
+		slashCommands: [],
+		subagentEvents: [],
+		timing: {
+			durationLabel: undefined,
+			durationSeconds: undefined,
+			endTime: "",
+			startTime: "",
+		},
+		toolCallCount: Math.min(turn.eventCount, 24),
+		turnId: turn.turnId,
+		turnNumber: index + 1,
+	};
+}
+
 export function attachSessionDetailTurnBody(
 	option: SessionDetailOverviewTurnOption,
 	body: SessionDetailTurn,
@@ -103,7 +151,6 @@ function buildTurnOption(
 		fileEvents: item.fileEvents ?? [],
 		hasBody: item.hasBody,
 		key: item.turnId,
-		memberCharacterCount: item.userCharacterCount,
 		memberPreview: memberText || "No member message",
 		memberText,
 		metrics: {
@@ -125,7 +172,12 @@ function buildTurnOption(
 				outputTokens: call.outputTokens,
 			})),
 		},
+		modelSignalCount: item.modelSignalCount,
 		preview: item.responsePreview ?? "No assistant message",
+		signalCount: item.signalCount,
+		signalOccurrences: item.signalOccurrences,
+		signalOccurrencesOmittedCount: item.signalOccurrencesOmittedCount,
+		signalOccurrencesTruncated: item.signalOccurrencesTruncated,
 		slashCommands: item.slashCommands,
 		subagentEvents: item.subagentEvents ?? [],
 		timing: {

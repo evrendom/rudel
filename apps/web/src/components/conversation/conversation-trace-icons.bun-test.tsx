@@ -4,6 +4,7 @@ import { TraceBrainIcon } from "./conversation-trace-hugeicons";
 import {
 	ModelTraceIcon,
 	TraceDisclosureIcon,
+	UserTraceAvatar,
 } from "./conversation-trace-icons";
 
 function getSymbolClassTokens(markup: string, symbol: "chevron" | "icon") {
@@ -76,5 +77,22 @@ describe("ModelTraceIcon", () => {
 		expect(claudeMarkup).toContain("text-[#CC7D5E]");
 		expect(chatGptMarkup).toContain('data-trace-icon-tone="openai"');
 		expect(chatGptMarkup).toContain("text-[#111111]");
+	});
+});
+
+describe("UserTraceAvatar", () => {
+	test("uses the shared unclipped icon shadow without an outline", () => {
+		const markup = renderToStaticMarkup(
+			<UserTraceAvatar
+				expanded={false}
+				expandable={false}
+				imageUrl="/avatar.webp"
+			/>,
+		);
+
+		expect(markup).toContain("data-user-trace-avatar-shell");
+		expect(markup).toContain("drop-shadow-[0_0_0.75px_rgb(0_0_0_/_14%)]");
+		expect(markup).not.toContain("outline-1");
+		expect(markup).toContain("size-full rounded-full object-cover");
 	});
 });

@@ -5,7 +5,7 @@ import { ConversationTraceTreeConnectorStyleProvider } from "@/components/conver
 import { SessionMemberRow } from "./session-member-row";
 
 describe("SessionMemberRow trace rail", () => {
-	test("renders the prompt below a reasoning-style disclosure without measured height", () => {
+	test("renders a short prompt in full without a disclosure", () => {
 		const markup = renderToStaticMarkup(
 			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
 				<SessionMemberRow
@@ -28,20 +28,18 @@ describe("SessionMemberRow trace rail", () => {
 			</ConversationTraceTreeConnectorStyleProvider>,
 		);
 
-		expect(markup).toContain('aria-expanded="false"');
+		expect(markup).not.toContain("aria-expanded");
 		expect(markup).toContain('data-trace-start-node="true"');
+		expect(markup).not.toContain('data-trace-tree-rail-segment="incoming"');
+		expect(markup).toContain('data-trace-tree-rail-segment="outgoing"');
 		expect(markup).toContain('data-active-member="true"');
 		expect(markup).toContain('data-session-turn-speaker="member"');
-		expect(markup).toContain("data-trace-content-disclosure-icon");
+		expect(markup).not.toContain("data-trace-content-disclosure-icon");
 		expect(markup).not.toContain('data-trace-disclosure-symbol="chevron"');
-		expect(markup).toContain("data-trace-preview");
+		expect(markup).not.toContain("data-trace-preview");
 		expect(markup).toContain("pl-[1.8125rem]");
 		expect(markup).not.toContain("pl-[3.25rem]");
-		const disclosureIndex = markup.indexOf("data-trace-content-disclosure");
-		const disclosureEndIndex = markup.indexOf("</button>", disclosureIndex);
-		expect(markup.indexOf(">Member<")).toBeGreaterThan(disclosureIndex);
-		expect(markup.indexOf(">Member<")).toBeLessThan(disclosureEndIndex);
-		expect(disclosureIndex).toBeLessThan(markup.indexOf("data-trace-preview"));
+		expect(markup).not.toContain("data-trace-content-disclosure");
 		expect(markup).not.toContain("data-trace-tree-motion-panel");
 		expect(markup).toContain("data-trace-tree-subtree-rails");
 		expect(markup).not.toContain('hidden=""');
@@ -60,6 +58,35 @@ describe("SessionMemberRow trace rail", () => {
 		expect(source).not.toContain("scrollHeight");
 		expect(source).not.toContain("ConversationTraceCollapsiblePanel");
 		expect(source).not.toContain("@base-ui/react/collapsible");
+	});
+
+	test("keeps a long prompt collapsed behind the shared disclosure", () => {
+		const markup = renderToStaticMarkup(
+			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
+				<SessionMemberRow
+					active
+					headingId="member-long-heading"
+					items={[
+						{
+							content: `${"Long prompt content. ".repeat(90)} sorry`,
+							id: "member-long-message",
+							kind: "user",
+							timestamp: "2026-08-14T09:00:00.000Z",
+						},
+					]}
+					speakerLayout="trace-tree"
+					startsTrace
+					userImageUrl={undefined}
+					userLabel="Member"
+				/>
+			</ConversationTraceTreeConnectorStyleProvider>,
+		);
+
+		expect(markup).toContain('aria-expanded="false"');
+		expect(markup).toContain("data-trace-content-disclosure-icon");
+		expect(markup).toContain("data-trace-preview");
+		expect(markup).toContain("data-trace-text-preview-tail");
+		expect(markup).toContain('data-signal="apology"');
 	});
 
 	test("renders the sticky-owner connector geometry and measured height", () => {
@@ -117,5 +144,34 @@ describe("SessionMemberRow trace rail", () => {
 
 		expect(markup).toContain('data-signal="apology"');
 		expect(markup).not.toContain('data-signal="positive"');
+	});
+
+	test("does not highlight signals inside member system-instruction blocks", () => {
+		const markup = renderToStaticMarkup(
+			<ConversationTraceTreeConnectorStyleProvider style="interfere-branch-dots-no-horizontal">
+				<SessionMemberRow
+					active
+					headingId="member-system-signal-heading"
+					items={[
+						{
+							content:
+								"Great <system_instruction>Sorry, this is fishy</system_instruction>",
+							id: "member-system-signal",
+							kind: "user",
+							timestamp: "2026-08-18T09:00:00.000Z",
+						},
+					]}
+					speakerLayout="trace-tree"
+					startsTrace
+					userImageUrl={undefined}
+					userLabel="Member"
+				/>
+			</ConversationTraceTreeConnectorStyleProvider>,
+		);
+
+		expect(markup).toContain('data-signal="positive"');
+		expect(markup).not.toContain('data-signal="apology"');
+		expect(markup).not.toContain('data-signal="negative"');
+		expect(markup).toContain("Sorry, this is fishy");
 	});
 });

@@ -67,6 +67,11 @@ const TOOL_PRESENTATION: Record<string, ToolPresentation> = {
 		icon: "bot",
 		primaryKeys: ["description", "subagent_type"],
 	},
+	spawn_agent: {
+		verb: "Delegated",
+		icon: "bot",
+		primaryKeys: ["task_name", "message"],
+	},
 	WebFetch: { verb: "Fetched", icon: "globe", primaryKeys: ["url"] },
 	WebSearch: { verb: "Searched", icon: "globe", primaryKeys: ["query"] },
 	Skill: { verb: "Used", icon: "sparkle", primaryKeys: ["command", "skill"] },
@@ -89,8 +94,9 @@ type FormattedShellOutput = {
 	text: string;
 };
 
-const DELEGATION_TOOL_NAMES = new Set(["Agent", "Task"]);
-const CLAUDE_MODEL_FAMILY_PATTERN = /^(?:haiku|opus|sonnet)(?:[-_. ].*)?$/i;
+const DELEGATION_TOOL_NAMES = new Set(["Agent", "Task", "spawn_agent"]);
+const CLAUDE_MODEL_FAMILY_PATTERN =
+	/^(?:fable|haiku|mythos|opus|sonnet)(?:[-_. ].*)?$/i;
 const CLAUDE_READ_LINE_PREFIX_PATTERN = /^\s*\d+(?:→|\t)\s?/;
 
 function hasStringBody(value: unknown): value is { body: string } {
@@ -100,6 +106,14 @@ function hasStringBody(value: unknown): value is { body: string } {
 		"body" in value &&
 		typeof value.body === "string"
 	);
+}
+
+function normalizedToolName(toolName: string) {
+	return toolName.split(/\.|__/u).at(-1) ?? toolName;
+}
+
+export function isDelegationToolName(toolName: string) {
+	return DELEGATION_TOOL_NAMES.has(normalizedToolName(toolName));
 }
 
 /** Turns machine-shaped shell results into the content a person meant to read. */
@@ -151,7 +165,7 @@ export function getDelegatedModel(
 	toolName: string,
 	input: Record<string, unknown>,
 ): string | undefined {
-	if (!DELEGATION_TOOL_NAMES.has(toolName)) {
+	if (!isDelegationToolName(toolName)) {
 		return undefined;
 	}
 
@@ -193,7 +207,8 @@ export function getToolPresentation(toolName: string): {
 	verb: string;
 	icon: ToolIconName;
 } {
-	const presentation = TOOL_PRESENTATION[toolName] ?? FALLBACK;
+	const presentation =
+		TOOL_PRESENTATION[normalizedToolName(toolName)] ?? FALLBACK;
 	return { verb: presentation.verb, icon: presentation.icon };
 }
 
@@ -201,7 +216,8 @@ export function getToolPrimaryArg(
 	toolName: string,
 	input: Record<string, unknown>,
 ): string | undefined {
-	const presentation = TOOL_PRESENTATION[toolName] ?? FALLBACK;
+	const presentation =
+		TOOL_PRESENTATION[normalizedToolName(toolName)] ?? FALLBACK;
 
 	for (const key of presentation.primaryKeys) {
 		const value = input[key];

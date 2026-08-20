@@ -30,6 +30,10 @@ vi.mock("@/features/sessions/sessions-page", () => ({
 	SessionsPage: () => <div>Sessions page</div>,
 }));
 
+vi.mock("@/features/sessions/new-session-page", () => ({
+	NewSessionPage: () => <div>New session page</div>,
+}));
+
 vi.mock("@/features/skills/SkillsPage", () => ({
 	SkillsPage: () => <div>Historical skills page</div>,
 }));
@@ -77,6 +81,8 @@ describe("AppRouter", () => {
 		["/session", "Sessions page"],
 		["/session/session-123", "Sessions page"],
 		["/session/session-123/v2", "Sessions page"],
+		["/newsesh", "New session page"],
+		["/newsesh/session-123", "New session page"],
 		["/skills", "Historical skills page"],
 		["/team", "Team page"],
 		["/settings", "Workspace settings page"],

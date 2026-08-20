@@ -1,3 +1,4 @@
+import { keepPreviousData } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { useDateRange } from "@/features/analytics/date-range/useDateRange";
 import { useAnalyticsQuery } from "@/features/analytics/queries/useAnalyticsQuery";
@@ -6,11 +7,9 @@ import {
 	useTrackProductPageView,
 } from "@/features/analytics/tracking/useTrackProductPageView";
 import { buildDashboardSessionTabMetrics } from "@/features/dashboard/data/dashboard-tab-adapters";
-import {
-	buildSessionListDateInput,
-	resolveActiveSessionDateRangeOptionId,
-} from "@/features/sessions/session-date-ranges";
+import { resolveActiveSessionDateRangeOptionId } from "@/features/sessions/session-date-ranges";
 import { orderSessionsForDisplay } from "@/features/sessions/session-ordering";
+import { buildSessionsListQueryInput } from "@/features/sessions/sessions-list-query";
 import { orpc } from "@/lib/orpc";
 
 export function useSessionsPageData({
@@ -26,41 +25,48 @@ export function useSessionsPageData({
 		endDate,
 		startDate,
 	});
-
-	const { data: overviewKpis } = useAnalyticsQuery(
-		orpc.analytics.overview.kpis.queryOptions({
+	const { data: overviewKpis } = useAnalyticsQuery({
+		...orpc.analytics.overview.kpis.queryOptions({
 			input: { endDate, startDate },
 		}),
-	);
+		refetchOnMount: "always",
+		refetchOnReconnect: "always",
+		refetchOnWindowFocus: "always",
+		staleTime: 0,
+	});
 
 	const {
 		data: summaryComparison,
 		isPending: isSummaryPending,
 		isError: isSummaryError,
-	} = useAnalyticsQuery(
-		orpc.analytics.sessions.summaryComparison.queryOptions({
+	} = useAnalyticsQuery({
+		...orpc.analytics.sessions.summaryComparison.queryOptions({
 			input: { days: meta.dayCount },
 		}),
-	);
+		refetchOnMount: "always",
+		refetchOnReconnect: "always",
+		refetchOnWindowFocus: "always",
+		staleTime: 0,
+	});
 
 	const {
 		data: snapshotSessionsData,
 		isPending: isSnapshotSessionsPending,
 		isError: isSnapshotSessionsError,
-	} = useAnalyticsQuery(
-		orpc.analytics.sessions.list.queryOptions({
-			input: {
-				...buildSessionListDateInput({
-					dayCount: meta.dayCount,
-					endDate,
-					startDate,
-				}),
-				limit: 1000,
-				sortBy: "session_date",
-				sortOrder: "desc",
-			},
+	} = useAnalyticsQuery({
+		...orpc.analytics.sessions.list.queryOptions({
+			input: buildSessionsListQueryInput({
+				dayCount: meta.dayCount,
+				endDate,
+				startDate,
+			}),
 		}),
-	);
+		refetchOnMount: "always",
+		refetchOnReconnect: "always",
+		refetchOnWindowFocus: "always",
+		placeholderData: keepPreviousData,
+		staleTime: 0,
+	});
 
 	const headlineMetrics = useMemo(
 		() => buildDashboardSessionTabMetrics(summaryComparison),

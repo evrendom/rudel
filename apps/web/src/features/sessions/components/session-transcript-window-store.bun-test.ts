@@ -24,9 +24,15 @@ function turn(index: number): SessionDetailWindowTurn {
 		hasBody: true,
 		index,
 		inputTokens: 1,
+		modelSignalCount: 0,
 		outputTokens: 1,
 		responsePreview: "Done",
+		signalCount: 0,
+		signalOccurrences: [],
+		signalOccurrencesOmittedCount: 0,
+		signalOccurrencesTruncated: false,
 		skills: [],
+		skillCount: 0,
 		skillEvents: [],
 		slashCommands: [],
 		startedAt: revision,
@@ -134,6 +140,87 @@ describe("session transcript window store", () => {
 		await store.loadDirection("newer");
 		expect(store.getSnapshot().newerState).toBe("idle");
 		await store.loadAnchor("turn-4");
+		expect(store.getSnapshot().turns.map((item) => item.turnId)).toContain(
+			"turn-4",
+		);
+	});
+
+	test("aborts a superseded anchor without sharing its result", async () => {
+		const abortedTurnIds: string[] = [];
+		const resolvers = new Map<
+			string,
+			(value: ReturnType<typeof window>) => void
+		>();
+		const store = createSessionTranscriptWindowStore({
+			fetchWindow: (request, signal) =>
+				new Promise((resolve, reject) => {
+					if (request.mode !== "anchor") {
+						throw new Error("Expected an anchor request");
+					}
+					const turnId = request.anchorTurnId;
+					resolvers.set(turnId, resolve);
+					signal?.addEventListener(
+						"abort",
+						() => {
+							abortedTurnIds.push(turnId);
+							reject(new DOMException("Aborted", "AbortError"));
+						},
+						{ once: true },
+					);
+				}),
+			initialWindow: window({
+				newerCursor: null,
+				olderCursor: null,
+				turns: [turn(0)],
+			}),
+			sessionId: "session-1",
+		});
+
+		const first = store.loadAnchor("turn-3");
+		const second = store.loadAnchor("turn-4");
+		const resolveSecond = resolvers.get("turn-4");
+		if (!resolveSecond) {
+			throw new Error("Expected the second anchor fetch to start");
+		}
+		resolveSecond(
+			window({ newerCursor: null, olderCursor: null, turns: [turn(4)] }),
+		);
+
+		expect(await first).toBe(false);
+		expect(await second).toBe(true);
+		expect(abortedTurnIds).toEqual(["turn-3"]);
+		expect(store.getSnapshot().turns.map((item) => item.turnId)).toContain(
+			"turn-4",
+		);
+		expect(store.getSnapshot().turns.map((item) => item.turnId)).not.toContain(
+			"turn-3",
+		);
+	});
+
+	test("hydrates a visible spine turn that no window has loaded", async () => {
+		const anchorTurnIds: string[] = [];
+		const store = createSessionTranscriptWindowStore({
+			fetchWindow: async (request) => {
+				if (request.mode !== "anchor") {
+					throw new Error("Expected an anchor request");
+				}
+				anchorTurnIds.push(request.anchorTurnId);
+				return window({
+					newerCursor: null,
+					olderCursor: null,
+					turns: [turn(4)],
+				});
+			},
+			initialWindow: window({
+				newerCursor: "newer",
+				olderCursor: null,
+				turns: [turn(0)],
+			}),
+			sessionId: "session-1",
+		});
+
+		expect(await store.observeVisibleTurnIds(["turn-4"])).toBe(true);
+		expect(anchorTurnIds).toEqual(["turn-4"]);
 		expect(store.getSnapshot().turns.map((item) => item.turnId)).toContain(
 			"turn-4",
 		);

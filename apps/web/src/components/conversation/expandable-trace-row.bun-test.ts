@@ -33,8 +33,9 @@ describe("ExpandableTraceRow body layout", () => {
 		expect(rowSource).toContain("data-trace-collapsed-preview");
 		expect(rowSource).toContain("data-trace-expanded-content");
 		expect(rowSource).toContain("const expandedContentBody = expanded ? (");
+		expect(rowSource).toContain("data-trace-static-content");
 		expect(rowSource).toContain(
-			"const visibleBody = expandedContentBody ?? collapsedPreviewBody",
+			"expandedContentBody ?? staticTextBody ?? collapsedPreviewBody",
 		);
 		expect(rowSource).toContain("aria-expanded={expanded}");
 		expect(treeSource).toContain("data-trace-tree-expanded-surface");

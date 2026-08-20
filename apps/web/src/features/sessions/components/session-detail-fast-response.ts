@@ -1,3 +1,4 @@
+// biome-ignore-all lint/nursery/noExcessiveLinesPerFile: Fast-response validation and field-level compatibility normalization stay colocated.
 import {
 	type SessionDetailOverview,
 	SessionDetailOverviewSchema,
@@ -10,10 +11,14 @@ import {
 	type SessionDetailWindow,
 	SessionDetailWindowSchema,
 } from "@rudel/api-routes";
+import { SCAN_VERSION } from "@rudel/language-signals";
 import { z } from "zod";
 
 const unknownObjectSchema = z.record(z.unknown());
 const overviewSessionShape = SessionDetailOverviewSchema.shape.session.shape;
+const overviewActivityTotalsSchema =
+	SessionDetailOverviewSchema.shape.activityTotals;
+const overviewActivityTotalsShape = overviewActivityTotalsSchema.shape;
 const overviewTurnPageShape = SessionDetailOverviewSchema.shape.turnPage.shape;
 const overviewTurnShape = overviewTurnPageShape.items.element.shape;
 const overviewSubagentShape =
@@ -21,8 +26,12 @@ const overviewSubagentShape =
 const windowShape = SessionDetailWindowSchema.shape;
 const windowTurnShape = SessionDetailWindowSchema.shape.turns.element.shape;
 
+export interface NormalizedSessionDetailOverview extends SessionDetailOverview {
+	activityTotalsScope: "page" | "session";
+}
+
 export type ParsedSessionDetailOverview = {
-	overview: SessionDetailOverview;
+	overview: NormalizedSessionDetailOverview;
 	shapeIssueFields: readonly string[];
 };
 
@@ -59,7 +68,11 @@ export function parseSessionDetailOverviewResponse(
 ): ParsedSessionDetailOverview {
 	const contractResult = SessionDetailOverviewSchema.safeParse(value);
 	if (contractResult.success) {
-		return { overview: contractResult.data, shapeIssueFields: [] };
+		logSignalScanVersionSkew(contractResult.data, requestedSessionId);
+		return {
+			overview: { ...contractResult.data, activityTotalsScope: "session" },
+			shapeIssueFields: [],
+		};
 	}
 
 	const rawResult = unknownObjectSchema.safeParse(value);
@@ -78,6 +91,13 @@ export function parseSessionDetailOverviewResponse(
 		revisionResult.data,
 	);
 	const turnPage = normalizeOverviewTurnPage(unknownObject(raw.turnPage));
+	const activityTotalsResult = overviewActivityTotalsSchema.safeParse(
+		raw.activityTotals,
+	);
+	const activityTotals = normalizeOverviewActivityTotals(
+		unknownObject(raw.activityTotals),
+		turnPage.items,
+	);
 	const subagents = Array.isArray(raw.subagents)
 		? raw.subagents.flatMap((item) => {
 				const normalized = normalizeOverviewSubagent(unknownObject(item));
@@ -85,12 +105,113 @@ export function parseSessionDetailOverviewResponse(
 			})
 		: [];
 	const overview = SessionDetailOverviewSchema.parse({
+		activityTotals,
 		revision: revisionResult.data,
 		session,
 		subagents,
 		turnPage,
 	});
-	return { overview, shapeIssueFields: issueFields };
+	logSignalScanVersionSkew(overview, requestedSessionId);
+	return {
+		overview: {
+			...overview,
+			activityTotalsScope: activityTotalsResult.success ? "session" : "page",
+		},
+		shapeIssueFields: issueFields,
+	};
+}
+
+function logSignalScanVersionSkew(
+	overview: SessionDetailOverview,
+	sessionId: string,
+) {
+	const serverSignalScanVersion = overview.activityTotals.signalScanVersion;
+	if (serverSignalScanVersion === SCAN_VERSION) {
+		return;
+	}
+	console.warn("[SessionDetailView] Language signal scan version skew", {
+		clientSignalScanVersion: SCAN_VERSION,
+		serverSignalScanVersion,
+		sessionId,
+	});
+}
+
+function normalizeOverviewActivityTotals(
+	raw: Record<string, unknown>,
+	items: readonly ReturnType<typeof normalizeOverviewTurn>[],
+) {
+	const fallback = {
+		edit: 0,
+		error: 0,
+		read: 0,
+		signal: 0,
+		skill: 0,
+		subagent: 0,
+		write: 0,
+	};
+	for (const item of items) {
+		if (!item) {
+			continue;
+		}
+		fallback.error += item.errorCount;
+		fallback.signal += item.signalCount;
+		fallback.skill += item.skillCount;
+		for (const event of item.fileEvents ?? []) {
+			if (event.operation === "created") {
+				fallback.write += event.count;
+			} else if (event.operation === "edited") {
+				fallback.edit += event.count;
+			} else {
+				fallback.read += event.count;
+			}
+		}
+		for (const event of item.subagentEvents ?? []) {
+			fallback.subagent += event.count;
+		}
+	}
+
+	return {
+		edit: optionalField(
+			overviewActivityTotalsShape.edit,
+			raw.edit,
+			fallback.edit,
+		),
+		error: optionalField(
+			overviewActivityTotalsShape.error,
+			raw.error,
+			fallback.error,
+		),
+		read: optionalField(
+			overviewActivityTotalsShape.read,
+			raw.read,
+			fallback.read,
+		),
+		signal: optionalField(
+			overviewActivityTotalsShape.signal,
+			raw.signal,
+			fallback.signal,
+		),
+		signalScanVersion: optionalField(
+			overviewActivityTotalsShape.signalScanVersion,
+			raw.signalScanVersion,
+			0,
+		),
+		skill: optionalField(
+			overviewActivityTotalsShape.skill,
+			raw.skill,
+			fallback.skill,
+		),
+		subagent: optionalField(
+			overviewActivityTotalsShape.subagent,
+			raw.subagent,
+			fallback.subagent,
+		),
+		write: optionalField(
+			overviewActivityTotalsShape.write,
+			raw.write,
+			fallback.write,
+		),
+	};
 }
 
 export function parseSessionDetailWindowResponse(
@@ -359,6 +480,11 @@ function normalizeOverviewTurn(raw: Record<string, unknown>) {
 			raw.inputTokens,
 			null,
 		),
+		modelSignalCount: optionalField(
+			overviewTurnShape.modelSignalCount,
+			raw.modelSignalCount,
+			0,
+		),
 		outputTokens: optionalField(
 			overviewTurnShape.outputTokens,
 			raw.outputTokens,
@@ -369,7 +495,28 @@ function normalizeOverviewTurn(raw: Record<string, unknown>) {
 			raw.responsePreview,
 			null,
 		),
+		signalCount: optionalField(
+			overviewTurnShape.signalCount,
+			raw.signalCount,
+			0,
+		),
+		signalOccurrences: optionalField(
+			overviewTurnShape.signalOccurrences,
+			raw.signalOccurrences,
+			[],
+		),
+		signalOccurrencesOmittedCount: optionalField(
+			overviewTurnShape.signalOccurrencesOmittedCount,
+			raw.signalOccurrencesOmittedCount,
+			0,
+		),
+		signalOccurrencesTruncated: optionalField(
+			overviewTurnShape.signalOccurrencesTruncated,
+			raw.signalOccurrencesTruncated,
+			false,
+		),
 		skills: optionalField(overviewTurnShape.skills, raw.skills, []),
+		skillCount: optionalField(overviewTurnShape.skillCount, raw.skillCount, 0),
 		skillEvents: optionalField(
 			overviewTurnShape.skillEvents,
 			raw.skillEvents,
@@ -450,7 +597,17 @@ function normalizeOverviewSubagent(raw: Record<string, unknown>) {
 			raw.hasTranscript,
 			false,
 		),
+		inputTokens: optionalField(
+			overviewSubagentShape.inputTokens,
+			raw.inputTokens,
+			null,
+		),
 		model: optionalField(overviewSubagentShape.model, raw.model, null),
+		outputTokens: optionalField(
+			overviewSubagentShape.outputTokens,
+			raw.outputTokens,
+			null,
+		),
 		subagentId: subagentIdResult.data,
 		totalTokens: optionalField(
 			overviewSubagentShape.totalTokens,

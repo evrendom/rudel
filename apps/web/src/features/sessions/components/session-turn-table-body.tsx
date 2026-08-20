@@ -1,3 +1,4 @@
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import {
 	type KeyboardEvent,
 	useCallback,
@@ -49,14 +50,17 @@ export function SessionTurnTableBody({
 	matchedIndices,
 	memberColumns,
 	memberGridTemplate,
+	model,
 	modelColumns,
 	modelGridTemplate,
 	onEpisodeToggle,
 	onKeyDown,
+	onPrefetchTurn,
 	onSelect,
 	primarySpeaker,
 	rows,
 	selectedRowKey,
+	showSpeakerColumn,
 	showSpeakerHighlights,
 	userImageUrl,
 	userLabel,
@@ -68,6 +72,7 @@ export function SessionTurnTableBody({
 	matchedIndices: ReadonlySet<number> | undefined;
 	memberColumns: readonly TurnTableColumn[];
 	memberGridTemplate: string;
+	model: string | undefined;
 	modelColumns: readonly TurnTableColumn[];
 	modelGridTemplate: string;
 	onEpisodeToggle: ((key: string) => void) | undefined;
@@ -75,10 +80,12 @@ export function SessionTurnTableBody({
 		event: KeyboardEvent<HTMLTableRowElement>,
 		visibleIndex: number,
 	) => void;
+	onPrefetchTurn: ((turnId: string, immediate: boolean) => void) | undefined;
 	onSelect: (selection: SessionTurnSelection) => void;
 	primarySpeaker: SessionTurnTableRow["speaker"];
 	rows: readonly SessionTurnTableRow[];
 	selectedRowKey: string | undefined;
+	showSpeakerColumn: boolean;
 	showSpeakerHighlights: boolean;
 	userImageUrl: string | undefined;
 	userLabel: string;
@@ -147,8 +154,9 @@ export function SessionTurnTableBody({
 	}, []);
 
 	useLayoutEffect(() => {
+		void viewedRowKeys;
 		measureViewedIndicatorGroups();
-	});
+	}, [measureViewedIndicatorGroups, viewedRowKeys]);
 
 	useLayoutEffect(() => {
 		const body = bodyRef.current;
@@ -164,7 +172,7 @@ export function SessionTurnTableBody({
 	return (
 		<tbody
 			ref={bodyRef}
-			className="relative block min-w-full"
+			className="relative block min-w-full bg-(--session-turn-table-surface)"
 			data-session-turn-table-body
 		>
 			{/* Loaded pages intentionally stay in the DOM, even for ~2,000-row whale searches. */}
@@ -190,15 +198,16 @@ export function SessionTurnTableBody({
 							viewportRange,
 						})}
 						matchesLens={matchedIndices?.has(match.index) ?? false}
+						model={model}
 						gridTemplate={gridTemplate}
 						emphasized={showSpeakerHighlights && row.speaker === primarySpeaker}
 						onEpisodeToggle={onEpisodeToggle}
 						onKeyDown={onKeyDown}
-						onSelect={() =>
-							onSelect({ index: match.index, speaker: row.speaker })
-						}
+						onPrefetchTurn={onPrefetchTurn}
+						onSelect={onSelect}
 						row={row}
 						selected={row.key === selectedRowKey}
+						showSpeakerColumn={showSpeakerColumn}
 						userImageUrl={userImageUrl}
 						userLabel={userLabel}
 						viewed={viewedRowKeys.has(row.key)}
@@ -206,26 +215,42 @@ export function SessionTurnTableBody({
 					/>
 				);
 			})}
-			{viewedIndicatorGroups.map((group) => (
-				<tr
-					key={group.key}
-					className="pointer-events-none absolute left-0.5 z-1 block w-1"
-					data-first-visible-index={group.firstVisibleIndex}
-					data-last-visible-index={group.lastVisibleIndex}
-					data-pressed="true"
-					data-row-count={group.rowCount}
-					data-viewed-indicator-group
-					style={{
-						height: Math.max(0, group.height - 2),
-						top: group.top + 1,
-					}}
-				>
-					<td
-						aria-hidden="true"
-						className="block size-full rounded-full bg-[oklch(0.67_0.164_262.589)] shadow-[inset_0_0_1px_#00000012,inset_0_1px_1px_#00000012,inset_0_-1px_0_#ffffff0a] dark:shadow-none"
-					/>
-				</tr>
-			))}
+			<MotionConfig reducedMotion="user">
+				<AnimatePresence initial={false}>
+					{viewedIndicatorGroups.map((group, index) => (
+						<motion.tr
+							// biome-ignore lint/suspicious/noArrayIndexKey: groups intentionally morph by ordinal position
+							key={`viewed-group-${index}`}
+							animate={{
+								height: Math.max(0, group.height - 2),
+								opacity: 1,
+								top: group.top + 1,
+							}}
+							className="pointer-events-none absolute left-0.5 z-1 block w-1"
+							data-first-visible-index={group.firstVisibleIndex}
+							data-last-visible-index={group.lastVisibleIndex}
+							data-pressed="true"
+							data-row-count={group.rowCount}
+							data-viewed-indicator-group
+							exit={{ opacity: 0 }}
+							initial={index === 0 ? false : { opacity: 0 }}
+							transition={{
+								default: {
+									damping: 45,
+									stiffness: 550,
+									type: "spring",
+								},
+								opacity: { duration: 0.12, ease: "easeOut" },
+							}}
+						>
+							<td
+								aria-hidden="true"
+								className="block size-full rounded-full bg-[oklch(0.67_0.164_262.589)] shadow-[inset_0_0_1px_#00000012,inset_0_1px_1px_#00000012,inset_0_-1px_0_#ffffff0a] dark:shadow-none"
+							/>
+						</motion.tr>
+					))}
+				</AnimatePresence>
+			</MotionConfig>
 		</tbody>
 	);
 }

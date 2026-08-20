@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import type { ComponentType, ReactNode } from "react";
 import type { Root } from "react-dom/client";
 import type { TranscriptStickyHeaderGroup } from "@/features/sessions/components/use-transcript-sticky-header-wrappers";
+import type { ConversationTraceEventSubtreeRenderer } from "./ConversationTrace";
 import type { TraceEvent, TraceItem } from "./conversation-trace";
 import type { ConversationTraceDerivedSection } from "./conversation-trace-sections";
 
@@ -46,9 +47,13 @@ let ConversationTraceDerivedSectionRow: ComponentType<{
 	continuesAfter: boolean;
 	isFirst: boolean;
 	modelDisclosureId?: string;
+	modelExpandable?: boolean;
 	planMode: boolean;
+	renderEventSubtree?: ConversationTraceEventSubtreeRenderer;
 	section: ConversationTraceDerivedSection;
 }>;
+let ConversationTrace: typeof import("./ConversationTrace").ConversationTrace;
+let ConversationTraceDelegationPayloadRow: typeof import("./conversation-trace-delegation-payload-row").ConversationTraceDelegationPayloadRow;
 let TraceExpansionStoreProvider: ComponentType<{
 	children: ReactNode;
 	store: ReturnType<
@@ -89,8 +94,11 @@ beforeAll(async () => {
 
 	({ act, createElement } = await import("react"));
 	({ createRoot } = await import("react-dom/client"));
-	({ ConversationTraceDerivedSectionRow } = await import(
+	({ ConversationTrace, ConversationTraceDerivedSectionRow } = await import(
 		"./ConversationTrace"
+	));
+	({ ConversationTraceDelegationPayloadRow } = await import(
+		"./conversation-trace-delegation-payload-row"
 	));
 	({ createTraceExpansionStore, TraceExpansionStoreProvider } = await import(
 		"./expandable-trace-row"
@@ -190,7 +198,115 @@ test("the model disclosure collapses every budget-split continuation chunk", asy
 	mountPoint.remove();
 });
 
-test("the sticky model header mirrors hover disclosure and collapsed activity", async () => {
+test("a linked delegation becomes the sticky subagent's first payload row", async () => {
+	const delegationEvent: TraceEvent = {
+		id: "delegate-review",
+		input: { description: "Review the implementation" },
+		kind: "tool",
+		result: {
+			content: "Review complete",
+			isError: false,
+			subagentId: "agent-reviewer",
+		},
+		timestamp: "2026-08-18T10:00:00.000Z",
+		toolName: "Agent",
+	};
+	const item: TraceItem = {
+		events: [delegationEvent],
+		executionMode: "unknown",
+		id: "agent-parent",
+		kind: "agent",
+		timestamp: "2026-08-18T10:00:00.000Z",
+	};
+	const subagentMessage: TraceEvent = {
+		content: "Review findings",
+		id: "review-message",
+		kind: "message",
+		text: "Review findings",
+		timestamp: "2026-08-18T10:00:01.000Z",
+	};
+	const subagentItem: TraceItem = {
+		events: [subagentMessage],
+		executionMode: "unknown",
+		id: "agent-reviewer-trace",
+		kind: "agent",
+		timestamp: "2026-08-18T10:00:01.000Z",
+	};
+	const section = deriveConversationTraceSections({ items: [item] })
+		.sections[0];
+	assert(section?.kind === "agent");
+	const mountPoint = document.createElement("div");
+	document.body.append(mountPoint);
+	let root!: Root;
+	await act(async () => {
+		root = createRoot(mountPoint);
+		root.render(
+			createElement(TraceExpansionStoreProvider, {
+				children: createElement(ConversationTraceDerivedSectionRow, {
+					allEvents: [delegationEvent],
+					continuesAfter: false,
+					isFirst: true,
+					planMode: false,
+					renderEventSubtree: (event: TraceEvent) =>
+						event.kind === "tool" &&
+						event.result?.subagentId === "agent-reviewer"
+							? {
+									content: createElement(
+										"div",
+										{ "data-test-subagent-branch": "agent-reviewer" },
+										createElement(ConversationTrace, {
+											agentIntroRow: createElement(
+												ConversationTraceDelegationPayloadRow,
+												{ event },
+											),
+											agentLabel: "Opus 5",
+											agentModel: "claude-opus-5",
+											expandedSpeakerLayout: "trace-tree",
+											items: [subagentItem],
+										}),
+									),
+									kind: "replace-event" as const,
+								}
+							: undefined,
+					section,
+				}),
+				store: createTraceExpansionStore(),
+			}),
+		);
+	});
+
+	const delegationRow = mountPoint.querySelector(
+		"#trace-event-delegate-review",
+	);
+	const subagentBranch = mountPoint.querySelector(
+		'[data-test-subagent-branch="agent-reviewer"]',
+	);
+	assert(subagentBranch);
+	const payloadRow = subagentBranch.querySelector(
+		"#trace-event-delegate-review-payload",
+	);
+	const subagentEventRow = subagentBranch.querySelector(
+		"#trace-event-review-message",
+	);
+	assert(payloadRow);
+	assert(subagentEventRow);
+	expect(delegationRow).toBeNull();
+	expect(mountPoint.textContent).not.toContain("Delegated");
+	expect(
+		payloadRow.compareDocumentPosition(subagentEventRow) &
+			Node.DOCUMENT_POSITION_FOLLOWING,
+	).not.toBe(0);
+	expect(
+		subagentBranch.querySelector(
+			'[data-trace-tree-sticky-surface="true"] [data-transcript-model-header-source="row"]',
+		),
+	).not.toBeNull();
+
+	await act(async () => root.unmount());
+	mountPoint.remove();
+});
+
+test("the transcript model header stays static in its row and sticky clone", async () => {
 	const events: TraceEvent[] = [
 		{
 			id: "reasoning-0",
@@ -250,10 +366,12 @@ test("the sticky model header mirrors hover disclosure and collapsed activity", 
 						continuesAfter: false,
 						isFirst: true,
 						modelDisclosureId: "turn-sticky",
+						modelExpandable: false,
 						planMode: false,
 						section,
 					}),
 					createElement(TranscriptStickyHeaderWrappers, {
+						onToggleFold: undefined,
 						placements: [{ extent: 400, group, start: 0 }],
 						registerWrapper: () => {},
 					}),
@@ -267,27 +385,23 @@ test("the sticky model header mirrors hover disclosure and collapsed activity", 
 		"[data-transcript-sticky-header]",
 	);
 	assert(sticky);
-	const stickyTrigger = sticky.querySelector<HTMLButtonElement>("button");
-	assert(stickyTrigger);
-	expect(stickyTrigger.className).toContain("group");
-	expect(sticky.querySelector("[data-trace-collapsed-flow]")).toBeNull();
-
-	await act(async () => stickyTrigger.click());
-
-	const realTrigger = mountPoint.querySelector<HTMLButtonElement>(
-		'[data-transcript-model-header-source="row"] button',
-	);
-	assert(realTrigger);
-	expect(realTrigger.getAttribute("aria-expanded")).toBe("false");
-	const collapsedFlow = sticky.querySelector<HTMLElement>(
-		"[data-trace-collapsed-flow]",
-	);
-	assert(collapsedFlow);
-	expect(collapsedFlow.className).toContain("flex");
-	expect(collapsedFlow.className).not.toContain("flex-wrap");
+	expect(sticky.querySelector("button")).toBeNull();
 	expect(
-		sticky.querySelectorAll("[data-trace-collapsed-flow-step]"),
-	).toHaveLength(2);
+		sticky.querySelector('[data-trace-disclosure-symbol="chevron"]'),
+	).toBeNull();
+	expect(sticky.querySelector("[data-trace-collapsed-flow]")).toBeNull();
+	const realHeader = mountPoint.querySelector<HTMLElement>(
+		'[data-transcript-model-header-source="row"]',
+	);
+	assert(realHeader);
+	expect(realHeader.querySelector("button")).toBeNull();
+	expect(
+		realHeader.querySelector('[data-trace-disclosure-symbol="chevron"]'),
+	).toBeNull();
+	expect(mountPoint.textContent).toContain("message content");
+	expect(
+		mountPoint.querySelectorAll("[data-trace-collapsed-flow-step]"),
+	).toHaveLength(0);
 
 	await act(async () => root.unmount());
 	mountPoint.remove();

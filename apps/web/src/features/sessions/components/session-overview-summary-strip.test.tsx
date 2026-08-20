@@ -7,6 +7,16 @@ import { SessionOverviewSummaryStrip } from "./session-overview-summary-strip";
 describe("SessionOverviewSummaryStrip", () => {
 	it("shows session identity and activity tags instead of metric cards", () => {
 		const overview = SessionDetailOverviewSchema.parse({
+			activityTotals: {
+				edit: 1,
+				error: 2,
+				read: 3,
+				signal: 0,
+				signalScanVersion: 1,
+				skill: 0,
+				subagent: 1,
+				write: 1,
+			},
 			context: {
 				errors: [{ count: 2, label: "exec_command" }],
 				files: [
@@ -41,7 +51,9 @@ describe("SessionOverviewSummaryStrip", () => {
 				{
 					estimatedCost: 0.2,
 					hasTranscript: true,
+					inputTokens: 400,
 					model: "claude-fable-5",
+					outputTokens: 100,
 					subagentId: "agent-1",
 					totalTokens: 500,
 				},

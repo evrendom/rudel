@@ -22,7 +22,12 @@ describe("SessionContinuousTurnSkeleton language signals", () => {
 				skills: [],
 				usageEvents: [],
 			},
+			modelSignalCount: 0,
 			preview: "Assistant preview",
+			signalCount: 1,
+			signalOccurrences: [{ category: "positive", matchedText: "Great work" }],
+			signalOccurrencesOmittedCount: 0,
+			signalOccurrencesTruncated: false,
 			slashCommands: [],
 			timing: {
 				durationLabel: "1 sec",

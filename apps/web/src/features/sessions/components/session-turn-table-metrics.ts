@@ -40,7 +40,7 @@ export function formatTotalTurnDuration(value: number) {
 	return [
 		hours > 0 ? `${hours}h` : undefined,
 		minutes > 0 ? `${minutes}m` : undefined,
-		seconds > 0 || (hours === 0 && minutes === 0) ? `${seconds}s` : undefined,
+		hours === 0 && (seconds > 0 || minutes === 0) ? `${seconds}s` : undefined,
 	]
 		.filter((part) => part !== undefined)
 		.join(" ");

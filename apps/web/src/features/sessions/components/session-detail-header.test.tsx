@@ -7,6 +7,16 @@ import { buildSessionDetailOverviewViewModel } from "./session-detail-overview-m
 describe("SessionDetailHeader", () => {
 	it("shows identity as a left breadcrumb and keeps only navigation controls on the right", () => {
 		const overview = SessionDetailOverviewSchema.parse({
+			activityTotals: {
+				edit: 0,
+				error: 0,
+				read: 0,
+				signal: 0,
+				signalScanVersion: 1,
+				skill: 0,
+				subagent: 0,
+				write: 0,
+			},
 			revision: "2026-08-16T08:30:00.123Z",
 			session: {
 				durationMinutes: 90,

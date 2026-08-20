@@ -1,3 +1,4 @@
+import { scanMemberLanguageSignals } from "@rudel/language-signals";
 import { type ReactNode, useId } from "react";
 import {
 	type ConversationTraceSpeakerLayout,
@@ -5,15 +6,18 @@ import {
 	TraceTextDisclosureIcon,
 } from "@/components/conversation/ConversationTrace";
 import {
-	compactPreview,
 	type UserContent,
 	userContentText,
 } from "@/components/conversation/conversation-trace";
 import {
-	conversationTraceProsePreviewClassName,
+	conversationTraceSignalAwarePreviewClassName,
 	conversationTraceStickyOnlyFillClassName,
 } from "@/components/conversation/conversation-trace-class-names";
 import { UserTraceAvatar } from "@/components/conversation/conversation-trace-icons";
+import {
+	isTraceTextCollapsible,
+	TraceTextCollapsedPreview,
+} from "@/components/conversation/conversation-trace-text-disclosure";
 import { useTraceExpansionState } from "@/components/conversation/expandable-trace-row";
 import { SignalText } from "@/components/signal-text";
 import { cn } from "@/lib/utils";
@@ -22,7 +26,10 @@ import type { SessionTurn } from "./session-turns";
 function UserPrompt({ content }: { content: UserContent }) {
 	return (
 		<p className="whitespace-pre-wrap break-words text-[0.8125rem] leading-6 text-(--session-overview-text)">
-			<SignalText text={userContentText(content)} />
+			<SignalText
+				scanSignals={scanMemberLanguageSignals}
+				text={userContentText(content)}
+			/>
 		</p>
 	);
 }
@@ -66,22 +73,22 @@ export function SessionMemberRow({
 				item.kind === "user"
 					? [
 							{
-								id: item.id,
-								text: compactPreview(
-									userContentText(item.content),
-									Number.POSITIVE_INFINITY,
-								),
+								text: userContentText(item.content),
 							},
 						]
 					: [],
 			)
 			.filter(({ text }) => text.length > 0);
+		const promptCollapsible = isTraceTextCollapsible(
+			promptPreviewParts.map(({ text }) => text).join(""),
+		);
+		const showFullPrompt = !promptCollapsible || promptExpanded;
 		const promptRows = (
 			<div
 				id={promptPanelId}
 				className="grid min-w-0 divide-y divide-(--session-overview-border)"
 			>
-				{promptExpanded ? (
+				{showFullPrompt ? (
 					items.map((item) =>
 						item.kind === "user" ? (
 							<div key={item.id} className={userPromptRowClassName}>
@@ -92,15 +99,13 @@ export function SessionMemberRow({
 				) : (
 					<div className={userPromptRowClassName}>
 						<p
-							className={conversationTraceProsePreviewClassName}
+							className={conversationTraceSignalAwarePreviewClassName}
 							data-trace-preview
 						>
-							{promptPreviewParts.map((part, index) => (
-								<span key={part.id}>
-									{index > 0 ? " " : null}
-									<SignalText text={part.text} />
-								</span>
-							))}
+							<TraceTextCollapsedPreview
+								scanSignals={scanMemberLanguageSignals}
+								text={promptPreviewParts.map(({ text }) => text)}
+							/>
 						</p>
 					</div>
 				)}
@@ -120,6 +125,7 @@ export function SessionMemberRow({
 					continues={continues}
 					continuesThroughSubtree
 					depth={1}
+					hideIncomingRail={startsTrace}
 					rowHeight={headerHeight}
 					sticky={stickyHeader}
 					subtree={promptRows}
@@ -127,7 +133,7 @@ export function SessionMemberRow({
 					<div
 						className="flex min-h-10 w-full min-w-0 items-center gap-2 pr-3 text-left"
 						data-transcript-user-header-source="row"
-						data-trace-hover-row
+						data-trace-hover-row={promptCollapsible || undefined}
 						style={headerHeight ? { minHeight: headerHeight } : undefined}
 					>
 						<UserTraceAvatar
@@ -135,22 +141,31 @@ export function SessionMemberRow({
 							expandable={false}
 							imageUrl={userImageUrl}
 						/>
-						<button
-							type="button"
-							aria-controls={promptPanelId}
-							aria-expanded={promptExpanded}
-							className="group flex min-w-0 items-center gap-0 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)"
-							data-trace-content-disclosure
-							onClick={() => setPromptExpanded((current) => !current)}
-						>
+						{promptCollapsible ? (
+							<button
+								type="button"
+								aria-controls={promptPanelId}
+								aria-expanded={promptExpanded}
+								className="group flex min-w-0 items-center gap-0 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)"
+								data-trace-content-disclosure
+								onClick={() => setPromptExpanded((current) => !current)}
+							>
+								<h3
+									id={headingId}
+									className="min-w-0 shrink-0 truncate text-xs font-medium text-(--session-overview-text)"
+								>
+									{userLabel}
+								</h3>
+								<TraceTextDisclosureIcon expanded={promptExpanded} />
+							</button>
+						) : (
 							<h3
 								id={headingId}
 								className="min-w-0 shrink-0 truncate text-xs font-medium text-(--session-overview-text)"
 							>
 								{userLabel}
 							</h3>
-							<TraceTextDisclosureIcon expanded={promptExpanded} />
-						</button>
+						)}
 						{headerTrailing ? (
 							<div className="ml-auto min-w-0">{headerTrailing}</div>
 						) : null}

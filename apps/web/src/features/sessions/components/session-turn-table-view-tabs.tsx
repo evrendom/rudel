@@ -1,8 +1,14 @@
-import { Check } from "lucide-react";
+import {
+	DropdownMenu,
+	DropdownMenuCheckboxItem,
+	DropdownMenuContent,
+	DropdownMenuTrigger,
+} from "@/app/ui/dropdown-menu";
 import {
 	ModelTraceIcon,
 	UserTraceAvatar,
 } from "@/components/conversation/conversation-trace-icons";
+import { formatModelDisplayLabel } from "@/features/dashboard/components/dashboard-model-brand";
 import { cn } from "@/lib/utils";
 import type { SessionTurnTableSpeaker } from "./session-turn-table";
 import {
@@ -10,12 +16,9 @@ import {
 	toggleSessionTurnTableSpeakerVisibility,
 } from "./session-turn-table-speaker-visibility";
 
-const SESSION_TURN_TABLE_SPEAKERS: readonly {
-	label: string;
-	value: SessionTurnTableSpeaker;
-}[] = [
-	{ label: "Model", value: "model" },
-	{ label: "User", value: "member" },
+const SESSION_TURN_TABLE_SPEAKERS: readonly SessionTurnTableSpeaker[] = [
+	"member",
+	"model",
 ];
 
 function SessionTurnTableSpeakerIcon({
@@ -28,15 +31,17 @@ function SessionTurnTableSpeakerIcon({
 	userImageUrl: string | undefined;
 }) {
 	return speaker === "model" ? (
-		<ModelTraceIcon
-			className="size-4"
-			expandable={false}
-			expanded={false}
-			model={model}
-		/>
+		<span className="session-turn-table-model-icon-shell relative flex size-5 shrink-0">
+			<ModelTraceIcon
+				className="session-turn-table-model-icon size-5"
+				expandable={false}
+				expanded={false}
+				model={model}
+			/>
+		</span>
 	) : (
 		<UserTraceAvatar
-			className="size-4"
+			className="size-5"
 			expandable={false}
 			expanded={false}
 			imageUrl={userImageUrl}
@@ -51,6 +56,7 @@ export function SessionTurnTableSpeakerVisibilityControls({
 	onVisibleSpeakersChange,
 	primarySpeaker,
 	userImageUrl,
+	userLabel,
 	visibleSpeakers,
 }: {
 	className: string | undefined;
@@ -61,8 +67,14 @@ export function SessionTurnTableSpeakerVisibilityControls({
 	) => void;
 	primarySpeaker: SessionTurnTableSpeaker;
 	userImageUrl: string | undefined;
+	userLabel: string;
 	visibleSpeakers: ReadonlySet<SessionTurnTableSpeaker>;
 }) {
+	const modelLabel = model ? formatModelDisplayLabel(model) : "Model";
+	const speakerLabels: Readonly<Record<SessionTurnTableSpeaker, string>> = {
+		member: userLabel,
+		model: modelLabel,
+	};
 	function applySelection(selection: SessionTurnTableSpeakerSelection) {
 		onVisibleSpeakersChange(selection.visibleSpeakers);
 		onPrimarySpeakerChange(selection.primarySpeaker);
@@ -77,109 +89,103 @@ export function SessionTurnTableSpeakerVisibilityControls({
 			}),
 		);
 	}
+	const visibleSpeakerLabel = SESSION_TURN_TABLE_SPEAKERS.filter((speaker) =>
+		visibleSpeakers.has(speaker),
+	)
+		.map((speaker) => speakerLabels[speaker])
+		.join(" and ");
 
 	return (
-		<fieldset className={cn("flex shrink-0 items-center", className)}>
+		<fieldset
+			className={cn(
+				"session-constellation-tree m-0 flex h-full w-full min-w-0 shrink-0 items-center border-0 p-0 pl-1",
+				className,
+			)}
+		>
 			<legend className="sr-only">Visible turn table rows</legend>
-			<div className="flex shrink-0 items-center gap-0.5 rounded-md bg-(--session-overview-hover) p-0.5">
-				{SESSION_TURN_TABLE_SPEAKERS.map((option) => {
-					const selected = visibleSpeakers.has(option.value);
-					const isOnlyVisible = selected && visibleSpeakers.size === 1;
-
-					return (
-						<div
-							key={option.value}
-							className={cn(
-								"flex h-7 shrink-0 items-center gap-1.5 rounded-sm px-1.5",
-								selected ? "opacity-100" : "opacity-45",
-							)}
-							data-turn-table-speaker={option.value}
-						>
-							<button
-								type="button"
-								aria-label={`${selected ? "Hide" : "Show"} ${option.label} rows`}
-								aria-pressed={selected}
+			<DropdownMenu>
+				<DropdownMenuTrigger
+					render={
+						<button
+							type="button"
+							aria-label={`Choose visible rows: ${visibleSpeakerLabel}`}
+							className="relative flex h-8 w-9 shrink-0 items-center justify-start rounded-sm outline-none focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-(--session-overview-accent)"
+						/>
+					}
+				>
+					<span
+						aria-hidden="true"
+						className="pointer-events-none flex items-center"
+						data-trace-tree-row-content
+					>
+						{SESSION_TURN_TABLE_SPEAKERS.map((speaker, optionIndex) => {
+							const selected = visibleSpeakers.has(speaker);
+							return (
+								<span
+									key={speaker}
+									className={cn(
+										"relative flex size-5 shrink-0 items-center justify-center",
+										optionIndex === 0 ? "z-0" : "z-10 -ml-3",
+										!selected && "saturate-0 opacity-35",
+									)}
+									data-selected={selected}
+									data-speaker-icon
+									data-turn-table-speaker-trigger-icon={speaker}
+								>
+									<SessionTurnTableSpeakerIcon
+										model={model}
+										speaker={speaker}
+										userImageUrl={userImageUrl}
+									/>
+								</span>
+							);
+						})}
+					</span>
+					<span
+						aria-hidden="true"
+						className="pointer-fine:hidden pointer-events-none absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2"
+					/>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent
+					align="start"
+					className="w-auto min-w-40 rounded-lg bg-white p-1 text-black shadow-lg ring-1 ring-black/10"
+					sideOffset={4}
+				>
+					{SESSION_TURN_TABLE_SPEAKERS.map((speaker) => {
+						const selected = visibleSpeakers.has(speaker);
+						const isOnlyVisible = selected && visibleSpeakers.size === 1;
+						return (
+							<DropdownMenuCheckboxItem
+								key={speaker}
+								checked={selected}
 								className={cn(
-									"relative flex size-3.5 shrink-0 items-center justify-center rounded-[3px] shadow-[inset_0_0_0_1px_var(--session-overview-border)] outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-(--session-overview-accent)",
-									selected
-										? "bg-(--session-overview-accent) text-white shadow-none hover:brightness-90 dark:hover:brightness-110"
-										: "hover:bg-[color-mix(in_srgb,var(--session-overview-accent)_14%,var(--session-overview-surface))] hover:shadow-[inset_0_0_0_1px_var(--session-overview-accent)]",
+									"rounded-md py-1.5 pr-7 pl-2 text-xs font-medium",
+									!selected && "opacity-40",
 								)}
+								closeOnClick={false}
+								data-turn-table-speaker={speaker}
+								onCheckedChange={() => handleVisibilityToggle(speaker)}
 								title={
 									isOnlyVisible
 										? "At least one row type must remain visible"
-										: `${selected ? "Hide" : "Show"} ${option.label} rows`
+										: undefined
 								}
-								onClick={() => handleVisibilityToggle(option.value)}
 							>
-								<Check className={cn("size-3", !selected && "opacity-0")} />
 								<span
-									aria-hidden="true"
-									className="pointer-fine:hidden absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2"
-								/>
-							</button>
-							<span className="pointer-events-none">
-								<SessionTurnTableSpeakerIcon
-									model={model}
-									speaker={option.value}
-									userImageUrl={userImageUrl}
-								/>
-							</span>
-						</div>
-					);
-				})}
-			</div>
-		</fieldset>
-	);
-}
-
-export function SessionTurnTableSpeakerFocusToggle({
-	className,
-	model,
-	onPrimarySpeakerChange,
-	primarySpeaker,
-	userImageUrl,
-}: {
-	className: string | undefined;
-	model: string | undefined;
-	onPrimarySpeakerChange: (speaker: SessionTurnTableSpeaker) => void;
-	primarySpeaker: SessionTurnTableSpeaker;
-	userImageUrl: string | undefined;
-}) {
-	return (
-		<fieldset className={cn("flex items-center justify-center", className)}>
-			<legend className="sr-only">Turn table column titles</legend>
-			<div className="flex items-center gap-0.5 rounded-md bg-(--session-overview-hover) p-0.5">
-				{SESSION_TURN_TABLE_SPEAKERS.map((option) => {
-					const primary = primarySpeaker === option.value;
-
-					return (
-						<button
-							type="button"
-							key={option.value}
-							aria-label={`Show ${option.label} column titles`}
-							aria-pressed={primary}
-							className={cn(
-								"relative flex size-6 items-center justify-center rounded-sm outline-none focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-(--session-overview-accent)",
-								primary && "bg-(--session-overview-surface)",
-								"opacity-100 hover:bg-(--session-overview-surface)",
-							)}
-							title={`Show ${option.label} column titles`}
-							onClick={() => onPrimarySpeakerChange(option.value)}
-						>
-							<SessionTurnTableSpeakerIcon
-								model={model}
-								speaker={option.value}
-								userImageUrl={userImageUrl}
-							/>
-							<span
-								aria-hidden="true"
-								className="pointer-fine:hidden absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2"
-							/>
-						</button>
-					);
-				})}
-			</div>
+									className={cn("flex shrink-0", !selected && "saturate-0")}
+								>
+									<SessionTurnTableSpeakerIcon
+										model={model}
+										speaker={speaker}
+										userImageUrl={userImageUrl}
+									/>
+								</span>
+								{speakerLabels[speaker]}
+							</DropdownMenuCheckboxItem>
+						);
+					})}
+				</DropdownMenuContent>
+			</DropdownMenu>
 		</fieldset>
 	);
 }

@@ -10,6 +10,7 @@ import {
 	getShellCommand,
 	getToolPresentation,
 	getToolPrimaryArg,
+	isDelegationToolName,
 	normalizeToolOutput,
 } from "./conversation-tools";
 import {
@@ -22,7 +23,7 @@ import {
 import {
 	conversationTraceLabelClassName,
 	conversationTracePreviewClassName,
-	conversationTraceProsePreviewClassName,
+	conversationTraceSignalAwarePreviewClassName,
 } from "./conversation-trace-class-names";
 import {
 	TraceBrainIcon,
@@ -31,6 +32,7 @@ import {
 } from "./conversation-trace-hugeicons";
 import { ModelTraceIcon, TraceIcon } from "./conversation-trace-icons";
 import { ConversationTraceTag } from "./conversation-trace-tag";
+import { TraceTextCollapsedPreview } from "./conversation-trace-text-disclosure";
 import { CONVERSATION_TOOL_ICONS } from "./conversation-trace-tool-icons";
 import { ExpandableTraceRow } from "./expandable-trace-row";
 import { MessageContent } from "./MessageContent";
@@ -282,27 +284,25 @@ function MessagePreviewText({ text }: { text: string }) {
 }
 
 export function ConversationTraceEventRow({
+	agentModel,
 	event,
 	trailing,
 }: {
+	agentModel?: string;
 	event: TraceEvent;
 	trailing?: ReactNode;
 }) {
 	if (event.kind === "reasoning") {
-		const collapsedPreviewText = compactPreview(
-			event.text,
-			Number.POSITIVE_INFINITY,
-		);
 		return (
 			<ExpandableTraceRow
 				anchorId={`trace-event-${event.id}`}
 				compact
 				collapsedBody={
 					<p
-						className={conversationTraceProsePreviewClassName}
+						className={conversationTraceSignalAwarePreviewClassName}
 						data-trace-preview
 					>
-						<SignalText text={collapsedPreviewText} />
+						<TraceTextCollapsedPreview text={event.text} />
 					</p>
 				}
 				fullPreviewText={event.text}
@@ -310,6 +310,7 @@ export function ConversationTraceEventRow({
 				leading={<TraceIcon icon={TraceBrainIcon} tone="violet" />}
 				trailing={trailing}
 				treeBodyClassName="-ml-3"
+				textDisclosure
 				body={
 					<p className="whitespace-pre-wrap font-sans text-[0.8125rem] leading-5 font-normal tracking-normal text-[color:var(--dashboardy-heading)] text-pretty">
 						<SignalText text={event.text} />
@@ -320,21 +321,20 @@ export function ConversationTraceEventRow({
 	}
 
 	if (event.kind === "message") {
-		const collapsedPreviewText = compactPreview(
-			event.text,
-			Number.POSITIVE_INFINITY,
-		);
 		return (
 			<ExpandableTraceRow
 				anchorId={`trace-event-${event.id}`}
 				compact
 				collapsedBody={
-					collapsedPreviewText ? (
+					event.text ? (
 						<p
-							className={conversationTraceProsePreviewClassName}
+							className={conversationTraceSignalAwarePreviewClassName}
 							data-trace-preview
 						>
-							<MessagePreviewText text={event.text} />
+							<TraceTextCollapsedPreview
+								renderLeadingText={(text) => <MessagePreviewText text={text} />}
+								text={event.text}
+							/>
 						</p>
 					) : undefined
 				}
@@ -343,6 +343,7 @@ export function ConversationTraceEventRow({
 				leading={<TraceIcon icon={TraceMessageIcon} tone="blue" />}
 				trailing={trailing}
 				treeBodyClassName="-ml-3"
+				textDisclosure
 				body={<MessageContent content={event.content} />}
 			/>
 		);
@@ -384,7 +385,9 @@ export function ConversationTraceEventRow({
 		: formatToolInputPreview(event.input);
 	const isError = event.result?.isError === true;
 	const shellCommand = getShellCommand(event.toolName, event.input);
-	const delegatedModel = getDelegatedModel(event.toolName, event.input);
+	const delegatedModel =
+		getDelegatedModel(event.toolName, event.input) ??
+		(isDelegationToolName(event.toolName) ? agentModel : undefined);
 	const isSkill = event.toolName.toLowerCase() === "skill";
 
 	if (shellCommand) {

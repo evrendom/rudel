@@ -15,6 +15,7 @@ import {
 	startOfWeek,
 	subHours,
 } from "date-fns";
+import type { Ref } from "react";
 import { Skeleton } from "@/app/ui/skeleton";
 import {
 	DashboardSessionTrendChart,
@@ -24,6 +25,7 @@ import {
 import { DashboardTokenRecentSessionsTable } from "@/features/dashboard/components/DashboardTokenRecentSessionsTable";
 import { DashboardTopChartSection } from "@/features/dashboard/components/DashboardTopChartSection";
 import type { DashboardHeadlineMetric } from "@/features/dashboard/data/dashboard-static-data";
+import { SessionsOverviewTable } from "@/features/sessions/components/sessions-overview-table";
 import {
 	getSessionTimestamp,
 	orderSessionsForDisplay,
@@ -249,10 +251,15 @@ export function DashboardSessionsSnapshotSection({
 	isMetricsPending = false,
 	isSessionsPending,
 	metrics,
+	getSessionHref,
+	getSessionLinkState,
 	onSessionClick,
+	overviewSessionCount,
 	sessions,
 	sessionDetailDisabledNote,
+	showChart = true,
 	startDate,
+	tableScrollContainerRef,
 	totalSessionCount,
 	useRolling24Hours = false,
 	variant,
@@ -264,10 +271,15 @@ export function DashboardSessionsSnapshotSection({
 	isMetricsPending?: boolean;
 	isSessionsPending: boolean;
 	metrics: DashboardHeadlineMetric[];
+	getSessionHref?: (session: SessionAnalytics) => string;
+	getSessionLinkState?: (session: SessionAnalytics) => unknown;
 	onSessionClick?: (session: SessionAnalytics) => void;
+	overviewSessionCount?: number;
 	sessions: SessionAnalytics[] | undefined;
 	sessionDetailDisabledNote?: string;
+	showChart?: boolean;
 	startDate: string;
+	tableScrollContainerRef?: Ref<HTMLDivElement>;
 	totalSessionCount: number;
 	useRolling24Hours?: boolean;
 	variant: "dashboard" | "sessions";
@@ -284,6 +296,42 @@ export function DashboardSessionsSnapshotSection({
 		useRolling24Hours,
 	});
 	const sessionsTableKey = `${latestSessions.length}:${latestSessions[0]?.session_id ?? ""}:${latestSessions.at(-1)?.session_id ?? ""}`;
+	const resolvedTotalSessionCount = useRolling24Hours
+		? latestSessions.length
+		: totalSessionCount;
+	const sessionsTable =
+		variant === "sessions" ? (
+			<SessionsOverviewTable
+				key={sessionsTableKey}
+				activeSessionId={activeSessionId}
+				canOpenSession={canOpenSession}
+				getSessionHref={getSessionHref}
+				getSessionLinkState={getSessionLinkState}
+				isLoading={isSessionsPending}
+				onSessionClick={onSessionClick}
+				scrollContainerRef={tableScrollContainerRef}
+				sessionCountLabel={overviewSessionCount ?? resolvedTotalSessionCount}
+				sessions={latestSessions}
+				sessionDetailDisabledNote={sessionDetailDisabledNote}
+				totalSessionCount={resolvedTotalSessionCount}
+			/>
+		) : (
+			<DashboardTokenRecentSessionsTable
+				key={sessionsTableKey}
+				activeSessionId={activeSessionId}
+				canOpenSession={canOpenSession}
+				isLoading={isSessionsPending}
+				onSessionClick={onSessionClick}
+				sessions={latestSessions}
+				sessionDetailDisabledNote={sessionDetailDisabledNote}
+				showHeader={false}
+				totalSessionCount={resolvedTotalSessionCount}
+			/>
+		);
+
+	if (!showChart) {
+		return sessionsTable;
+	}
 
 	return (
 		<DashboardTopChartSection
@@ -295,21 +343,7 @@ export function DashboardSessionsSnapshotSection({
 					<DashboardSessionTrendChart className="min-w-0" data={chartData} />
 				)
 			}
-			detail={
-				<DashboardTokenRecentSessionsTable
-					key={sessionsTableKey}
-					activeSessionId={activeSessionId}
-					canOpenSession={canOpenSession}
-					isLoading={isSessionsPending}
-					onSessionClick={onSessionClick}
-					sessions={latestSessions}
-					sessionDetailDisabledNote={sessionDetailDisabledNote}
-					showHeader={false}
-					totalSessionCount={
-						useRolling24Hours ? latestSessions.length : totalSessionCount
-					}
-				/>
-			}
+			detail={sessionsTable}
 			isMetricsLoading={isMetricsPending}
 			metrics={metrics}
 			showDelta

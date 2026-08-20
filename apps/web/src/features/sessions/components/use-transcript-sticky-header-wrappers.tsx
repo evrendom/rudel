@@ -5,8 +5,11 @@ import {
 	TraceTextDisclosureIcon,
 } from "@/components/conversation/ConversationTrace";
 import type { TraceEvent } from "@/components/conversation/conversation-trace";
-import { UserTraceAvatar } from "@/components/conversation/conversation-trace-icons";
-import { AgentCollapsedTraceIcons } from "@/components/conversation/conversation-trace-tree";
+import { TraceLayersIcon } from "@/components/conversation/conversation-trace-hugeicons";
+import {
+	TraceDisclosureIcon,
+	UserTraceAvatar,
+} from "@/components/conversation/conversation-trace-icons";
 import { useTraceExpansionState } from "@/components/conversation/expandable-trace-row";
 import {
 	ModelSectionHeader,
@@ -32,8 +35,77 @@ export type TranscriptMemberHeaderData = TranscriptStickyHeaderGeometry & {
 export type TranscriptModelHeaderData = ModelSectionHeaderData &
 	TranscriptStickyHeaderGeometry & {
 		events: readonly TraceEvent[] | undefined;
+		fold?: Pick<
+			Extract<SessionTranscriptRow, { kind: "turn-fold" }>,
+			"expanded" | "hidden"
+		>;
 		kind: "model";
 	};
+
+export function TranscriptFoldSummaryControl({
+	expanded,
+	hidden,
+	onToggle,
+	stickyTurnId,
+	turnId,
+}: {
+	expanded: boolean;
+	hidden: Extract<SessionTranscriptRow, { kind: "turn-fold" }>["hidden"];
+	onToggle: () => void;
+	stickyTurnId: string | undefined;
+	turnId: string | undefined;
+}) {
+	const metrics = [
+		{ count: hidden.reasoning, label: "Reasoning" },
+		{ count: hidden.messages, label: "Messages" },
+		{ count: hidden.skills, label: "Skills" },
+		{ count: hidden.subagents, label: "Subagents" },
+		{ count: hidden.filesRead, label: "Files Read" },
+		{ count: hidden.filesWritten, label: "written" },
+		{ count: hidden.filesEdited, label: "edited" },
+	];
+	const action = expanded ? "collapse" : "show";
+	const metricLabel = metrics
+		.map(({ count, label }) => `${count.toLocaleString()} ${label}`)
+		.join(", ");
+	return (
+		<button
+			aria-expanded={expanded}
+			aria-label={`${action} earlier model activity: ${metricLabel}`}
+			className="group group/fold pointer-events-auto relative flex h-8 max-w-full min-w-0 select-none items-center gap-2 rounded-md py-1 pr-1.5 pl-1 text-left text-[0.8125rem]/5 text-(--session-overview-muted) outline-none focus-visible:outline-2 focus-visible:outline-(--session-overview-accent)"
+			data-transcript-fold-turn-id={turnId}
+			data-transcript-sticky-fold-turn-id={stickyTurnId}
+			data-trace-hover-row
+			onClick={onToggle}
+			title={`${action} earlier model activity`}
+			type="button"
+		>
+			<span
+				aria-hidden="true"
+				className="pointer-events-none absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2 pointer-fine:hidden"
+			/>
+			<TraceDisclosureIcon
+				expanded={expanded}
+				expandable
+				icon={TraceLayersIcon}
+			/>
+			<span
+				className="hidden min-w-0 items-center gap-1 overflow-hidden tabular-nums @md/model-header:flex"
+				data-transcript-fold-summary-tags
+			>
+				{metrics.map(({ count, label }) => (
+					<span
+						key={label}
+						className="inline-flex h-6 shrink-0 items-center gap-1 rounded-[0.375rem] bg-white px-2 font-medium text-black/[0.875] shadow-[inset_0_0_0_0.5px_transparent,0_0_0_0.5px_#0000000f,0_1px_1px_-1px_#0000001a,0_1px_2px_0_#0000000d] select-none dark:bg-white/[0.071] dark:text-white/[0.929] dark:shadow-[inset_0_0_0_0.5px_#ffffff12,0_0_0_0.5px_transparent,0_1px_1px_-1px_transparent,0_1px_2px_0_transparent]"
+						data-transcript-fold-summary-tag
+					>
+						{count.toLocaleString()} {label}
+					</span>
+				))}
+			</span>
+		</button>
+	);
+}
 
 export type TranscriptStickyHeaderGroup = {
 	endRowIndex: number;
@@ -101,7 +173,9 @@ function finalizeStickyHeaderAnchor(input: {
 			input.anchor.headerRowIndex,
 			header.kind === "model" ? header.agentModel : header.userImageUrl,
 			header.kind === "model" ? header.agentLabel : header.userLabel,
+			header.kind === "model" ? header.modelSetting : undefined,
 			header.kind === "model" ? header.planMode : false,
+			header.kind === "model" ? header.fold?.expanded : undefined,
 			header.continues,
 			header.terminal,
 			header.renderHeight,
@@ -135,7 +209,27 @@ export function deriveTranscriptStickyHeaderGroups(input: {
 			);
 			continue;
 		}
-		if (row.kind === "section" && row.section.payload.isFirst) {
+		if (row.kind === "turn-fold") {
+			const agentModel = row.agentModel ?? input.agentModel;
+			anchors.push({
+				header: {
+					agentLabel: agentModel
+						? formatModelDisplayLabel(agentModel)
+						: "Agent",
+					agentModel,
+					events: row.allEvents,
+					fold: { expanded: row.expanded, hidden: row.hidden },
+					kind: "model",
+					...(row.modelSetting ? { modelSetting: row.modelSetting } : {}),
+					planMode: row.planMode,
+					renderHeight: input.headerHeights?.model,
+				},
+				headerRowIndex: index,
+				turnId: row.turnId,
+			});
+			continue;
+		}
+		if (row.kind === "section" && row.isFirst) {
 			const traceSection = row.section.payload.traceSection;
 			const agentModel =
 				(traceSection.kind === "agent"
@@ -149,6 +243,9 @@ export function deriveTranscriptStickyHeaderGroups(input: {
 					agentModel,
 					events: row.section.payload.allEvents.events,
 					kind: "model",
+					...(row.section.payload.modelSetting
+						? { modelSetting: row.section.payload.modelSetting }
+						: {}),
 					planMode: row.section.payload.planMode,
 					renderHeight: input.headerHeights?.model,
 				},
@@ -329,14 +426,14 @@ export function useTranscriptStickyHeaderWrappers(input: {
 
 function TranscriptStickyHeaderVisual({
 	group,
+	onToggleFold,
 }: {
 	group: TranscriptStickyHeaderGroup;
+	onToggleFold: ((turnId: string) => void) | undefined;
 }) {
 	const { open: memberExpanded } = useTraceExpansionState(
 		`${group.turnId}:member:heading`,
 	);
-	const { open: modelCollapsed, setOpen: setModelCollapsed } =
-		useTraceExpansionState(`${group.turnId}:model-collapsed`);
 	return (
 		<ConversationTraceTreeItem
 			childRailExitLength={group.header.kind === "model" ? 2 : 0}
@@ -346,7 +443,7 @@ function TranscriptStickyHeaderVisual({
 			rowHeight={group.header.renderHeight}
 		>
 			<div
-				className="flex min-h-10 min-w-0 items-center gap-2 pr-3"
+				className="@container/model-header flex min-h-10 min-w-0 items-center gap-2 pr-3"
 				style={
 					group.header.renderHeight
 						? { minHeight: group.header.renderHeight }
@@ -371,20 +468,24 @@ function TranscriptStickyHeaderVisual({
 						</div>
 					</>
 				) : (
-					<button
-						className="group pointer-events-auto flex min-h-10 min-w-0 flex-1 items-center gap-2 text-left"
-						onClick={() => setModelCollapsed((collapsed) => !collapsed)}
-						tabIndex={-1}
-						type="button"
-					>
-						<ModelSectionHeader
-							collapsedContent={
-								<AgentCollapsedTraceIcons events={group.header.events ?? []} />
-							}
-							data={group.header}
-							expanded={!modelCollapsed}
-						/>
-					</button>
+					<>
+						<div className="flex min-h-10 min-w-0 flex-1 items-center gap-2 text-left">
+							<ModelSectionHeader
+								data={group.header}
+								expanded
+								expandable={false}
+							/>
+						</div>
+						{group.header.fold ? (
+							<TranscriptFoldSummaryControl
+								expanded={group.header.fold.expanded}
+								hidden={group.header.fold.hidden}
+								onToggle={() => onToggleFold?.(group.turnId)}
+								stickyTurnId={group.turnId}
+								turnId={undefined}
+							/>
+						) : null}
+					</>
 				)}
 			</div>
 		</ConversationTraceTreeItem>
@@ -393,9 +494,11 @@ function TranscriptStickyHeaderVisual({
 
 export const TranscriptStickyHeaderWrappers = memo(
 	function TranscriptStickyHeaderWrappers({
+		onToggleFold,
 		placements,
 		registerWrapper,
 	}: {
+		onToggleFold: ((turnId: string) => void) | undefined;
 		placements: readonly TranscriptStickyHeaderPlacement[];
 		registerWrapper: (ownerKey: string, element: HTMLDivElement | null) => void;
 	}) {
@@ -417,7 +520,10 @@ export const TranscriptStickyHeaderWrappers = memo(
 						placement.group.header.terminal || undefined
 					}
 				>
-					<TranscriptStickyHeaderVisual group={placement.group} />
+					<TranscriptStickyHeaderVisual
+						group={placement.group}
+						onToggleFold={onToggleFold}
+					/>
 				</div>
 			</div>
 		));

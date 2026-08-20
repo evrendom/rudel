@@ -1,0 +1,80 @@
+.session-turn-table-scroll {
+	--session-turn-table-header-height: 2.75rem;
+	--session-turn-table-scrollbar-thumb-hover: color-mix(
+		in srgb,
+		var(--scrollbar-thumb) 70%,
+		var(--session-overview-muted) 30%
+	);
+
+	scrollbar-color: auto;
+	scrollbar-width: auto;
+}
+
+@supports not (-moz-appearance: none) {
+	.session-turn-table-scroll::-webkit-scrollbar {
+		width: 0;
+		height: 8px;
+	}
+
+	.session-turn-table-scroll::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	.session-turn-table-scroll::-webkit-scrollbar-thumb {
+		border-radius: 999px;
+		background: var(--scrollbar-thumb);
+	}
+
+	.session-turn-table-scroll::-webkit-scrollbar-thumb:hover {
+		background: var(--session-turn-table-scrollbar-thumb-hover);
+	}
+
+	.session-turn-table-scroll::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+}
+
+/* Firefox cannot inset scrollbar tracks, so its thin bar spans the header. */
+@supports (-moz-appearance: none) {
+	.session-turn-table-scroll {
+		scrollbar-color: var(--scrollbar-thumb) transparent;
+		scrollbar-width: thin;
+	}
+
+	.session-turn-table-scrollbar {
+		display: none;
+	}
+}
+
+.session-turn-table-scrollbar {
+	position: absolute;
+	right: 0;
+	z-index: 30;
+	width: 12px;
+	pointer-events: none;
+}
+
+.session-turn-table-scrollbar-thumb {
+	position: absolute;
+	right: 2px;
+	width: 6px;
+	touch-action: none;
+	user-select: none;
+	border-radius: 999px;
+	background: var(--scrollbar-thumb);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 200ms ease;
+}
+
+.session-turn-table-scrollbar[data-overflow="true"][data-visible="true"]
+	.session-turn-table-scrollbar-thumb {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.session-turn-table-scrollbar-thumb:hover,
+.session-turn-table-scrollbar[data-dragging="true"]
+	.session-turn-table-scrollbar-thumb {
+	background: var(--session-turn-table-scrollbar-thumb-hover);
+}

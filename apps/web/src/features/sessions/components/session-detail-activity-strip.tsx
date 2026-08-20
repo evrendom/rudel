@@ -1,7 +1,11 @@
+// biome-ignore-all lint/nursery/noExcessiveLinesPerFile: Trigger and animated panel state must remain in one coordinated menu controller.
+import type { SessionDetailOverview } from "@rudel/api-routes";
 import {
 	type KeyboardEvent,
 	type PointerEvent,
 	useCallback,
+	// biome-ignore lint/style/noRestrictedImports: open panel frames must track newly paginated overview groups.
+	useEffect,
 	useLayoutEffect,
 	useMemo,
 	useRef,
@@ -12,8 +16,14 @@ import {
 	buildSessionDetailActivityGroups,
 	type SessionDetailActivityGroup,
 	type SessionDetailActivityKind,
+	type SessionDetailActivityOccurrence,
 } from "./session-detail-activity-groups";
+import {
+	SessionDetailActivityOccurrencePanel,
+	SessionDetailActivityPanel,
+} from "./session-detail-activity-panels";
 import type { SessionDetailOverviewTurnOption } from "./session-detail-overview-model";
+import { useSessionDetailActivityStripWidth } from "./use-session-detail-activity-strip-width";
 import "./session-detail-activity-strip.css";
 
 const ACTIVITY_CLOSE_DELAY_MS = 150;
@@ -30,6 +40,7 @@ type SessionDetailActivityPanelFrame = {
 	group: SessionDetailActivityGroup;
 	id: number;
 	motion: SessionDetailActivityMotion | undefined;
+	occurrence: SessionDetailActivityOccurrence | undefined;
 };
 
 type SessionDetailActivityTriggerFlags = {
@@ -37,55 +48,6 @@ type SessionDetailActivityTriggerFlags = {
 	wasClickClose: boolean;
 	wasEscapeClose: boolean;
 };
-
-function SessionDetailActivityPanel({
-	group,
-	onClose,
-	onJump,
-}: {
-	group: SessionDetailActivityGroup;
-	onClose: () => void;
-	onJump: (target: { eventId: string | undefined; turnIndex: number }) => void;
-}) {
-	return (
-		<div className="min-h-0 overflow-hidden rounded-md">
-			{group.occurrences.length > 0 ? (
-				<ul
-					aria-label={`${group.label} occurrences`}
-					className="grid max-h-72 grid-cols-2 gap-0.5 overflow-y-auto p-1"
-				>
-					{group.occurrences.map((occurrence) => (
-						<li key={occurrence.key}>
-							<button
-								className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md px-4 py-3 text-left hover:bg-black/3 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-(--session-overview-accent) dark:hover:bg-white/3"
-								onClick={() => {
-									onJump({
-										eventId: occurrence.eventId,
-										turnIndex: occurrence.turnIndex,
-									});
-									window.setTimeout(onClose, 0);
-								}}
-								type="button"
-							>
-								<p className="min-w-0 truncate text-[0.8125rem]/5 font-medium tracking-[-0.01em] text-[#3c4149] dark:text-[#d0d6e0]">
-									{occurrence.detail}
-								</p>
-								<p className="truncate text-[0.8125rem]/5 tracking-[-0.01em] text-[#6f6e77] tabular-nums dark:text-[#b4bcd099]">
-									{occurrence.turnLabel}
-									{occurrence.time ? ` · ${occurrence.time}` : ""}
-								</p>
-							</button>
-						</li>
-					))}
-				</ul>
-			) : (
-				<p className="px-4 py-3 text-base text-[#6f6e77] sm:text-[0.8125rem]/5 dark:text-[#b4bcd099]">
-					{group.emptyLabel}
-				</p>
-			)}
-		</div>
-	);
-}
 
 function SessionDetailActivityMenuItem({
 	group,
@@ -148,23 +110,37 @@ function SessionDetailActivityMenuItem({
 }
 
 export function SessionDetailActivityStrip({
+	activityTotals,
+	onMinimumWidthChange,
 	onJump,
 	options,
+	overviewLoading = false,
+	subagents,
 }: {
+	activityTotals: SessionDetailOverview["activityTotals"];
+	onMinimumWidthChange?: (width: number) => void;
 	onJump: (target: { eventId: string | undefined; turnIndex: number }) => void;
 	options: readonly SessionDetailOverviewTurnOption[];
+	overviewLoading?: boolean;
+	subagents: readonly SessionDetailOverview["subagents"][number][];
 }) {
 	const [openKind, setOpenKind] = useState<
 		SessionDetailActivityKind | undefined
 	>();
+	const [activeFrameId, setActiveFrameId] = useState<number | undefined>();
 	const [panelFrames, setPanelFrames] = useState<
 		readonly SessionDetailActivityPanelFrame[]
 	>([]);
 	const [popupHeight, setPopupHeight] = useState(0);
 	const [popupState, setPopupState] = useState<"closed" | "open">("closed");
 	const groups = useMemo(
-		() => buildSessionDetailActivityGroups({ options }),
-		[options],
+		() =>
+			buildSessionDetailActivityGroups({
+				activityTotals,
+				options,
+				subagents,
+			}).filter((group) => group.totalCount > 0),
+		[activityTotals, options, subagents],
 	);
 	const activeKindRef = useRef<SessionDetailActivityKind | undefined>(
 		undefined,
@@ -174,6 +150,8 @@ export function SessionDetailActivityStrip({
 	const isOpenDelayedRef = useRef(true);
 	const openTimerRef = useRef<number | undefined>(undefined);
 	const panelElementsRef = useRef(new Map<number, HTMLDivElement>());
+	const { stripElementRef, triggerListElementRef } =
+		useSessionDetailActivityStripWidth(onMinimumWidthChange);
 	const skipDelayTimerRef = useRef<number | undefined>(undefined);
 	const transitionIdRef = useRef(0);
 	const triggerElementsRef = useRef(
@@ -214,16 +192,23 @@ export function SessionDetailActivityStrip({
 			if (!group) {
 				return;
 			}
-
 			const previousKind = activeKindRef.current;
 			activeKindRef.current = kind;
 			setOpenKind(kind);
 			setPopupState("open");
 			updateOpenDelay(kind);
 			const transitionId = ++transitionIdRef.current;
+			setActiveFrameId(transitionId);
 
 			if (!previousKind) {
-				setPanelFrames([{ group, id: transitionId, motion: undefined }]);
+				setPanelFrames([
+					{
+						group,
+						id: transitionId,
+						motion: undefined,
+						occurrence: undefined,
+					},
+				]);
 				return;
 			}
 
@@ -231,7 +216,14 @@ export function SessionDetailActivityStrip({
 				(candidate) => candidate.kind === previousKind,
 			);
 			if (!previousGroup) {
-				setPanelFrames([{ group, id: transitionId, motion: undefined }]);
+				setPanelFrames([
+					{
+						group,
+						id: transitionId,
+						motion: undefined,
+						occurrence: undefined,
+					},
+				]);
 				return;
 			}
 			const previousIndex = groups.indexOf(previousGroup);
@@ -239,11 +231,12 @@ export function SessionDetailActivityStrip({
 			const movingForward = nextIndex > previousIndex;
 			setPanelFrames((currentFrames) => {
 				const previousFrame = currentFrames.find(
-					(frame) => frame.group.kind === previousKind,
+					(frame) => frame.id === activeFrameId,
 				) ?? {
 					group: previousGroup,
 					id: transitionId - 1,
 					motion: undefined,
+					occurrence: undefined,
 				};
 				return [
 					{
@@ -254,17 +247,43 @@ export function SessionDetailActivityStrip({
 						group,
 						id: transitionId,
 						motion: movingForward ? "from-end" : "from-start",
+						occurrence: undefined,
 					},
 				];
 			});
 			cleanupTimerRef.current = window.setTimeout(() => {
 				if (transitionId === transitionIdRef.current) {
-					setPanelFrames([{ group, id: transitionId, motion: undefined }]);
+					setPanelFrames([
+						{
+							group,
+							id: transitionId,
+							motion: undefined,
+							occurrence: undefined,
+						},
+					]);
 				}
 			}, ACTIVITY_CONTENT_DURATION_MS);
 		},
-		[clearTimer, groups, updateOpenDelay],
+		[activeFrameId, clearTimer, groups, updateOpenDelay],
 	);
+
+	useEffect(() => {
+		const signalGroup = groups.find((group) => group.kind === "signal");
+		if (!signalGroup) {
+			return;
+		}
+		setPanelFrames((currentFrames) => {
+			let changed = false;
+			const nextFrames = currentFrames.map((frame) => {
+				if (frame.group.kind !== "signal" || frame.group === signalGroup) {
+					return frame;
+				}
+				changed = true;
+				return { ...frame, group: signalGroup };
+			});
+			return changed ? nextFrames : currentFrames;
+		});
+	}, [groups]);
 
 	const closeMenu = useCallback(() => {
 		clearTimer(openTimerRef.current);
@@ -284,6 +303,7 @@ export function SessionDetailActivityStrip({
 				activeKindRef.current === undefined
 			) {
 				setPanelFrames([]);
+				setActiveFrameId(undefined);
 			}
 		}, ACTIVITY_CONTENT_DURATION_MS);
 	}, [clearTimer, updateOpenDelay]);
@@ -409,10 +429,49 @@ export function SessionDetailActivityStrip({
 		[closeMenu, getTriggerFlags, groups],
 	);
 
+	const transitionPanel = useCallback(
+		({
+			enteringMotion,
+			exitingMotion,
+			group,
+			occurrence,
+		}: {
+			enteringMotion: "from-end" | "from-start";
+			exitingMotion: "to-end" | "to-start";
+			group: SessionDetailActivityGroup;
+			occurrence: SessionDetailActivityOccurrence | undefined;
+		}) => {
+			clearTimer(closeTimerRef.current);
+			clearTimer(cleanupTimerRef.current);
+			const transitionId = ++transitionIdRef.current;
+			setActiveFrameId(transitionId);
+			setPanelFrames((currentFrames) => {
+				const previousFrame = currentFrames.find(
+					(frame) => frame.id === activeFrameId,
+				);
+				const nextFrame: SessionDetailActivityPanelFrame = {
+					group,
+					id: transitionId,
+					motion: enteringMotion,
+					occurrence,
+				};
+				return previousFrame
+					? [{ ...previousFrame, motion: exitingMotion }, nextFrame]
+					: [nextFrame];
+			});
+			cleanupTimerRef.current = window.setTimeout(() => {
+				if (transitionId === transitionIdRef.current) {
+					setPanelFrames([
+						{ group, id: transitionId, motion: undefined, occurrence },
+					]);
+				}
+			}, ACTIVITY_CONTENT_DURATION_MS);
+		},
+		[activeFrameId, clearTimer],
+	);
+
 	useLayoutEffect(() => {
-		const activeFrame = panelFrames.find(
-			(frame) => frame.group.kind === activeKindRef.current,
-		);
+		const activeFrame = panelFrames.find((frame) => frame.id === activeFrameId);
 		if (!activeFrame) {
 			return;
 		}
@@ -424,12 +483,22 @@ export function SessionDetailActivityStrip({
 		setPopupHeight((currentHeight) =>
 			currentHeight === nextHeight ? currentHeight : nextHeight,
 		);
-	}, [panelFrames]);
+	}, [activeFrameId, panelFrames]);
 
 	return (
-		<header className="relative z-[60] flex h-11 shrink-0 items-center border-b-[0.5px] border-(--session-overview-border) bg-(--session-overview-surface) p-2">
-			<nav aria-label="Session detail activity" className="w-full min-w-0">
-				<ul className="flex min-w-0 items-center gap-2 overflow-x-auto">
+		<header
+			ref={stripElementRef}
+			className="relative z-[60] flex h-11 shrink-0 items-center border-y-[0.5px] border-(--session-overview-border) bg-(--session-overview-surface) p-2"
+		>
+			<nav
+				aria-label="Session detail activity"
+				className="w-full min-w-0 overflow-x-auto"
+			>
+				<ul
+					ref={triggerListElementRef}
+					className="flex w-max items-center gap-2"
+					data-session-detail-activity-items
+				>
 					{groups.map((group) => (
 						<SessionDetailActivityMenuItem
 							group={group}
@@ -461,7 +530,7 @@ export function SessionDetailActivityStrip({
 						{panelFrames.map((frame) => (
 							<div
 								className="session-detail-opaline-panel"
-								data-active={frame.group.kind === openKind}
+								data-active={frame.id === activeFrameId}
 								data-motion={frame.motion}
 								key={frame.id}
 							>
@@ -474,11 +543,39 @@ export function SessionDetailActivityStrip({
 										}
 									}}
 								>
-									<SessionDetailActivityPanel
-										group={frame.group}
-										onClose={closeMenu}
-										onJump={onJump}
-									/>
+									{frame.occurrence ? (
+										<SessionDetailActivityOccurrencePanel
+											group={frame.group}
+											onBack={() =>
+												transitionPanel({
+													enteringMotion: "from-start",
+													exitingMotion: "to-end",
+													group: frame.group,
+													occurrence: undefined,
+												})
+											}
+											onClose={closeMenu}
+											onJump={onJump}
+											occurrence={frame.occurrence}
+										/>
+									) : (
+										<SessionDetailActivityPanel
+											group={frame.group}
+											isLoading={
+												overviewLoading &&
+												frame.group.kind === "signal" &&
+												frame.group.occurrences.length < frame.group.totalCount
+											}
+											onSelectOccurrence={(occurrence) =>
+												transitionPanel({
+													enteringMotion: "from-end",
+													exitingMotion: "to-start",
+													group: frame.group,
+													occurrence,
+												})
+											}
+										/>
+									)}
 								</div>
 							</div>
 						))}

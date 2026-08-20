@@ -2,7 +2,10 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { SessionDetailWindowRequestSchema } from "@rudel/api-routes";
-import { buildSessionDetailFastIntegrationWindow } from "../../src/features/sessions/components/session-detail-fast-integration-data";
+import {
+	buildSessionDetailFastIntegrationSpine,
+	buildSessionDetailFastIntegrationWindow,
+} from "../../src/features/sessions/components/session-detail-fast-integration-data";
 import type { TranscriptForensicsController } from "../../src/features/sessions/components/transcript-forensics";
 
 declare global {
@@ -18,6 +21,13 @@ const INTEGRATION_ROUTE = "/dev/session-detail-fast-integration";
 const MASK_ROUTE = "/dev/transcript-mask";
 
 async function installWindowTransport(page: Page) {
+	await page.route("**/rpc/analytics/sessions/detailSpine", async (route) => {
+		await route.fulfill({
+			body: JSON.stringify({ json: buildSessionDetailFastIntegrationSpine() }),
+			contentType: "application/json",
+			status: 200,
+		});
+	});
 	await page.route("**/rpc/analytics/sessions/detailWindow", async (route) => {
 		const requestBody: unknown = route.request().postDataJSON();
 		if (

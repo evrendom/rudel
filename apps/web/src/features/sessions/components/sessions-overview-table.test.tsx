@@ -22,6 +22,7 @@ const session: SessionAnalytics = {
 	avg_period_sec: 45,
 	duration_min: 12,
 	error_count: 3,
+	git_branch: "rudel/pr2-usage-events",
 	has_commit: true,
 	input_tokens: 6_000,
 	model_used: "claude-sonnet-4",
@@ -39,6 +40,12 @@ const session: SessionAnalytics = {
 	total_tokens: 10_000,
 	used_plan_mode: false,
 	user_id: "user-1",
+	member_swears: 0,
+	member_apologies: 0,
+	member_positive: 0,
+	model_swears: 0,
+	model_apologies: 0,
+	model_positive: 0,
 };
 
 const otherSession: SessionAnalytics = {
@@ -54,7 +61,67 @@ const otherSession: SessionAnalytics = {
 };
 
 describe("SessionsOverviewTable", () => {
-	it("reveals the frozen-column edge when the table scrolls horizontally", () => {
+	it("uses the session-detail metric columns and keeps input and output distinct", () => {
+		render(
+			<SessionsOverviewTable
+				activeSessionId={null}
+				canOpenSession={() => true}
+				getSessionHref={undefined}
+				getSessionLinkState={undefined}
+				isLoading={false}
+				onSessionClick={vi.fn()}
+				scrollContainerRef={undefined}
+				sessionCountLabel={1}
+				sessions={[session]}
+				sessionDetailDisabledNote={undefined}
+				totalSessionCount={1}
+			/>,
+		);
+
+		for (const label of [
+			"Repository",
+			"Member",
+			"Model",
+			"Length",
+			"Input",
+			"Output",
+			"Cost",
+			"Errors",
+			"Skills",
+			"Subagents",
+		]) {
+			expect(
+				screen.getAllByRole("button", {
+					name: `Sort by ${label}, ascending`,
+				}).length,
+			).toBeGreaterThan(0);
+		}
+		const header = document.querySelector<HTMLElement>(
+			'[data-slot="sessions-overview-header"]',
+		);
+		assert(header);
+		expect(
+			within(header).queryByRole("button", {
+				name: "Sort by Time, ascending",
+			}),
+		).not.toBeInTheDocument();
+
+		const sessionsList = screen.getByRole("list", { name: "Recent sessions" });
+		expect(within(sessionsList).getByText("12m")).toBeVisible();
+		expect(within(sessionsList).getByText("pr2-usage-events")).toBeVisible();
+		expect(
+			within(sessionsList).queryByText("rudel/pr2-usage-events"),
+		).not.toBeInTheDocument();
+		expect(within(sessionsList).getByText("6K")).toBeVisible();
+		expect(within(sessionsList).getByText("4K")).toBeVisible();
+		expect(
+			within(sessionsList).getByRole("progressbar", {
+				name: "6,000 input tokens relative to the largest session",
+			}),
+		).toBeInTheDocument();
+	});
+
+	it("scrolls every column together without frozen cells", () => {
 		render(
 			<SessionsOverviewTable
 				activeSessionId={null}
@@ -71,31 +138,23 @@ describe("SessionsOverviewTable", () => {
 			/>,
 		);
 
-		const scrollContainer = document.querySelector<HTMLDivElement>(
-			'[data-slot="sessions-overview-scroll-container"]',
+		const header = document.querySelector<HTMLElement>(
+			'[data-slot="sessions-overview-header"]',
 		);
-		assert(scrollContainer);
-		const frozenEdges = document.querySelectorAll(
-			'[data-slot="sessions-overview-frozen-edge-shadow"]',
+		const firstRow = document.querySelector<HTMLElement>(
+			'[data-dashboard-grid-row-scope="session"]',
 		);
-		expect(frozenEdges).toHaveLength(1);
-		const frozenEdge = frozenEdges.item(0);
-		assert(frozenEdge);
-		expect(frozenEdge).toHaveAttribute("data-visible", "false");
-
-		Object.defineProperty(scrollContainer, "scrollLeft", {
-			configurable: true,
-			value: 120,
-			writable: true,
-		});
-		fireEvent.scroll(scrollContainer);
-
-		expect(frozenEdge).toHaveAttribute("data-visible", "true");
-
-		scrollContainer.scrollLeft = 0;
-		fireEvent.scroll(scrollContainer);
-
-		expect(frozenEdge).toHaveAttribute("data-visible", "false");
+		assert(header);
+		assert(firstRow);
+		expect(header.children[0]).not.toHaveClass("sticky");
+		expect(header.children[1]).not.toHaveClass("sticky");
+		expect(firstRow.children[0]).not.toHaveClass("sticky");
+		expect(firstRow.children[1]).not.toHaveClass("sticky");
+		expect(
+			document.querySelector(
+				'[data-slot="sessions-overview-frozen-edge-shadow"]',
+			),
+		).not.toBeInTheDocument();
 	});
 
 	it("filters rows by model and clears the active filter", async () => {
@@ -139,12 +198,12 @@ describe("SessionsOverviewTable", () => {
 			"Repository",
 			"Member",
 			"Model",
+			"Length",
 			"Tokens",
 			"Cost",
-			"Subagents Used",
-			"Tool/API Errors",
-			"Duration",
-			"Skills Used",
+			"Errors",
+			"Skills",
+			"Subagents",
 		]) {
 			expect(
 				screen.getByRole("button", {
@@ -160,18 +219,16 @@ describe("SessionsOverviewTable", () => {
 		const sessionsList = screen.getByRole("list", { name: "Recent sessions" });
 		expect(
 			screen.getByRole("button", {
-				name: "Sort by Skills Used, ascending",
+				name: "Sort by Skills, ascending",
 			}),
 		).toBeInTheDocument();
 		const subagentsSortButton = screen.getByRole("button", {
-			name: "Sort by Subagents Used, ascending",
+			name: "Sort by Subagents, ascending",
 		});
 		const skillsCell = within(sessionsList).getByTitle(
 			"testing-bun, typescript-standards, ui",
 		);
-		expect(within(skillsCell).getByText("testing-bun")).toBeVisible();
-		expect(within(skillsCell).getByText("typescript-standards")).toBeVisible();
-		expect(within(skillsCell).getByText("+1")).toBeVisible();
+		expect(skillsCell).toHaveTextContent("3");
 		expect(
 			within(sessionsList).getByTitle("2 subagents used"),
 		).toHaveTextContent("2");
@@ -278,7 +335,7 @@ describe("SessionsOverviewTable", () => {
 
 		await user.click(screen.getByRole("button", { name: "Filter sessions" }));
 		await user.click(
-			screen.getByRole("button", { name: "Configure Skills Used filter" }),
+			screen.getByRole("button", { name: "Configure Skills filter" }),
 		);
 		await user.click(screen.getByRole("checkbox", { name: "ui" }));
 
@@ -289,22 +346,25 @@ describe("SessionsOverviewTable", () => {
 		).not.toBeInTheDocument();
 
 		await user.click(
-			screen.getByRole("button", { name: "Clear Skills Used filter" }),
+			screen.getByRole("button", { name: "Clear Skills filter" }),
 		);
 		await user.click(
 			screen.getByRole("button", { name: "Back to all filters" }),
 		);
 		await user.click(
 			screen.getByRole("button", {
-				name: "Configure Tool/API Errors filter",
+				name: "Configure Errors filter",
 			}),
 		);
-		fireEvent.change(
-			screen.getByRole("spinbutton", {
-				name: "Minimum Tool/API Errors",
-			}),
-			{ target: { value: "1" } },
-		);
+		const minimumErrors = screen.getByRole("slider", {
+			name: "Minimum Errors",
+		});
+		const maximumErrors = screen.getByRole("slider", {
+			name: "Maximum Errors",
+		});
+		expect(minimumErrors).toHaveClass("slider-range-input-native");
+		expect(maximumErrors).toHaveClass("slider-range-input-native");
+		fireEvent.change(minimumErrors, { target: { value: "1" } });
 
 		sessionsList = screen.getByRole("list", { name: "Recent sessions" });
 		expect(within(sessionsList).getByText("obsessiondb/rudel")).toBeVisible();

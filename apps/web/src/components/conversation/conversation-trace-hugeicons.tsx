@@ -10,6 +10,7 @@ import {
 	File01Icon,
 	FileTypeIcon,
 	Globe02Icon,
+	Layers01Icon,
 	LeftToRightListBulletIcon,
 	Message01Icon,
 	PencilEdit01Icon,
@@ -64,6 +65,7 @@ export const TraceExchangeIcon =
 export const TraceFileIcon = createConversationTraceHugeicon(File01Icon);
 export const TraceMarkdownIcon = createConversationTraceHugeicon(FileTypeIcon);
 export const TraceGlobeIcon = createConversationTraceHugeicon(Globe02Icon);
+export const TraceLayersIcon = createConversationTraceHugeicon(Layers01Icon);
 export const TraceListIcon = createConversationTraceHugeicon(
 	LeftToRightListBulletIcon,
 );

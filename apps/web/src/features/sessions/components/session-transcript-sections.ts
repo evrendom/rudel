@@ -18,6 +18,7 @@ import {
 } from "./session-transcript-folds";
 import {
 	boundTraceSectionEvents,
+	splitAgentSectionBeforeEvent,
 	splitAgentSectionByEstimatedHeight,
 } from "./session-transcript-section-budget";
 import { areTranscriptValuesEqual } from "./session-transcript-structural-sharing";
@@ -33,6 +34,7 @@ type DerivedSectionPayload = {
 	hiddenEventCount: number;
 	isFirst: boolean;
 	isLast: boolean;
+	modelSetting?: string;
 	planMode: boolean;
 	traceSection: ConversationTraceDerivedSection;
 };
@@ -61,7 +63,13 @@ export type SessionTranscriptRow =
 			startsTrace: boolean;
 			turnId: string;
 	  }
-	| { id: string; kind: "section"; section: TranscriptSection; turnId: string }
+	| {
+			id: string;
+			isFirst: boolean;
+			kind: "section";
+			section: TranscriptSection;
+			turnId: string;
+	  }
 	| {
 			hidden: { events: number; kindLabel: string };
 			id: string;
@@ -69,13 +77,18 @@ export type SessionTranscriptRow =
 			turnId: string;
 	  }
 	| {
+			agentModel: string | undefined;
+			allEvents: readonly TraceEvent[];
 			expanded: boolean;
 			hidden: FoldSummary;
 			id: string;
 			kind: "turn-fold";
+			modelSetting: string | undefined;
+			planMode: boolean;
 			turnId: string;
 	  }
 	| {
+			estimatedHeight: number | undefined;
 			id: string;
 			kind: "turn-pending";
 			option: SessionDetailOverviewTurnOption;
@@ -94,6 +107,7 @@ export type SessionTranscriptRow =
 export type SessionTranscriptTurnSource = {
 	body: SessionTurn | undefined;
 	bodyState?: "error" | "loading";
+	estimatedHeight?: number;
 	option: SessionDetailOverviewTurnOption;
 	requestUsagePlacement: AgentTraceRequestUsagePlacement;
 };
@@ -164,6 +178,22 @@ export function createTranscriptSectionCache(
 
 type TranscriptSectionCache = ReturnType<typeof createTranscriptSectionCache>;
 
+type TranscriptTerminalBoundary =
+	| { eventId: string; kind: "message"; sectionIndex: number }
+	| { kind: "interruption"; sectionIndex: number };
+
+function isTranscriptInterruptionItem(
+	item: Exclude<TraceItem, { kind: "agent" }>,
+) {
+	return (
+		item.kind === "system" &&
+		(item.systemType === "interruption" ||
+			/^(?:Turn aborted|\[Request interrupted by user\])$/iu.test(
+				item.text.trim(),
+			))
+	);
+}
+
 function deriveTranscriptSections(input: {
 	body: SessionTurn;
 	level: SessionDetailLevel;
@@ -177,59 +207,114 @@ function deriveTranscriptSections(input: {
 	);
 }
 
+function getRootModelSetting(items: readonly TraceItem[]) {
+	for (const item of items) {
+		if (
+			item.kind === "agent" &&
+			(item.agentName === undefined || item.agentName === "/root") &&
+			item.modelSetting
+		) {
+			return item.modelSetting;
+		}
+	}
+	return undefined;
+}
+
+function findTranscriptTerminalBoundary(
+	sections: readonly ConversationTraceDerivedSection[],
+) {
+	let boundary: TranscriptTerminalBoundary | undefined;
+	for (const [sectionIndex, section] of sections.entries()) {
+		if (section.kind === "item" && isTranscriptInterruptionItem(section.item)) {
+			boundary = { kind: "interruption", sectionIndex };
+			continue;
+		}
+		if (section.kind !== "agent") {
+			continue;
+		}
+		const message = section.events
+			.filter((event) => event.kind === "message")
+			.at(-1);
+		if (message) {
+			boundary = { eventId: message.id, kind: "message", sectionIndex };
+		}
+	}
+	return boundary;
+}
+
 function deriveTranscriptSectionsUnmeasured(input: {
 	body: SessionTurn;
 	level: SessionDetailLevel;
 	option: SessionDetailOverviewTurnOption;
 	requestUsagePlacement: AgentTraceRequestUsagePlacement;
 }): TranscriptSection[] {
+	const modelSetting = getRootModelSetting(input.body.responseItems);
 	const derivation = deriveConversationTraceSections({
 		items: input.body.responseItems,
 		requestUsage: input.option.metrics.usageEvents,
 		requestUsagePlacement: input.requestUsagePlacement,
 		traceCallDisplayMode: input.level,
 	});
-	const terminalMessageId = derivation.sections
-		.flatMap((section) =>
-			section.kind === "agent"
-				? section.events.filter((event) => event.kind === "message")
-				: [],
-		)
-		.at(-1)?.id;
-	const parts = derivation.sections.flatMap((traceSection, sectionIndex) => {
-		const groupId = `${input.option.turnId}:s${sectionIndex}`;
-		const bounded = boundTraceSectionEvents(
-			traceSection,
-			SECTION_MAX_RENDERED_EVENTS,
-		);
-		const events = traceSection.kind === "agent" ? traceSection.events : [];
-		const fold = deriveTranscriptSectionFoldMetadata(
-			events,
-			groupId,
-			terminalMessageId,
-		);
-		const sectionParts =
-			bounded.section.kind === "agent"
-				? splitAgentSectionByEstimatedHeight(
-						bounded.section,
-						SECTION_MAX_ESTIMATED_PX,
-					)
-				: [
-						{
-							chunkIndex: 0,
-							estimatedHeight: 56,
-							section: bounded.section,
-						},
-					];
-		return sectionParts.map((part, partIndex) => ({
-			estimatedHeight: part.estimatedHeight,
-			fold,
-			id: part.chunkIndex === 0 ? groupId : `${groupId}b${part.chunkIndex}`,
-			hiddenEventCount:
-				partIndex === sectionParts.length - 1 ? bounded.hiddenEventCount : 0,
-			traceSection: part.section,
-		}));
-	});
+	const terminalBoundary = findTranscriptTerminalBoundary(derivation.sections);
+	const terminalSeparatedSections = derivation.sections.flatMap(
+		(traceSection, sectionIndex) => {
+			const terminalMessageId =
+				terminalBoundary?.kind === "message" &&
+				terminalBoundary.sectionIndex === sectionIndex
+					? terminalBoundary.eventId
+					: undefined;
+			const sections =
+				traceSection.kind === "agent" && terminalMessageId
+					? splitAgentSectionBeforeEvent(traceSection, terminalMessageId)
+					: [traceSection];
+			return sections.map((section, splitIndex) => ({
+				groupId:
+					splitIndex === 0
+						? `${input.option.turnId}:s${sectionIndex}`
+						: `${input.option.turnId}:s${sectionIndex}t${splitIndex}`,
+				isTerminalBoundary:
+					terminalBoundary?.sectionIndex === sectionIndex &&
+					(terminalBoundary.kind === "interruption" ||
+						splitIndex === sections.length - 1),
+				traceSection: section,
+			}));
+		},
+	);
+	const parts = terminalSeparatedSections.flatMap(
+		({ groupId, isTerminalBoundary, traceSection }) => {
+			const bounded = boundTraceSectionEvents(
+				traceSection,
+				SECTION_MAX_RENDERED_EVENTS,
+			);
+			const events = traceSection.kind === "agent" ? traceSection.events : [];
+			const fold = deriveTranscriptSectionFoldMetadata(
+				events,
+				groupId,
+				isTerminalBoundary,
+			);
+			const sectionParts =
+				bounded.section.kind === "agent"
+					? splitAgentSectionByEstimatedHeight(
+							bounded.section,
+							SECTION_MAX_ESTIMATED_PX,
+						)
+					: [
+							{
+								chunkIndex: 0,
+								estimatedHeight: 56,
+								section: bounded.section,
+							},
+						];
+			return sectionParts.map((part, partIndex) => ({
+				estimatedHeight: part.estimatedHeight,
+				fold,
+				id: part.chunkIndex === 0 ? groupId : `${groupId}b${part.chunkIndex}`,
+				hiddenEventCount:
+					partIndex === sectionParts.length - 1 ? bounded.hiddenEventCount : 0,
+				traceSection: part.section,
+			}));
+		},
+	);
 	return parts.map((part, partIndex) => {
 		return {
 			estimatedHeight: part.estimatedHeight,
@@ -244,6 +329,7 @@ function deriveTranscriptSectionsUnmeasured(input: {
 				hiddenEventCount: part.hiddenEventCount,
 				isFirst: partIndex === 0,
 				isLast: partIndex === parts.length - 1,
+				...(modelSetting ? { modelSetting } : {}),
 				planMode: derivation.planMode,
 				traceSection: part.traceSection,
 			},
@@ -345,7 +431,11 @@ function isRowUnchanged(
 				left.startsTrace === right.startsTrace
 			);
 		case "section":
-			return left.kind === "section" && left.section === right.section;
+			return (
+				left.kind === "section" &&
+				left.section === right.section &&
+				left.isFirst === right.isFirst
+			);
 		case "section-overflow":
 			return (
 				left.kind === "section-overflow" &&
@@ -355,12 +445,19 @@ function isRowUnchanged(
 		case "turn-fold":
 			return (
 				left.kind === "turn-fold" &&
+				left.agentModel === right.agentModel &&
+				left.allEvents === right.allEvents &&
 				left.expanded === right.expanded &&
-				left.hidden.events === right.hidden.events &&
-				left.hidden.toolCalls === right.hidden.toolCalls
+				left.modelSetting === right.modelSetting &&
+				left.planMode === right.planMode &&
+				areFoldSummariesEqual(left.hidden, right.hidden)
 			);
 		case "turn-pending":
-			return left.kind === "turn-pending" && left.option === right.option;
+			return (
+				left.kind === "turn-pending" &&
+				left.estimatedHeight === right.estimatedHeight &&
+				left.option === right.option
+			);
 		case "turn-error":
 		case "no-response":
 		case "subagents-anchor":
@@ -372,6 +469,19 @@ function isRowUnchanged(
 				left.state === right.state
 			);
 	}
+}
+
+function areFoldSummariesEqual(left: FoldSummary, right: FoldSummary) {
+	return (
+		left.events === right.events &&
+		left.filesEdited === right.filesEdited &&
+		left.filesRead === right.filesRead &&
+		left.filesWritten === right.filesWritten &&
+		left.messages === right.messages &&
+		left.reasoning === right.reasoning &&
+		left.skills === right.skills &&
+		left.subagents === right.subagents
+	);
 }
 
 export function stabilizeSessionDetailTurnOptions(
@@ -424,6 +534,7 @@ function appendTurnRows(
 			rows.push({ id: `${turnId}:error`, kind: "turn-error", turnId });
 		} else if (turn.option.hasBody) {
 			rows.push({
+				estimatedHeight: turn.estimatedHeight,
 				id: `${turnId}:pending`,
 				kind: "turn-pending",
 				option: turn.option,
@@ -462,24 +573,34 @@ function appendTurnRows(
 		: undefined;
 	if (foldPlan) {
 		const expanded = context.folds?.expandedTurnIds.has(turnId) ?? false;
-		let insertedFold = false;
+		const firstSection = sections[0];
+		const firstAgentSection = sections.find(
+			(section) => section.payload.traceSection.kind === "agent",
+		)?.payload.traceSection;
+		if (!firstSection) {
+			return;
+		}
+		rows.push({
+			agentModel:
+				firstAgentSection?.kind === "agent"
+					? firstAgentSection.usage?.model
+					: undefined,
+			allEvents: firstSection.payload.allEvents.events,
+			expanded,
+			hidden: foldPlan.summary,
+			id: `${turnId}:fold`,
+			kind: "turn-fold",
+			modelSetting: firstSection.payload.modelSetting,
+			planMode: firstSection.payload.planMode,
+			turnId,
+		});
 		for (const section of sections) {
 			if (foldPlan.hiddenSectionIds.has(section.id)) {
-				if (!insertedFold) {
-					rows.push({
-						expanded,
-						hidden: foldPlan.summary,
-						id: `${turnId}:fold`,
-						kind: "turn-fold",
-						turnId,
-					});
-					insertedFold = true;
-				}
 				if (!expanded) {
 					continue;
 				}
 			}
-			appendSectionRows(rows, section, turnId);
+			appendSectionRows(rows, section, turnId, false);
 		}
 		return;
 	}
@@ -492,8 +613,9 @@ function appendSectionRows(
 	rows: SessionTranscriptRow[],
 	section: TranscriptSection,
 	turnId: string,
+	isFirst = section.payload.isFirst,
 ) {
-	rows.push({ id: section.id, kind: "section", section, turnId });
+	rows.push({ id: section.id, isFirst, kind: "section", section, turnId });
 	if (section.payload.hiddenEventCount > 0) {
 		rows.push({
 			hidden: {

@@ -40,18 +40,3 @@ export function toggleSessionTurnTableSpeakerVisibility({
 		visibleSpeakers: nextSpeakers,
 	};
 }
-
-export function focusSessionTurnTableSpeaker({
-	primarySpeaker,
-	speaker,
-	visibleSpeakers,
-}: {
-	primarySpeaker: SessionTurnTableSpeaker;
-	speaker: SessionTurnTableSpeaker;
-	visibleSpeakers: ReadonlySet<SessionTurnTableSpeaker>;
-}): SessionTurnTableSpeakerSelection {
-	return {
-		primarySpeaker: visibleSpeakers.has(speaker) ? speaker : primarySpeaker,
-		visibleSpeakers,
-	};
-}

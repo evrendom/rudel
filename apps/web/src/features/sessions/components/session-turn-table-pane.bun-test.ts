@@ -1,21 +1,23 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { SessionTurnTableSpeaker } from "./session-turn-table";
+import {
+	SessionTurnTable,
+	type SessionTurnTableSpeaker,
+} from "./session-turn-table";
+import type { SessionTurnTableColumnKey } from "./session-turn-table-column-options";
 import { buildSessionTurnTableColumns } from "./session-turn-table-columns";
 import { sortSessionTurnTableOptions } from "./session-turn-table-filters";
-import { SessionTurnTableFooter } from "./session-turn-table-footer";
+import { formatTotalTurnDuration } from "./session-turn-table-metrics";
 import type { SessionTurnTablePaneOption } from "./session-turn-table-pane";
 import {
 	getSessionTurnTableSelectedRowKey,
 	getVisibleSessionTurnSpeaker,
 	isSessionTurnTableRowInViewport,
 } from "./session-turn-table-selection";
-import {
-	focusSessionTurnTableSpeaker,
-	toggleSessionTurnTableSpeakerVisibility,
-} from "./session-turn-table-speaker-visibility";
+import { toggleSessionTurnTableSpeakerVisibility } from "./session-turn-table-speaker-visibility";
 import { buildSessionTurnTableViewRows } from "./session-turn-table-view-rows";
+import { SessionTurnTableSpeakerVisibilityControls } from "./session-turn-table-view-tabs";
 import { getSessionTurnMemberPreview, type SessionTurn } from "./session-turns";
 
 const compaction = {
@@ -60,7 +62,6 @@ const options: readonly SessionTurnTablePaneOption[] = [
 	{
 		compactionsBefore: [compaction],
 		key: "turn-2",
-		memberCharacterCount: 1_200,
 		memberPreview: "Beta member request",
 		metrics: {
 			editedFiles: [],
@@ -87,6 +88,76 @@ const options: readonly SessionTurnTablePaneOption[] = [
 ];
 
 describe("session turn table pane", () => {
+	test("renders one overlapping speaker-menu trigger with opacity selection states", () => {
+		const markup = renderToStaticMarkup(
+			createElement(SessionTurnTableSpeakerVisibilityControls, {
+				className: undefined,
+				model: "claude-fable-5",
+				onPrimarySpeakerChange: () => undefined,
+				onVisibleSpeakersChange: () => undefined,
+				primarySpeaker: "model",
+				userImageUrl: undefined,
+				userLabel: "Evren",
+				visibleSpeakers: MODEL_SPEAKERS,
+			}),
+		);
+
+		expect(markup.match(/type="button"/g)?.length).toBe(1);
+		expect(markup).not.toContain("data-speaker-check");
+		expect(markup).toContain('data-selected="false"');
+		expect(markup).toContain("saturate-0");
+		expect(markup).toContain("opacity-35");
+		expect(markup).toContain("session-constellation-tree");
+		expect(markup).toContain("session-turn-table-model-icon-shell");
+		expect(markup).toContain("session-turn-table-model-icon");
+		expect(markup).toContain("Fable 5");
+		expect(markup).not.toContain(">claude-fable-5<");
+		expect(markup).toContain("data-trace-tree-row-content");
+		expect(markup).toContain("-ml-3");
+		expect(markup).toContain("size-5");
+		expect(markup).not.toContain("hover:bg-(--session-overview-hover)");
+		expect(markup).not.toContain("<div");
+	});
+
+	test("removes the speaker and tool column for a single visible speaker", () => {
+		const visibleOptions = options.map((option, index) => ({ index, option }));
+		const rows = buildSessionTurnTableViewRows(
+			visibleOptions,
+			MODEL_SPEAKERS,
+			"model",
+		);
+		const visibleColumnKeys = new Set<SessionTurnTableColumnKey>([
+			"time",
+			"duration",
+			"input",
+			"output",
+			"cost",
+		]);
+		const markup = renderToStaticMarkup(
+			createElement(SessionTurnTable, {
+				model: "gpt-5",
+				onSelect: () => undefined,
+				onSort: () => undefined,
+				options,
+				rows,
+				selection: { index: 0, speaker: "model" },
+				sessionDurationLabel: "2h 5m",
+				showSpeakerColumn: false,
+				speakerVisibilityControls: null,
+				sort: { direction: "asc", key: "time" },
+				visibleColumnKeys,
+				visibleOptions,
+			}),
+		);
+
+		expect(markup).not.toContain("Speaker and tool calls");
+		expect(markup).not.toContain("Model and tools");
+		expect(markup).not.toContain("session-turn-table-model-icon");
+		expect(markup).not.toContain("0.375rem 2rem");
+		expect(markup).not.toContain(">2x<");
+		expect(markup).toContain("0.375rem 4rem");
+	});
+
 	test("treats the transcript viewport as an inclusive turn range", () => {
 		expect(
 			isSessionTurnTableRowInViewport({
@@ -114,7 +185,7 @@ describe("session turn table pane", () => {
 		).toBe(false);
 	});
 
-	test("separates row visibility from the focused top-row speaker", () => {
+	test("keeps the active row type coherent with row visibility", () => {
 		const allSpeakers = toggleSessionTurnTableSpeakerVisibility({
 			primarySpeaker: "model",
 			speaker: "member",
@@ -123,18 +194,10 @@ describe("session turn table pane", () => {
 		expect(allSpeakers.primarySpeaker).toBe("model");
 		expect([...allSpeakers.visibleSpeakers]).toEqual(["model", "member"]);
 
-		const userFocused = focusSessionTurnTableSpeaker({
-			primarySpeaker: allSpeakers.primarySpeaker,
+		const modelOnly = toggleSessionTurnTableSpeakerVisibility({
+			primarySpeaker: "member",
 			speaker: "member",
 			visibleSpeakers: allSpeakers.visibleSpeakers,
-		});
-		expect(userFocused.primarySpeaker).toBe("member");
-		expect(userFocused.visibleSpeakers).toBe(allSpeakers.visibleSpeakers);
-
-		const modelOnly = toggleSessionTurnTableSpeakerVisibility({
-			primarySpeaker: userFocused.primarySpeaker,
-			speaker: "member",
-			visibleSpeakers: userFocused.visibleSpeakers,
 		});
 		expect(modelOnly.primarySpeaker).toBe("model");
 		expect([...modelOnly.visibleSpeakers]).toEqual(["model"]);
@@ -145,16 +208,6 @@ describe("session turn table pane", () => {
 			visibleSpeakers: modelOnly.visibleSpeakers,
 		});
 		expect(unchanged.visibleSpeakers).toBe(modelOnly.visibleSpeakers);
-
-		const unavailableUserFocus = focusSessionTurnTableSpeaker({
-			primarySpeaker: modelOnly.primarySpeaker,
-			speaker: "member",
-			visibleSpeakers: modelOnly.visibleSpeakers,
-		});
-		expect(unavailableUserFocus.primarySpeaker).toBe("model");
-		expect(unavailableUserFocus.visibleSpeakers).toBe(
-			modelOnly.visibleSpeakers,
-		);
 		expect(getVisibleSessionTurnSpeaker("member", MODEL_SPEAKERS)).toBe(
 			"model",
 		);
@@ -266,38 +319,39 @@ describe("session turn table views", () => {
 		{ index: 1, option: options[1] },
 	];
 
-	test("uses fixed character and sentiment-word columns for Member", () => {
+	test("puts a model-sized time column before the wide Member text column", () => {
 		const rows = buildSessionTurnTableViewRows(
 			matches,
 			USER_SPEAKERS,
 			"member",
 		);
 		const columns = buildSessionTurnTableColumns(options, "member", rows);
+		const modelTimeColumn = buildSessionTurnTableColumns(
+			options,
+			"model",
+			rows,
+		).find((column) => column.key === "time");
+		if (!modelTimeColumn) {
+			throw new Error("Expected a model time column");
+		}
 
-		expect(columns.map((column) => column.label)).toEqual([
-			"Characters",
-			"Sentiment words",
-		]);
+		expect(columns.map((column) => column.label)).toEqual(["Time", "Text"]);
 		const memberRow = rows[0];
 		if (!memberRow) {
 			throw new Error("Expected a member table row");
 		}
-		expect(memberRow.characterCount).toBe(9);
+		expect(columns[0]?.getValues(memberRow)[0]?.label).toBe("10:00");
+		expect(columns[0]?.sortKey).toBe("time");
+		expect(columns[0]?.widthClassName).toBe("w-16-fixed");
+		expect(columns[0]?.widthClassName).toBe(modelTimeColumn.widthClassName);
 		expect(
-			columns[0]?.getValues(memberRow).map((value) => value.label),
-		).toEqual(["9"]);
-		expect(columns[0]?.getValues(memberRow)[0]?.relativeMagnitude).toBeCloseTo(
-			(9 / 1_200) * 100,
+			columns[1]?.getValues(memberRow).map((value) => value.label),
+		).toEqual(["One Second"]);
+		expect(rows[1] ? columns[1]?.getValues(rows[1])[0]?.label : undefined).toBe(
+			"Beta member request",
 		);
-		expect(rows[1]?.characterCount).toBe(1_200);
-		expect(rows[1] ? columns[0]?.getValues(rows[1])[0]?.label : undefined).toBe(
-			"1,200",
-		);
-		expect(columns[0]?.summary).toEqual({
-			label: "1,209",
-			title: "1,209 total characters",
-		});
-		expect(columns[1]?.getValues(memberRow)).toEqual([]);
+		expect(columns[1]?.summary).toBeUndefined();
+		expect(columns[1]?.widthClassName).toBe("w-60");
 	});
 
 	test("derives each mini chart from its raw value relative to the visible column maximum", () => {
@@ -323,8 +377,11 @@ describe("session turn table views", () => {
 		);
 		const inputColumn = columns.find((column) => column.key === "input");
 		const timeColumn = columns.find((column) => column.key === "time");
+		const fixedWidthColumns = columns.filter((column) =>
+			["duration", "input", "output"].includes(column.key),
+		);
 		const plainNumberColumns = columns.filter((column) =>
-			["tools", "errors", "files", "skills"].includes(column.key),
+			["errors", "files", "skills", "signals"].includes(column.key),
 		);
 		if (!inputColumn || !timeColumn || plainNumberColumns.length !== 4) {
 			throw new Error("Expected charted and uncharted numeric columns");
@@ -335,6 +392,11 @@ describe("session turn table views", () => {
 				(row) => inputColumn.getValues(row)[0]?.relativeMagnitude,
 			),
 		).toEqual([100, 50]);
+		expect(fixedWidthColumns.map((column) => column.widthClassName)).toEqual([
+			"w-16-fixed",
+			"w-16-fixed",
+			"w-16-fixed",
+		]);
 		expect(
 			magnitudeRows.map(
 				(row) => timeColumn.getValues(row)[0]?.relativeMagnitude,
@@ -353,23 +415,6 @@ describe("session turn table views", () => {
 			label: "1.8k",
 			title: "1,800 total input tokens",
 		});
-		const footerMarkup = renderToStaticMarkup(
-			createElement(
-				"table",
-				null,
-				createElement(SessionTurnTableFooter, {
-					columns,
-					gridTemplate: "3.5rem 4.5rem 4rem",
-					sessionDurationLabel: "2h 5m",
-					turnCount: 2,
-				}),
-			),
-		);
-		expect(footerMarkup).toContain("Visible turn totals");
-		expect(footerMarkup).toContain("sticky bottom-0");
-		expect(footerMarkup).toContain("2x");
-		expect(footerMarkup).toContain("2h 5m");
-		expect(footerMarkup).toContain("$0.08");
 	});
 
 	test("keeps user and model rows chronological while leaving model columns empty for users", () => {
@@ -427,13 +472,13 @@ describe("session turn table views", () => {
 			"1:member",
 			"1:model",
 		]);
-		expect(columns.map((column) => column.label)).toEqual([
-			"Characters",
-			"Sentiment words",
-		]);
+		expect(columns.map((column) => column.label)).toEqual(["Time", "Text"]);
 	});
 
 	test("compacts duration units without a prefix or intervening space", () => {
+		expect(formatTotalTurnDuration(11_141)).toBe("3h 5m");
+		expect(formatTotalTurnDuration(341)).toBe("5m 41s");
+
 		const modelRow = buildSessionTurnTableViewRows(
 			[{ index: 0, option: optionWithMemberMessages }],
 			MODEL_SPEAKERS,

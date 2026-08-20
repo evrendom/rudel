@@ -1,9 +1,9 @@
 import { formatClockTime, type SessionDetailOverview } from "@rudel/api-routes";
-import {
-	type LanguageSignalCategory,
-	scanLanguageSignals,
-} from "@rudel/language-signals";
+import { formatModelDisplayLabel } from "@/features/dashboard/components/dashboard-model-brand";
+import { SESSION_DETAIL_SIGNAL_LABELS } from "./session-detail-language-signals";
 import type { SessionDetailOverviewTurnOption } from "./session-detail-overview-model";
+import { formatSessionCost } from "./session-detail-view-model";
+import { formatCompactTurnTokens } from "./session-turn-table-metrics";
 
 export type SessionDetailActivityKind =
 	| "edit"
@@ -19,6 +19,7 @@ export type SessionDetailActivityOccurrence = {
 	detail: string;
 	eventId: string | undefined;
 	key: string;
+	supportingDetail?: string;
 	time: string;
 	turnIndex: number;
 	turnLabel: string;
@@ -28,6 +29,7 @@ export type SessionDetailActivityGroup = {
 	emptyLabel: string;
 	kind: SessionDetailActivityKind;
 	label: string;
+	omittedCount: number;
 	occurrences: readonly SessionDetailActivityOccurrence[];
 	totalCount: number;
 };
@@ -107,6 +109,7 @@ function buildFileActivityGroup({
 		emptyLabel: `No files ${action}`,
 		kind,
 		label,
+		omittedCount: 0,
 		occurrences,
 		totalCount,
 	};
@@ -119,7 +122,7 @@ function buildErrorActivityGroup(
 		if (option.metrics.errorEvents.length > 0) {
 			return option.metrics.errorEvents.map((event, eventIndex) => ({
 				count: 1,
-				detail: "Error",
+				detail: event.content ?? "Error",
 				eventId: undefined,
 				key: `${option.turnId}-error-${event.at}-${eventIndex}`,
 				time: getOccurrenceTime(event.at, option),
@@ -150,6 +153,7 @@ function buildErrorActivityGroup(
 		emptyLabel: "No errors",
 		kind: "error",
 		label: "Errors",
+		omittedCount: 0,
 		occurrences,
 		totalCount: occurrences.reduce(
 			(total, occurrence) => total + occurrence.count,
@@ -185,25 +189,18 @@ function buildSkillActivityGroup(
 		emptyLabel: "No skills used",
 		kind: "skill",
 		label: "Skills",
+		omittedCount: 0,
 		occurrences,
 		totalCount: occurrences.length,
 	};
 }
 
-const DISPLAYED_SIGNAL_LABELS: Readonly<
-	Partial<Record<LanguageSignalCategory, string>>
-> = {
-	apology: "Apologetic",
-	negative: "Negative",
-	positive: "Positive",
-};
-
 function buildSignalActivityGroup(
 	options: readonly SessionDetailOverviewTurnOption[],
 ): SessionDetailActivityGroup {
 	const occurrences = options.flatMap((option, turnIndex) =>
-		scanLanguageSignals(option.memberText).flatMap((signal, signalIndex) => {
-			const categoryLabel = DISPLAYED_SIGNAL_LABELS[signal.category];
+		option.signalOccurrences.flatMap((signal, signalIndex) => {
+			const categoryLabel = SESSION_DETAIL_SIGNAL_LABELS[signal.category];
 			if (!categoryLabel) {
 				return [];
 			}
@@ -212,7 +209,7 @@ function buildSignalActivityGroup(
 					count: 1,
 					detail: `${categoryLabel} · ${signal.matchedText}`,
 					eventId: undefined,
-					key: `${option.turnId}-signal-${signal.ruleId}-${signal.start}-${signalIndex}`,
+					key: `${option.turnId}-signal-${signal.category}-${signalIndex}`,
 					time: option.timing.startTime,
 					turnIndex,
 					turnLabel: getTurnLabel(option, turnIndex),
@@ -225,6 +222,14 @@ function buildSignalActivityGroup(
 		emptyLabel: "No positive, negative, or apologetic signals detected",
 		kind: "signal",
 		label: "Signals",
+		omittedCount: options.reduce(
+			(total, option) =>
+				total +
+				(option.signalOccurrencesTruncated
+					? option.signalOccurrencesOmittedCount
+					: 0),
+			0,
+		),
 		occurrences,
 		totalCount: occurrences.length,
 	};
@@ -232,26 +237,47 @@ function buildSignalActivityGroup(
 
 function buildSubagentActivityGroup(
 	options: readonly SessionDetailOverviewTurnOption[],
+	subagents: readonly SessionDetailOverview["subagents"][number][],
 ): SessionDetailActivityGroup {
+	const subagentsById = new Map(
+		subagents.map((subagent) => [subagent.subagentId, subagent]),
+	);
 	const occurrences = options.flatMap((option, turnIndex) =>
-		(option.subagentEvents ?? []).map((event, eventIndex) => ({
-			count: event.count,
-			detail:
-				event.count === 1
-					? "Subagent"
-					: `${event.count.toLocaleString()} subagents`,
-			eventId: undefined,
-			key: `${option.turnId}-subagent-${event.at}-${eventIndex}`,
-			time: getOccurrenceTime(event.at, option),
-			turnIndex,
-			turnLabel: getTurnLabel(option, turnIndex),
-		})),
+		(option.subagentEvents ?? []).map((event, eventIndex) => {
+			const subagent = event.subagentId
+				? subagentsById.get(event.subagentId)
+				: undefined;
+			const metrics = subagent
+				? [
+						`Cost ${formatSessionCost(subagent.estimatedCost)}`,
+						`IN-TOK ${subagent.inputTokens === null ? "—" : formatCompactTurnTokens(subagent.inputTokens)}`,
+						`OUT-TOK ${subagent.outputTokens === null ? "—" : formatCompactTurnTokens(subagent.outputTokens)}`,
+					]
+				: [];
+			return {
+				count: event.count,
+				detail: subagent?.model
+					? formatModelDisplayLabel(subagent.model)
+					: event.count === 1
+						? "Subagent"
+						: `${event.count.toLocaleString()} subagents`,
+				eventId: event.eventId,
+				key: `${option.turnId}-subagent-${event.at}-${eventIndex}`,
+				...(metrics.length > 0
+					? { supportingDetail: metrics.join(" · ") }
+					: {}),
+				time: getOccurrenceTime(event.at, option),
+				turnIndex,
+				turnLabel: getTurnLabel(option, turnIndex),
+			};
+		}),
 	);
 
 	return {
 		emptyLabel: "No subagents used",
 		kind: "subagent",
 		label: "Subagent",
+		omittedCount: 0,
 		occurrences,
 		totalCount: occurrences.reduce(
 			(total, occurrence) => total + occurrence.count,
@@ -261,11 +287,15 @@ function buildSubagentActivityGroup(
 }
 
 export function buildSessionDetailActivityGroups({
+	activityTotals,
 	options,
+	subagents,
 }: {
+	activityTotals: SessionDetailOverview["activityTotals"];
 	options: readonly SessionDetailOverviewTurnOption[];
+	subagents: readonly SessionDetailOverview["subagents"][number][];
 }) {
-	return [
+	const groups = [
 		buildFileActivityGroup({
 			label: "Read",
 			operation: "read",
@@ -284,6 +314,11 @@ export function buildSessionDetailActivityGroups({
 		buildErrorActivityGroup(options),
 		buildSignalActivityGroup(options),
 		buildSkillActivityGroup(options),
-		buildSubagentActivityGroup(options),
+		buildSubagentActivityGroup(options, subagents),
 	] satisfies readonly SessionDetailActivityGroup[];
+
+	return groups.map((group) => ({
+		...group,
+		totalCount: activityTotals[group.kind],
+	}));
 }

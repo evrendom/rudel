@@ -11,11 +11,13 @@ const {
 	mockUseActiveMember,
 	mockUseActiveOrganization,
 	mockUseListOrganizations,
+	mockUseSession,
 } = vi.hoisted(() => ({
 	mockSetActive: vi.fn(),
 	mockUseActiveMember: vi.fn(),
 	mockUseActiveOrganization: vi.fn(),
 	mockUseListOrganizations: vi.fn(),
+	mockUseSession: vi.fn(),
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -26,6 +28,7 @@ vi.mock("@/lib/auth-client", () => ({
 		useActiveMember: mockUseActiveMember,
 		useActiveOrganization: mockUseActiveOrganization,
 		useListOrganizations: mockUseListOrganizations,
+		useSession: mockUseSession,
 	},
 }));
 
@@ -48,6 +51,7 @@ function OrganizationStateProbe() {
 }
 
 it("recovers after full-organization is rate limited and auto-select succeeds", async () => {
+	mockUseSession.mockReturnValue({ data: { user: { id: "user-1" } } });
 	let resolveSetActive:
 		| ((result: { data: typeof organization; error: null }) => void)
 		| undefined;
@@ -92,4 +96,22 @@ it("recovers after full-organization is rate limited and auto-select succeeds", 
 	await waitFor(() => {
 		expect(screen.getByText("org-1:ready")).toBeInTheDocument();
 	});
+});
+
+it("does not request organization data before authentication", () => {
+	mockUseSession.mockReturnValue({ data: null, isPending: false });
+	mockUseActiveOrganization.mockClear();
+	mockUseListOrganizations.mockClear();
+	mockUseActiveMember.mockClear();
+
+	render(
+		<OrganizationProvider>
+			<OrganizationStateProbe />
+		</OrganizationProvider>,
+	);
+
+	expect(screen.getByText("no-organization:ready")).toBeInTheDocument();
+	expect(mockUseActiveOrganization).not.toHaveBeenCalled();
+	expect(mockUseListOrganizations).not.toHaveBeenCalled();
+	expect(mockUseActiveMember).not.toHaveBeenCalled();
 });

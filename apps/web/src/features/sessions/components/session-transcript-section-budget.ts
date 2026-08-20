@@ -9,6 +9,7 @@ import {
 } from "@/components/conversation/conversation-trace-tree-branches";
 
 const REQUEST_HEADER_ESTIMATED_PX = 120;
+const CONTINUATION_SECTION_ESTIMATED_PX = 12;
 const COMPACT_EVENT_ESTIMATED_PX = 32;
 const TEXT_EVENT_BASE_ESTIMATED_PX = 40;
 const EVENT_TEXT_LINE_ESTIMATED_PX = 20;
@@ -31,6 +32,35 @@ export function boundTraceSectionEvents(
 		hiddenEventCount: section.events.length - events.length,
 		section: bounded,
 	};
+}
+
+export function splitAgentSectionBeforeEvent(
+	section: ConversationTraceAgentSection,
+	eventId: string,
+) {
+	const eventIndex = section.events.findIndex((event) => event.id === eventId);
+	if (eventIndex <= 0) {
+		return [section];
+	}
+	const earlierEvents = section.events.slice(0, eventIndex);
+	const terminalEvents = section.events.slice(eventIndex);
+	return [
+		{
+			...section,
+			branches: buildAgentTraceTreeBranches(earlierEvents),
+			continuesToNext: true,
+			events: earlierEvents,
+		},
+		{
+			...section,
+			branches: buildAgentTraceTreeBranches(terminalEvents),
+			continuesFromPrevious: true,
+			events: terminalEvents,
+			inlineUsage: false,
+			key: `${section.key}:terminal`,
+			showHeader: false,
+		},
+	];
 }
 
 export function splitAgentSectionByEstimatedHeight(
@@ -62,8 +92,11 @@ export function splitAgentSectionByEstimatedHeight(
 	}
 
 	return eventChunks.map((eventChunk, chunkIndex) => {
-		const continuation = chunkIndex > 0;
-		const continuesToNext = chunkIndex < eventChunks.length - 1;
+		const continuationChunk = chunkIndex > 0;
+		const continuesFromPrevious =
+			section.continuesFromPrevious || continuationChunk;
+		const continuesToNext =
+			section.continuesToNext || chunkIndex < eventChunks.length - 1;
 		const chunk: ConversationTraceAgentSection = {
 			...section,
 			branches: sliceAgentTraceTreeBranches({
@@ -72,12 +105,12 @@ export function splitAgentSectionByEstimatedHeight(
 				eventIndices,
 				startIndex: eventChunk.startIndex,
 			}),
-			continuesFromPrevious: continuation,
+			continuesFromPrevious,
 			continuesToNext,
 			events: eventChunk.events,
-			inlineUsage: continuation ? false : section.inlineUsage,
-			key: continuation ? `${section.key}:b${chunkIndex}` : section.key,
-			showHeader: continuation ? false : section.showHeader,
+			inlineUsage: continuationChunk ? false : section.inlineUsage,
+			key: continuationChunk ? `${section.key}:b${chunkIndex}` : section.key,
+			showHeader: continuationChunk ? false : section.showHeader,
 		};
 		return {
 			chunkIndex,
@@ -140,11 +173,15 @@ function estimateAgentSectionHeight(
 	maxEstimatedPx: number,
 ) {
 	const requestHeader = section.showHeader ? REQUEST_HEADER_ESTIMATED_PX : 0;
+	const continuationSpacing = section.continuesFromPrevious
+		? CONTINUATION_SECTION_ESTIMATED_PX
+		: 0;
 	return Math.min(
 		maxEstimatedPx,
 		Math.max(
 			COMPACT_EVENT_ESTIMATED_PX,
 			requestHeader +
+				continuationSpacing +
 				section.events.reduce(
 					(total, event) =>
 						total + estimateTraceEventHeight(event, maxEstimatedPx),

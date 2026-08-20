@@ -12,6 +12,7 @@ test("the model row and overlay render identical section-header DOM", () => {
 		continues: true,
 		events: [],
 		kind: "model" as const,
+		modelSetting: "xhigh",
 		planMode: true,
 		terminal: false,
 	};
@@ -21,6 +22,8 @@ test("the model row and overlay render identical section-header DOM", () => {
 			agentModel={header.agentModel}
 			continuesAfter={header.continues}
 			events={[]}
+			expandable={false}
+			modelSetting={header.modelSetting}
 			planMode={header.planMode}
 			sections={[]}
 			stickyHeader={false}
@@ -36,6 +39,7 @@ test("the model row and overlay render identical section-header DOM", () => {
 
 	const stickyMarkup = renderToStaticMarkup(
 		<TranscriptStickyHeaderWrappers
+			onToggleFold={undefined}
 			placements={[
 				{
 					extent: 500,

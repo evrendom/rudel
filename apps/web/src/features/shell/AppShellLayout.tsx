@@ -3,7 +3,7 @@ import * as React from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { AppToaster } from "@/app/ui/AppToaster";
 import "@/app/app-surface.css";
-import { appRoutes, getCanonicalAppPath } from "@/app/routes";
+import { appRoutes, getCanonicalAppPath, isNewSessionPath } from "@/app/routes";
 import { SidebarInset, SidebarProvider } from "@/app/ui/sidebar";
 import { TooltipProvider } from "@/app/ui/tooltip";
 import "@/features/dashboard/dashboard-theme.css";
@@ -18,6 +18,7 @@ import {
 import { SHOW_SIDEBAR_NEWS_MODE } from "@/features/shell/config/sidebar-news";
 import { getDefaultSidebarShellTuningState } from "@/features/shell/config/sidebar-shell-debug";
 import { useShellRoutePath } from "@/features/shell/hooks/use-shell-route-path";
+import { NewseshListHeaderPortalContext } from "@/features/shell/newsesh-list-header-portal";
 import { ShellBottomNavigationPortalContext } from "@/features/shell/shell-bottom-navigation-portal";
 import { ShellHeaderPortalContext } from "@/features/shell/shell-header-portal";
 import { cn } from "@/lib/utils";
@@ -169,11 +170,14 @@ function ShellLayout({
 	const isSessionOverviewRoute = canonicalPathname === appRoutes.session();
 	const isSessionWorkspaceRoute =
 		isSessionOverviewRoute ||
-		canonicalPathname.startsWith(`${appRoutes.session()}/`);
+		canonicalPathname.startsWith(`${appRoutes.session()}/`) ||
+		isNewSessionPath(canonicalPathname);
 	const isSkillsWorkspaceRoute = canonicalPathname === appRoutes.skills();
 	const isFixedWorkspaceRoute =
 		isSessionWorkspaceRoute || isSkillsWorkspaceRoute;
 	const [shellHeaderPortal, setShellHeaderPortal] =
+		React.useState<HTMLElement | null>(null);
+	const [newseshListHeaderPortal, setNewseshListHeaderPortal] =
 		React.useState<HTMLElement | null>(null);
 	const [shellBottomNavigationPortal, setShellBottomNavigationPortal] =
 		React.useState<HTMLElement | null>(null);
@@ -215,6 +219,7 @@ function ShellLayout({
 	const shellWindowContent = (
 		<>
 			<SiteHeader
+				setNewseshListPortalHost={setNewseshListHeaderPortal}
 				setPortalHost={setShellHeaderPortal}
 				showSidebarTrigger={isLeftSidebarVariant}
 				showWorkspaceMenu={isFloatingDockVariant}
@@ -257,59 +262,63 @@ function ShellLayout({
 	return (
 		<TooltipProvider>
 			<ShellHeaderPortalContext.Provider value={shellHeaderPortal}>
-				<ShellBottomNavigationPortalContext.Provider
-					value={shellBottomNavigationPortal}
+				<NewseshListHeaderPortalContext.Provider
+					value={newseshListHeaderPortal}
 				>
-					{isLeftSidebarVariant ? (
-						<div className="dashboard-01-preview h-dvh overflow-hidden overscroll-none text-foreground">
-							<SidebarProvider
-								defaultOpen={isSettingsShellRoute || isSidebarNewsModeEnabled}
-								open={
-									isSettingsShellRoute || isSidebarNewsModeEnabled
-										? true
-										: undefined
-								}
-								onOpenChange={
-									isSettingsShellRoute || isSidebarNewsModeEnabled
-										? () => {}
-										: undefined
-								}
-								className="dashboard-01-chrome-frame h-full overflow-hidden overscroll-none"
-								style={leftSidebarChromeStyle}
+					<ShellBottomNavigationPortalContext.Provider
+						value={shellBottomNavigationPortal}
+					>
+						{isLeftSidebarVariant ? (
+							<div className="dashboard-01-preview h-dvh overflow-hidden overscroll-none text-foreground">
+								<SidebarProvider
+									defaultOpen={isSettingsShellRoute || isSidebarNewsModeEnabled}
+									open={
+										isSettingsShellRoute || isSidebarNewsModeEnabled
+											? true
+											: undefined
+									}
+									onOpenChange={
+										isSettingsShellRoute || isSidebarNewsModeEnabled
+											? () => {}
+											: undefined
+									}
+									className="dashboard-01-chrome-frame h-full overflow-hidden overscroll-none"
+									style={leftSidebarChromeStyle}
+								>
+									<AppSidebar
+										navigationMode={isSettingsShellRoute ? "settings" : "app"}
+									/>
+									<SidebarInset className="dashboard-01-window min-h-0 overflow-hidden overscroll-none bg-[var(--dashboard-01-content-background)] md:m-(--dashboard-01-window-inset) md:ml-0 md:rounded-(--dashboard-01-window-radius) md:shadow-[0_3px_6px_-2px_rgba(0,0,0,0.02),0_1px_1px_0_rgba(0,0,0,0.04)]">
+										{shellWindowContent}
+									</SidebarInset>
+								</SidebarProvider>
+							</div>
+						) : (
+							<div
+								className={cn(
+									"dashboard-01-preview dashboard-01-chrome-frame isolate h-dvh overflow-hidden overscroll-none text-foreground antialiased",
+									isBottomRailVariant
+										? "p-0"
+										: "p-0 sm:p-(--dashboard-01-window-inset)",
+								)}
+								style={defaultChromeStyle}
 							>
-								<AppSidebar
-									navigationMode={isSettingsShellRoute ? "settings" : "app"}
-								/>
-								<SidebarInset className="dashboard-01-window min-h-0 overflow-hidden overscroll-none bg-[var(--dashboard-01-content-background)] md:m-(--dashboard-01-window-inset) md:ml-0 md:rounded-(--dashboard-01-window-radius) md:shadow-[0_3px_6px_-2px_rgba(0,0,0,0.02),0_1px_1px_0_rgba(0,0,0,0.04)]">
-									{shellWindowContent}
-								</SidebarInset>
-							</SidebarProvider>
-						</div>
-					) : (
-						<div
-							className={cn(
-								"dashboard-01-preview dashboard-01-chrome-frame isolate h-dvh overflow-hidden overscroll-none text-foreground antialiased",
-								isBottomRailVariant
-									? "p-0"
-									: "p-0 sm:p-(--dashboard-01-window-inset)",
-							)}
-							style={defaultChromeStyle}
-						>
-							{isBottomRailVariant ? (
-								<div className="relative flex h-full min-h-0 flex-col overflow-hidden overscroll-none">
-									<div className="dashboard-01-window relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden overscroll-none bg-[var(--dashboard-01-content-background)] sm:mx-(--dashboard-01-window-inset) sm:mt-(--dashboard-01-window-inset) sm:rounded-(--dashboard-01-window-radius) sm:shadow-[var(--dashboard-01-window-shadow)] dark:shadow-none">
+								{isBottomRailVariant ? (
+									<div className="relative flex h-full min-h-0 flex-col overflow-hidden overscroll-none">
+										<div className="dashboard-01-window relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden overscroll-none bg-[var(--dashboard-01-content-background)] sm:mx-(--dashboard-01-window-inset) sm:mt-(--dashboard-01-window-inset) sm:rounded-(--dashboard-01-window-radius) sm:shadow-[var(--dashboard-01-window-shadow)] dark:shadow-none">
+											{shellWindowContent}
+										</div>
+										<BottomRailNavigation />
+									</div>
+								) : (
+									<div className="dashboard-01-window relative flex h-full min-h-0 flex-col overflow-hidden overscroll-none bg-[var(--dashboard-01-content-background)] sm:rounded-(--dashboard-01-window-radius) sm:shadow-[var(--dashboard-01-window-shadow)] dark:shadow-none">
 										{shellWindowContent}
 									</div>
-									<BottomRailNavigation />
-								</div>
-							) : (
-								<div className="dashboard-01-window relative flex h-full min-h-0 flex-col overflow-hidden overscroll-none bg-[var(--dashboard-01-content-background)] sm:rounded-(--dashboard-01-window-radius) sm:shadow-[var(--dashboard-01-window-shadow)] dark:shadow-none">
-									{shellWindowContent}
-								</div>
-							)}
-						</div>
-					)}
-				</ShellBottomNavigationPortalContext.Provider>
+								)}
+							</div>
+						)}
+					</ShellBottomNavigationPortalContext.Provider>
+				</NewseshListHeaderPortalContext.Provider>
 			</ShellHeaderPortalContext.Provider>
 			<AppToaster richColors position="bottom-right" />
 		</TooltipProvider>

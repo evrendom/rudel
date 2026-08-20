@@ -20,6 +20,13 @@ describe("getCurrentShellRoute", () => {
 		);
 	});
 
+	it("keeps the newsesh experiment in the sessions shell", () => {
+		expect(getCurrentShellRoute("/newsesh")).toBe(shellRouteMap.sessions);
+		expect(getCurrentShellRoute("/newsesh/session-123")).toBe(
+			shellRouteMap.sessions,
+		);
+	});
+
 	it("matches routes inside the bottom rail preview namespace", () => {
 		expect(getCurrentShellRoute("/dev/bottom-rail")).toBe(
 			shellRouteMap.dashboard,

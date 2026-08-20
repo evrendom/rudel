@@ -27,6 +27,7 @@
         "@rudel/agent-adapters": "workspace:*",
         "@rudel/api-routes": "workspace:*",
         "@rudel/ch-schema": "workspace:*",
+        "@rudel/language-signals": "workspace:*",
         "@rudel/secret-filter": "workspace:*",
         "@rudel/sql-schema": "workspace:*",
         "@rudel/usage-events": "workspace:*",

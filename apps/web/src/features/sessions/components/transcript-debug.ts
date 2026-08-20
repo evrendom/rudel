@@ -1,12 +1,10 @@
-import { publishTranscriptForensicsHud } from "./transcript-forensics";
-
 export type TranscriptDebugSnapshot = {
 	activeTurn: number | undefined;
 	bodyTurns: number;
 	lastGap: number;
 	maskedGapFrames: number;
 	pending: number;
-	scrollMode: "anchoring-turn" | "free-scrolling";
+	scrollMode: "anchoring-turn" | "free-scrolling" | "soft-anchored";
 	visibleRange: readonly [number, number] | undefined;
 	windows: number;
 	trueBlankFrames: number;
@@ -28,27 +26,16 @@ export function publishTranscriptDebugSnapshot(
 	element.dataset.transcriptMaskedGapFrames = String(snapshot.maskedGapFrames);
 	element.dataset.transcriptTrueBlankFrames = String(snapshot.trueBlankFrames);
 	element.dataset.transcriptBlankGap = String(snapshot.lastGap);
-	const hud = element.querySelector<HTMLOutputElement>(
-		"[data-transcript-debug-hud]",
-	);
-	if (hud) {
-		const baseHud = [
-			snapshot.scrollMode,
-			`active ${snapshot.activeTurn ?? "–"}`,
-			`visible ${snapshot.visibleRange?.join("–") ?? "–"}`,
-			`${snapshot.windows} windows`,
-			`${snapshot.bodyTurns} bodies`,
-			`${snapshot.pending} pending`,
-			`${snapshot.maskedGapFrames} masked gaps`,
-			`${snapshot.trueBlankFrames} true blanks`,
-		].join(" · ");
-		element.dataset.transcriptDebugBaseHud = baseHud;
-		publishTranscriptForensicsHud();
-	}
 }
 
 export function markTranscriptMeasure(
-	name: "anchor" | "derive" | "level-switch" | "window-fetch",
+	name:
+		| "anchor"
+		| "body-normalize"
+		| "derive"
+		| "level-switch"
+		| "model-build"
+		| "window-fetch",
 	phase: "end" | "start",
 	enabled: boolean,
 ) {

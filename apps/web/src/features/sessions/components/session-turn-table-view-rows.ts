@@ -1,4 +1,3 @@
-import { scanLanguageSignals } from "@rudel/language-signals";
 import { getToolPresentation } from "@/components/conversation/conversation-tools";
 import type {
 	SessionTurnTableRow,
@@ -6,24 +5,7 @@ import type {
 	SessionTurnTableToolCallGroup,
 } from "./session-turn-table";
 import type { SessionTurnTablePaneMatch } from "./session-turn-table-pane";
-import {
-	getSessionTurnMemberCharacterCount,
-	getSessionTurnMemberText,
-} from "./session-turns";
-
-function getMemberCharacterCount(match: SessionTurnTablePaneMatch) {
-	const turn = match.option.turn;
-	if (!turn) {
-		if (match.option.memberCharacterCount !== undefined) {
-			return match.option.memberCharacterCount;
-		}
-		return match.option.turnNumber === undefined
-			? undefined
-			: match.option.memberPreview.length;
-	}
-
-	return getSessionTurnMemberCharacterCount(turn);
-}
+import { getSessionTurnMemberText } from "./session-turns";
 
 function hasMemberMessage(match: SessionTurnTablePaneMatch) {
 	const turn = match.option.turn;
@@ -37,20 +19,23 @@ function hasMemberMessage(match: SessionTurnTablePaneMatch) {
 	);
 }
 
-function getMemberSentimentWords(match: SessionTurnTablePaneMatch) {
-	const memberText = match.option.turn
+function getMemberText(match: SessionTurnTablePaneMatch) {
+	return match.option.turn
 		? getSessionTurnMemberText(match.option.turn)
 		: match.option.memberPreview;
-	return scanLanguageSignals(memberText).map((signal) => signal.matchedText);
 }
 
-function buildMemberRow(match: SessionTurnTablePaneMatch): SessionTurnTableRow {
+function buildMemberRow(
+	match: SessionTurnTablePaneMatch,
+	signalCount: number,
+): SessionTurnTableRow {
 	return {
-		characterCount: getMemberCharacterCount(match),
 		key: `${match.option.key}:member`,
 		match,
-		sentimentWords: getMemberSentimentWords(match),
+		memberText: getMemberText(match),
+		signalCount,
 		speaker: "member",
+		subagentCount: 0,
 		toolCallGroups: [],
 	};
 }
@@ -107,13 +92,21 @@ function getToolCallGroups(match: SessionTurnTablePaneMatch) {
 	return Array.from(groupsByIcon.values());
 }
 
-function buildModelRow(match: SessionTurnTablePaneMatch): SessionTurnTableRow {
+function buildModelRow(
+	match: SessionTurnTablePaneMatch,
+	signalCount: number,
+): SessionTurnTableRow {
+	const subagentCount = (match.option.subagentEvents ?? []).reduce(
+		(total, event) => total + event.count,
+		0,
+	);
 	return {
-		characterCount: undefined,
 		key: `${match.option.key}:model`,
 		match,
-		sentimentWords: [],
+		memberText: undefined,
+		signalCount,
 		speaker: "model",
+		subagentCount,
 		toolCallGroups: getToolCallGroups(match),
 	};
 }
@@ -124,12 +117,17 @@ export function buildSessionTurnTableViewRows(
 	_primarySpeaker: SessionTurnTableSpeaker,
 ): SessionTurnTableRow[] {
 	return matches.flatMap((match) => {
+		// Counts come from the server (full-text authority); the client scans text
+		// only to place highlights in prose it is actually rendering, never to
+		// produce numbers.
+		const memberSignalCount = match.option.signalCount ?? 0;
+		const modelSignalCount = match.option.modelSignalCount ?? 0;
 		const rows: SessionTurnTableRow[] = [];
 		if (visibleSpeakers.has("member") && hasMemberMessage(match)) {
-			rows.push(buildMemberRow(match));
+			rows.push(buildMemberRow(match, memberSignalCount));
 		}
 		if (visibleSpeakers.has("model")) {
-			rows.push(buildModelRow(match));
+			rows.push(buildModelRow(match, modelSignalCount));
 		}
 
 		return rows.sort((left, right) => {

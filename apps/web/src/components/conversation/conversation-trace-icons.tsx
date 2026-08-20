@@ -169,25 +169,30 @@ export function UserTraceAvatar({
 	imageUrl: string | undefined;
 }) {
 	return (
-		<TraceDisclosureFrame
+		<span
 			className={cn(
-				"flex size-5 shrink-0 items-center justify-center rounded-full text-[color:var(--dashboardy-muted)] outline-1 -outline-offset-1 outline-black/5 dark:outline-white/10",
+				"relative flex size-5 shrink-0 drop-shadow-[0_0_0.75px_rgb(0_0_0_/_14%)]",
 				className,
 			)}
-			expanded={expanded}
-			expandable={expandable}
+			data-user-trace-avatar-shell
 		>
-			{imageUrl ? (
-				<img
-					src={imageUrl}
-					alt=""
-					width={20}
-					height={20}
-					className="size-full rounded-full object-cover"
-				/>
-			) : (
-				<TraceUserIcon className="size-3" />
-			)}
-		</TraceDisclosureFrame>
+			<TraceDisclosureFrame
+				className="flex size-full items-center justify-center rounded-full text-[color:var(--dashboardy-muted)]"
+				expanded={expanded}
+				expandable={expandable}
+			>
+				{imageUrl ? (
+					<img
+						src={imageUrl}
+						alt=""
+						width={20}
+						height={20}
+						className="size-full rounded-full object-cover"
+					/>
+				) : (
+					<TraceUserIcon className="size-3" />
+				)}
+			</TraceDisclosureFrame>
+		</span>
 	);
 }

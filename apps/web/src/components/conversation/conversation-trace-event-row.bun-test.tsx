@@ -77,12 +77,12 @@ describe("ConversationTraceEventRow shell calls", () => {
 		expect(markup).not.toContain("No result recorded for this call");
 	});
 
-	test("lets the row width truncate the full reasoning preview", () => {
+	test("collapses reasoning only after the 1,500-character limit", () => {
 		const preview = [
 			"The first line stays below the node.",
 			"The second line remains available.",
 			"The third line remains available.",
-			"The fourth line is clamped.",
+			`The fourth line is clamped. ${"reasoning ".repeat(170)} sorry`,
 		].join("\n");
 		const markup = renderToStaticMarkup(
 			<ConversationTraceEventRow
@@ -96,18 +96,20 @@ describe("ConversationTraceEventRow shell calls", () => {
 		);
 		const headerStart = markup.indexOf("data-trace-row-header");
 		const headerEnd = markup.indexOf("</div>", headerStart);
-		const normalizedPreview = preview.replace(/\s+/gu, " ");
 
 		expect(markup).toContain("data-trace-collapsed-preview");
-		expect(markup.indexOf(normalizedPreview)).toBeGreaterThan(headerEnd);
-		expect(markup).toContain("line-clamp-3");
+		expect(
+			markup.indexOf("The first line stays below the node."),
+		).toBeGreaterThan(headerEnd);
+		expect(markup).toContain("data-trace-text-preview-tail");
+		expect(markup).toContain("[…]");
+		expect(markup).toContain('data-signal="apology"');
 		expect(markup).not.toContain("flex-1 truncate font-sans");
 		expect(markup).toContain("data-trace-content-disclosure");
-		expect(markup).toContain("data-trace-prose-motion");
-		expect(markup).toContain("data-trace-expanded-content");
+		expect(markup).not.toContain("data-trace-expanded-content");
 	});
 
-	test("omits disclosure when a prose preview fits within three lines", () => {
+	test("shows short reasoning in full without a disclosure", () => {
 		const markup = renderToStaticMarkup(
 			<ConversationTraceEventRow
 				event={{
@@ -119,7 +121,8 @@ describe("ConversationTraceEventRow shell calls", () => {
 			/>,
 		);
 
-		expect(markup).toContain("data-trace-collapsed-preview");
+		expect(markup).toContain("data-trace-static-content");
+		expect(markup).not.toContain("data-trace-collapsed-preview");
 		expect(markup).not.toContain("data-trace-content-disclosure");
 		expect(markup).not.toContain("data-trace-content-disclosure-icon");
 	});

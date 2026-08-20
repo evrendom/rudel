@@ -346,6 +346,16 @@ test("budget-split agent sections preserve nesting and rail continuity in both l
 			page,
 			`turns=1&display=${display}`,
 		);
+		const fold = scroller.locator("[data-transcript-fold-turn-id]").first();
+		await expect(fold).toHaveAttribute("aria-expanded", "false");
+		const turnId = await fold.getAttribute("data-transcript-fold-turn-id");
+		if (!turnId) {
+			throw new Error("Expected the fixture fold to identify its turn");
+		}
+		await scroller
+			.locator(`[data-transcript-sticky-fold-turn-id="${turnId}"]`)
+			.click();
+		await expect(fold).toHaveAttribute("aria-expanded", "true");
 		const screenshot = await captureSplitSectionGeometry({
 			display,
 			page,
@@ -389,7 +399,7 @@ test("native sticky headers continuously cover every offset in a split section a
 		expect(sample.visible, `visibility at scrollTop ${scrollTop}`).toBe(true);
 		expect(sample.atTop, `coverage at scrollTop ${scrollTop}`).toBe(true);
 		expect(sample.owner).toBe("fixture-turn-1");
-		expect(sample.label).toBe("Claude Fable 5");
+		expect(sample.label).toBe("Fable 5");
 		if (scrollTop + 20 >= firstRange.end) {
 			break;
 		}
@@ -439,7 +449,6 @@ test("the native sticky clone is pixel-stable as the real header slides undernea
 	const screenshotOptions = {
 		animations: "disabled" as const,
 		clip,
-		style: "[data-transcript-debug-hud] { visibility: hidden !important; }",
 	};
 	const before = await page.screenshot(screenshotOptions);
 	await scroller.evaluate((element, scrollTop) => {
@@ -753,10 +762,9 @@ test("jump settling, level remeasurement, and viewport resize remain covered", a
 		"18",
 	);
 	const target = scroller
-		.locator('[data-transcript-turn-id="fixture-turn-2:streamed:17"]')
+		.locator('[data-transcript-row-id="fixture-turn-2:streamed:17:member"]')
 		.first();
 	await expect(target).toHaveAttribute("aria-current", "true");
-	await expect(target).toBeFocused();
 	await scroller
 		.locator("[data-trace-fixture-toggle-level]")
 		.dispatchEvent("click");
@@ -818,18 +826,52 @@ test("semantic folds expand in place and survive keyed prepends", async ({
 	const fold = scroller.locator("[data-transcript-fold-turn-id]").first();
 	await expect(fold).toBeVisible();
 	await expect(fold).toHaveAttribute("aria-expanded", "false");
-	await expect(fold).toContainText(/Show \d+ tool calls? and \d+ events?/);
+	const modelHeader = fold.locator(
+		"xpath=ancestor::*[@data-transcript-model-header-source='row'][1]",
+	);
+	await expect(modelHeader).toHaveCount(1);
+	await expect(modelHeader.locator(":scope > button")).toHaveCount(0);
+	const foldTreeItem = fold.locator(
+		"xpath=ancestor::*[@data-trace-tree-item-depth][1]",
+	);
+	await expect(foldTreeItem).toHaveAttribute("data-trace-tree-item-depth", "1");
+	const summaryTags = fold.locator("[data-transcript-fold-summary-tag]");
+	await expect(summaryTags).toHaveCount(7);
+	for (const label of [
+		"Reasoning",
+		"Messages",
+		"Skills",
+		"Subagents",
+		"Files Read",
+		"written",
+		"edited",
+	]) {
+		await expect(
+			summaryTags.filter({ hasText: new RegExp(`^\\d+ ${label}$`) }),
+		).toHaveCount(1);
+	}
 	const turnId = await fold.getAttribute("data-transcript-fold-turn-id");
 	if (!turnId) {
 		throw new Error("Expected the fixture fold to identify its turn");
 	}
 	const foldRow = scroller.locator(`[data-transcript-row-id="${turnId}:fold"]`);
+	const stickyFold = scroller.locator(
+		`[data-transcript-sticky-fold-turn-id="${turnId}"]`,
+	);
+	await expect(stickyFold).toBeVisible();
+	await expect(
+		stickyFold.locator("[data-transcript-fold-summary-tag]"),
+	).toHaveCount(7);
 	const offsetBefore = await foldRow.evaluate(
 		(element) =>
 			element.getBoundingClientRect().top -
 			(element.parentElement?.parentElement?.getBoundingClientRect().top ?? 0),
 	);
-	await fold.dispatchEvent("click");
+	await stickyFold.click();
+	await expect(fold).toHaveAttribute("aria-expanded", "true");
+	await stickyFold.click();
+	await expect(fold).toHaveAttribute("aria-expanded", "false");
+	await stickyFold.click();
 	await expect(fold).toHaveAttribute("aria-expanded", "true");
 	await waitForFrames(page, 5);
 	const offsetAfter = await foldRow.evaluate(
@@ -871,12 +913,11 @@ test("a programmatic hit expands its fold before anchoring", async ({
 		.toMatch(/^\d+$/);
 	await expect(
 		scroller.locator(`[data-transcript-fold-turn-id="${turnId}"]`),
-	).toHaveCount(0);
+	).toHaveAttribute("aria-expanded", "true");
 	const target = scroller
-		.locator(`[data-transcript-turn-id="${turnId}"]`)
+		.locator(`[data-transcript-row-id="${turnId}:member"]`)
 		.first();
 	await expect(target).toHaveAttribute("aria-current", "true");
-	await expect(target).toBeFocused();
 });
 
 for (const mode of [

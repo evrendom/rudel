@@ -37,9 +37,15 @@ function option(turnId: string, index: number) {
 			hasBody: true,
 			index,
 			inputTokens: 100,
+			modelSignalCount: 0,
 			outputTokens: 20,
 			responsePreview: "Done",
+			signalCount: 0,
+			signalOccurrences: [],
+			signalOccurrencesOmittedCount: 0,
+			signalOccurrencesTruncated: false,
 			skills: [],
+			skillCount: 0,
 			skillEvents: [],
 			slashCommands: [],
 			startedAt: "2026-08-16T08:30:00.000Z",
@@ -139,7 +145,21 @@ function foldBody(turnId: string) {
 							text: "Planning",
 							timestamp: timestamp(0),
 						},
+						{
+							content: "Intermediate update",
+							id: `${turnId}:message:intermediate`,
+							kind: "message" as const,
+							text: "Intermediate update",
+							timestamp: timestamp(0),
+						},
 						tool(`${turnId}:tool:hidden-one`, 1),
+						tool(`${turnId}:tool:skill`, 1, { toolName: "Skill" }),
+						tool(`${turnId}:tool:read`, 1, { toolName: "Read" }),
+						tool(`${turnId}:tool:write`, 1, { toolName: "Write" }),
+						tool(`${turnId}:tool:edit`, 1, { toolName: "Edit" }),
+						tool(`${turnId}:tool:notebook-edit`, 1, {
+							toolName: "NotebookEdit",
+						}),
 					],
 					0,
 				),
@@ -197,6 +217,34 @@ function foldBody(turnId: string) {
 				),
 			],
 			userItems: [],
+		}),
+	);
+}
+
+function interruptedFoldBody(turnId: string) {
+	const completeBody = foldBody(turnId);
+	const interruptionIndex = completeBody.responseItems.findIndex(
+		(item) => item.kind === "system" && item.systemType === "interruption",
+	);
+	if (interruptionIndex < 0) {
+		throw new Error("Expected the synthetic interruption item");
+	}
+	return {
+		...completeBody,
+		responseItems: completeBody.responseItems.slice(0, interruptionIndex + 1),
+	};
+}
+
+function codexInterruptedFoldBody(turnId: string) {
+	const interruptedBody = interruptedFoldBody(turnId);
+	return normalizeSessionDetailTurnBody(
+		SessionDetailTurnBodySchema.parse({
+			...interruptedBody,
+			responseItems: interruptedBody.responseItems.map((item) =>
+				item.kind === "system" && item.systemType === "interruption"
+					? { ...item, systemType: "system", text: "Turn aborted" }
+					: item,
+			),
 		}),
 	);
 }
@@ -489,7 +537,7 @@ describe("session transcript sections and rows", () => {
 		expect(cache.size).toBe(2);
 	});
 
-	test("folds only intermediate safe tool sections with an exact summary", () => {
+	test("folds everything before the terminal model message with an exact summary", () => {
 		sharedCache = createTranscriptSectionCache();
 		const turn = source("turn-fold", 0, foldBody("turn-fold"));
 		const collapsed = model([turn], "request", revision, {
@@ -499,7 +547,16 @@ describe("session transcript sections and rows", () => {
 		const fold = collapsed.rows.find((row) => row.kind === "turn-fold");
 		expect(fold).toMatchObject({
 			expanded: false,
-			hidden: { events: 3, toolCalls: 2 },
+			hidden: {
+				events: 12,
+				filesEdited: 2,
+				filesRead: 1,
+				filesWritten: 1,
+				messages: 1,
+				reasoning: 1,
+				skills: 1,
+				subagents: 1,
+			},
 			id: "turn-fold:fold",
 		});
 
@@ -509,19 +566,82 @@ describe("session transcript sections and rows", () => {
 				? row.section.payload.traceSection.events.map((event) => event.id)
 				: [],
 		);
-		expect(visibleEventIds).not.toContain("turn-fold:tool:hidden-one");
-		expect(visibleEventIds).not.toContain("turn-fold:tool:hidden-two");
-		expect(visibleEventIds).toContain("turn-fold:tool:spawn");
-		expect(visibleEventIds).toContain("turn-fold:tool:error");
-		expect(visibleEventIds).toContain("turn-fold:tool:last");
-		expect(visibleEventIds).toContain("turn-fold:message:terminal");
+		expect(visibleEventIds).toEqual(["turn-fold:message:terminal"]);
 		expect(
 			collapsed.rows.filter(
 				(row) =>
 					row.kind === "section" &&
 					row.section.payload.traceSection.kind === "item",
 			),
-		).toHaveLength(4);
+		).toHaveLength(0);
+	});
+
+	test("folds an interrupted turn while leaving its interruption last", () => {
+		sharedCache = createTranscriptSectionCache();
+		const turn = source(
+			"turn-interrupted",
+			0,
+			interruptedFoldBody("turn-interrupted"),
+		);
+		const collapsed = model([turn], "request", revision, {
+			expandedTurnIds: new Set(),
+			protectedTurnIds: new Set(),
+		});
+		expect(
+			collapsed.rows.find((row) => row.kind === "turn-fold"),
+		).toMatchObject({
+			expanded: false,
+			hidden: {
+				events: 9,
+				filesEdited: 2,
+				filesRead: 1,
+				filesWritten: 1,
+				messages: 1,
+				reasoning: 1,
+				skills: 1,
+				subagents: 1,
+			},
+			id: "turn-interrupted:fold",
+		});
+
+		const visibleEventIds = collapsed.rows.flatMap((row) =>
+			row.kind === "section" &&
+			row.section.payload.traceSection.kind === "agent"
+				? row.section.payload.traceSection.events.map((event) => event.id)
+				: [],
+		);
+		expect(visibleEventIds).toEqual([]);
+		const visibleItemIds = collapsed.rows.flatMap((row) =>
+			row.kind === "section" && row.section.payload.traceSection.kind === "item"
+				? [row.section.payload.traceSection.item.id]
+				: [],
+		);
+		expect(visibleItemIds).toEqual(["turn-interrupted:interruption"]);
+	});
+
+	test("folds a Codex turn-aborted system row as an interruption", () => {
+		sharedCache = createTranscriptSectionCache();
+		const turn = source(
+			"turn-aborted",
+			0,
+			codexInterruptedFoldBody("turn-aborted"),
+		);
+		const collapsed = model([turn], "request", revision, {
+			expandedTurnIds: new Set(),
+			protectedTurnIds: new Set(),
+		});
+		expect(
+			collapsed.rows.find((row) => row.kind === "turn-fold"),
+		).toMatchObject({
+			expanded: false,
+			id: "turn-aborted:fold",
+		});
+		const visibleItemIds = collapsed.rows.flatMap((row) =>
+			row.kind === "section" && row.section.payload.traceSection.kind === "item"
+				? [row.section.payload.traceSection.item.id]
+				: [],
+		);
+		expect(visibleItemIds).toEqual(["turn-aborted:interruption"]);
 	});
 
 	test("keeps selected turns open and preserves expanded state by turn id", () => {
@@ -561,7 +681,6 @@ describe("session transcript sections and rows", () => {
 	test("counts folded events before the per-section rendering cap", () => {
 		sharedCache = createTranscriptSectionCache();
 		const oversized = body("turn-fold-large", 75);
-		const terminal = body("turn-fold-large:last", 1);
 		const turnBody = {
 			responseItems: [
 				...oversized.responseItems,
@@ -572,7 +691,21 @@ describe("session transcript sections and rows", () => {
 					text: "Request boundary",
 					timestamp: "2026-08-16T08:31:20.000Z",
 				},
-				...terminal.responseItems,
+				{
+					events: [
+						{
+							content: "Terminal answer",
+							id: "turn-fold-large:message:terminal",
+							kind: "message" as const,
+							text: "Terminal answer",
+							timestamp: "2026-08-16T08:31:21.000Z",
+						},
+					],
+					executionMode: "default" as const,
+					id: "turn-fold-large:terminal-agent",
+					kind: "agent" as const,
+					timestamp: "2026-08-16T08:31:21.000Z",
+				},
 			],
 			userItems: oversized.userItems,
 		};
@@ -584,7 +717,7 @@ describe("session transcript sections and rows", () => {
 		);
 		expect(
 			collapsed.rows.find((row) => row.kind === "turn-fold"),
-		).toMatchObject({ hidden: { events: 75, toolCalls: 75 } });
+		).toMatchObject({ hidden: { events: 75 } });
 		expect(
 			collapsed.rows.some((row) => row.id === "turn-fold-large:s0:overflow"),
 		).toBe(false);

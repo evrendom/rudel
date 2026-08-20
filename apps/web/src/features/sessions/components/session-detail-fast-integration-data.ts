@@ -1,5 +1,6 @@
 import {
 	SessionDetailOverviewSchema,
+	SessionDetailSpineSchema,
 	type SessionDetailWindowRequest,
 	SessionDetailWindowSchema,
 } from "@rudel/api-routes";
@@ -8,6 +9,7 @@ export const SESSION_DETAIL_INTEGRATION_SESSION_ID =
 	"session-detail-window-integration";
 export const SESSION_DETAIL_INTEGRATION_REVISION = "2026-08-17T10:00:00.000Z";
 export const SESSION_DETAIL_INTEGRATION_TURN_COUNT = 100;
+const OVERVIEW_FIRST_PAGE_TURN_COUNT = 80;
 const WINDOW_TURN_COUNT = 20;
 
 export function getSessionDetailIntegrationTurnId(index: number) {
@@ -15,7 +17,34 @@ export function getSessionDetailIntegrationTurnId(index: number) {
 }
 
 export function buildSessionDetailFastIntegrationOverview() {
+	return {
+		...buildSessionDetailFastIntegrationOverviewPage(0),
+		activityTotalsScope: "session" as const,
+	};
+}
+
+export function buildSessionDetailFastIntegrationRemainingOverviewPage() {
+	return buildSessionDetailFastIntegrationOverviewPage(
+		OVERVIEW_FIRST_PAGE_TURN_COUNT,
+	);
+}
+
+function buildSessionDetailFastIntegrationOverviewPage(startIndex: number) {
+	const endIndex =
+		startIndex === 0
+			? OVERVIEW_FIRST_PAGE_TURN_COUNT
+			: SESSION_DETAIL_INTEGRATION_TURN_COUNT;
 	return SessionDetailOverviewSchema.parse({
+		activityTotals: {
+			edit: 0,
+			error: 0,
+			read: 0,
+			signal: 1,
+			signalScanVersion: 1,
+			skill: 20,
+			subagent: 0,
+			write: 0,
+		},
 		revision: SESSION_DETAIL_INTEGRATION_REVISION,
 		session: {
 			durationMinutes: SESSION_DETAIL_INTEGRATION_TURN_COUNT * 2,
@@ -38,13 +67,29 @@ export function buildSessionDetailFastIntegrationOverview() {
 		},
 		subagents: [],
 		turnPage: {
-			items: Array.from(
-				{ length: SESSION_DETAIL_INTEGRATION_TURN_COUNT },
-				(_, index) => buildTurnSummary(index),
+			items: Array.from({ length: endIndex - startIndex }, (_, offset) =>
+				buildTurnSummary(startIndex + offset),
 			),
-			nextCursor: null,
+			nextCursor:
+				endIndex < SESSION_DETAIL_INTEGRATION_TURN_COUNT
+					? `overview:${endIndex}`
+					: null,
 			total: SESSION_DETAIL_INTEGRATION_TURN_COUNT,
 		},
+	});
+}
+
+export function buildSessionDetailFastIntegrationSpine() {
+	return SessionDetailSpineSchema.parse({
+		revision: SESSION_DETAIL_INTEGRATION_REVISION,
+		turns: Array.from(
+			{ length: SESSION_DETAIL_INTEGRATION_TURN_COUNT },
+			(_, index) => ({
+				eventCount: 12,
+				responseBytes: 4_000 + index * 100,
+				turnId: getSessionDetailIntegrationTurnId(index),
+			}),
+		),
 	});
 }
 
@@ -105,6 +150,8 @@ function range(start: number, length: number) {
 
 function buildTurnSummary(index: number) {
 	const userPreview = `Investigate integration behavior for turn ${index + 1}`;
+	const signalOccurrences =
+		index === 80 ? [{ category: "positive", matchedText: "Great" }] : [];
 	return {
 		activityResolution: "exact" as const,
 		durationSeconds: 90,
@@ -116,9 +163,15 @@ function buildTurnSummary(index: number) {
 		hasBody: true,
 		index,
 		inputTokens: 10_000 + index * 500,
+		modelSignalCount: 0,
 		outputTokens: 1_000 + index * 10,
 		responsePreview: `Completed integration turn ${index + 1}`,
+		signalCount: signalOccurrences.length,
+		signalOccurrences,
+		signalOccurrencesOmittedCount: 0,
+		signalOccurrencesTruncated: false,
 		skills: index % 5 === 0 ? ["testing-bun"] : [],
+		skillCount: index % 5 === 0 ? 1 : 0,
 		skillEvents: [],
 		slashCommands: [],
 		startedAt: timestamp(index),

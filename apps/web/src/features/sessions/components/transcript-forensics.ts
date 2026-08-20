@@ -1,17 +1,109 @@
 // biome-ignore-all lint/nursery/noExcessiveLinesPerFile: The forensic controller keeps one clock and one ring-buffer schema so frame correlations cannot drift across modules.
 const TRACE_FRAME_LIMIT = 7_200;
 const TRACE_EVENT_LIMIT = 10_000;
+const ANCHOR_JOURNAL_LIMIT = 200;
+const ANCHOR_JOURNAL_STALL_THRESHOLD_MS = 250;
 const ACTIVE_INPUT_WINDOW_MS = 32;
-const EXPENSIVE_MOUNT_WINDOW_MS = 10_000;
 const FLAGGED_FRAME_MS = 32;
 const HEARTBEAT_BLIND_WINDOW_MS = 48;
-const HUD_UPDATE_INTERVAL_MS = 250;
 
 export type TranscriptProgrammaticWriteCause =
 	| "prepend-anchor"
 	| "resize-adjustment"
 	| "turn-anchor"
 	| "virtualizer";
+
+export type TranscriptAnchorDeactivationClause =
+	| "epoch-superseded"
+	| "mode-free-scrolling"
+	| "turn-mismatch";
+
+export type TranscriptAnchorJournalInput =
+	| {
+			speaker: "member" | "model";
+			turnId: string;
+			turnIndex: number;
+			type: "select";
+	  }
+	| {
+			requestId: number;
+			turnId: string;
+			type: "anchorRequest";
+	  }
+	| {
+			requestId: number;
+			source: "click-pair" | "url-fallback";
+			turnId: string;
+			type: "anchorDerive";
+	  }
+	| {
+			epoch: number;
+			estimatedStart: number | undefined;
+			rowIndex: number;
+			scrollTop: number | undefined;
+			turnId: string;
+			type: "scrollToTurn:start";
+	  }
+	| {
+			turnFirstRowIndexSize: number;
+			turnId: string;
+			type: "scrollToTurn:missing-index";
+	  }
+	| {
+			delta: number;
+			epoch: number;
+			phase: "hard" | "soft";
+			target: number;
+			type: "pin:write";
+	  }
+	| {
+			elapsedMs: number;
+			epoch: number;
+			settled: boolean;
+			starvedMs: number;
+			type: "pin:settle";
+			via: "stable-frames" | "timeout";
+	  }
+	| {
+			clause: TranscriptAnchorDeactivationClause;
+			epoch: number;
+			type: "pin:deactivate";
+	  }
+	| {
+			epoch: number;
+			eventType: string;
+			key: string | undefined;
+			modeAtCancel: "anchoring-turn" | "soft-anchored";
+			type: "cancelAnchor";
+	  }
+	| {
+			outcome:
+				| "ran"
+				| "skipped-handled"
+				| "skipped-no-model"
+				| "stale-pair-blocked"
+				| "used-stored-promise";
+			pairTurnId: string | undefined;
+			requestId: number;
+			storedPromiseResult: boolean | undefined;
+			turnId: string;
+			type: "retryEffect";
+	  }
+	| {
+			elapsedMs: number;
+			phase: "fetch-done" | "fetch-error" | "fetch-start";
+			turnId: string;
+			type: "anchorWindow";
+	  }
+	| {
+			attribution: string;
+			durationMs: number;
+			type: "mainThreadStall";
+	  };
+
+export type TranscriptAnchorJournalEntry = TranscriptAnchorJournalInput & {
+	at: number;
+};
 
 export type TranscriptForensicsContentFlags = {
 	charCount: number;
@@ -301,6 +393,7 @@ export type TranscriptForensicsController = {
 
 declare global {
 	interface Window {
+		__transcriptAnchorJournal?: readonly TranscriptAnchorJournalEntry[];
 		__transcriptTrace?: TranscriptForensicsController;
 	}
 }
@@ -349,6 +442,7 @@ type TranscriptForensicsViewportGeometry = {
 type RuntimeState = {
 	activeRun: ActiveRun | undefined;
 	adjustments: TranscriptForensicsAdjustment[];
+	anchorJournal: TranscriptAnchorJournalEntry[];
 	attachmentVersion: number;
 	blindWindows: TranscriptForensicsBlindWindow[];
 	controller: TranscriptForensicsController;
@@ -359,11 +453,9 @@ type RuntimeState = {
 	frames: TranscriptForensicsFrame[];
 	heartbeatEntryWitnesses: Map<number, HeartbeatWitness | undefined>;
 	heartbeatWorker: Worker | undefined;
-	hudUpdateRequested: boolean;
+	lastAnchorSelectAt: number | undefined;
 	lastFrameAt: number;
-	lastFlaggedCause: string | undefined;
 	lastHeartbeatWitness: HeartbeatWitness | undefined;
-	lastHudAt: number;
 	lastScrollTop: number;
 	lifecycles: TranscriptForensicsLifecycle[];
 	longAnimationFrameObserver: PerformanceObserver | undefined;
@@ -372,6 +464,7 @@ type RuntimeState = {
 	measurements: TranscriptForensicsMeasure[];
 	mounts: TranscriptForensicsMount[];
 	longTaskObserver: PerformanceObserver | undefined;
+	measureObserver: PerformanceObserver | undefined;
 	observedScrollTop: number;
 	pendingMounted: string[];
 	pendingUnmounted: string[];
@@ -379,6 +472,7 @@ type RuntimeState = {
 	pendingWrites: TranscriptForensicsProgrammaticWrite[];
 	paintedContentVersions: Map<string, string>;
 	reactCommits: TranscriptForensicsReactCommit[];
+	reportedAnchorFailureEpochs: Set<number>;
 	resourceObserver: PerformanceObserver | undefined;
 	resources: TranscriptForensicsResource[];
 	rowLifecycles: TranscriptForensicsRowLifecycle[];
@@ -405,6 +499,7 @@ export function ensureTranscriptTrace(enabled: boolean) {
 	}
 	if (!runtime) {
 		runtime = createRuntime();
+		window.__transcriptAnchorJournal = runtime.anchorJournal;
 		window.__transcriptTrace = runtime.controller;
 	}
 	return runtime.controller;
@@ -476,6 +571,79 @@ export function recordTranscriptProgrammaticWrite(
 		return;
 	}
 	pushBounded(runtime.pendingWrites, write, TRACE_EVENT_LIMIT);
+}
+
+export function recordAnchorJournal(event: TranscriptAnchorJournalInput) {
+	if (!runtime) {
+		return;
+	}
+	const entry: TranscriptAnchorJournalEntry = {
+		...event,
+		at: performance.now(),
+	};
+	pushBounded(runtime.anchorJournal, entry, ANCHOR_JOURNAL_LIMIT);
+	if (entry.type === "select") {
+		runtime.lastAnchorSelectAt = entry.at;
+	}
+	const elapsedMs = Math.round(entry.at - (runtime.lastAnchorSelectAt ?? 0));
+	console.log(`[anchor +${elapsedMs}ms] ${formatAnchorJournalEntry(entry)}`);
+}
+
+function formatAnchorJournalEntry(entry: TranscriptAnchorJournalEntry): string {
+	switch (entry.type) {
+		case "select":
+			return `ledger click → turn ${entry.turnIndex} (${entry.speaker}) ${entry.turnId}`;
+		case "anchorRequest":
+			return `anchor request #${entry.requestId} → ${entry.turnId}`;
+		case "anchorDerive":
+			return `anchorTurnId=${entry.turnId} via ${entry.source} (request #${entry.requestId})`;
+		case "scrollToTurn:start":
+			return `scrollToTurn ${entry.turnId} epoch=${entry.epoch} rowIndex=${entry.rowIndex} estStart=${formatAnchorJournalNumber(entry.estimatedStart)} scrollTop=${formatAnchorJournalNumber(entry.scrollTop)}`;
+		case "scrollToTurn:missing-index":
+			return `scrollToTurn ${entry.turnId} FAILED: not in row model (turnFirstRowIndex size=${entry.turnFirstRowIndexSize})`;
+		case "pin:write":
+			return `pin write [${entry.phase}] epoch=${entry.epoch} target=${formatAnchorJournalNumber(entry.target)} delta=${formatAnchorJournalNumber(entry.delta)}`;
+		case "pin:settle":
+			return `pin settled=${entry.settled} via=${entry.via} epoch=${entry.epoch} after ${formatAnchorJournalNumber(entry.elapsedMs)}ms starved=${formatAnchorJournalNumber(entry.starvedMs)}ms`;
+		case "pin:deactivate":
+			return `pin DEACTIVATED epoch=${entry.epoch} clause=${entry.clause}`;
+		case "cancelAnchor": {
+			const key = entry.key === undefined ? "" : ` key=${entry.key}`;
+			return `cancelAnchor via ${entry.eventType}${key} while ${entry.modeAtCancel} epoch=${entry.epoch}`;
+		}
+		case "retryEffect": {
+			const pairTurn =
+				entry.pairTurnId === undefined ? "" : ` pairTurn=${entry.pairTurnId}`;
+			const storedPromise =
+				entry.storedPromiseResult === undefined
+					? ""
+					: ` storedPromise=${entry.storedPromiseResult}`;
+			return `retry effect turn=${entry.turnId}${pairTurn} requestId=${entry.requestId} outcome=${entry.outcome}${storedPromise}`;
+		}
+		case "anchorWindow":
+			return `anchor window ${entry.phase} turn=${entry.turnId} +${formatAnchorJournalNumber(entry.elapsedMs)}ms`;
+		case "mainThreadStall":
+			return `MAIN THREAD STALL ${formatAnchorJournalNumber(entry.durationMs)}ms — ${entry.attribution}`;
+	}
+}
+
+function formatAnchorJournalNumber(value: number | undefined) {
+	return value === undefined
+		? "undefined"
+		: String(Math.round(value * 10) / 10);
+}
+
+export function reportAnchorJournalFailure(epoch: number | undefined) {
+	if (!runtime) {
+		return;
+	}
+	if (epoch !== undefined) {
+		if (runtime.reportedAnchorFailureEpochs.has(epoch)) {
+			return;
+		}
+		runtime.reportedAnchorFailureEpochs.add(epoch);
+	}
+	console.table(getAnchorJournalSlice(runtime.anchorJournal, epoch));
 }
 
 export function recordTranscriptAdjustment(
@@ -675,52 +843,6 @@ export function measureTranscriptSuspect<TValue>(
 	}
 }
 
-export function publishTranscriptForensicsHud() {
-	if (!runtime) {
-		return;
-	}
-	runtime.hudUpdateRequested = true;
-}
-
-function renderTranscriptForensicsHud(
-	element: HTMLElement,
-	trace: RuntimeState,
-) {
-	const hud = element.querySelector<HTMLOutputElement>(
-		"[data-transcript-debug-hud]",
-	);
-	if (!hud) {
-		return;
-	}
-	const score = getCurrentFeelScore(trace);
-	const recentMounts = trace.mounts
-		.filter(
-			(mount) => performance.now() - mount.at <= EXPENSIVE_MOUNT_WINDOW_MS,
-		)
-		.sort((left, right) => right.duration - left.duration)
-		.slice(0, 5)
-		.map(
-			(mount) =>
-				`${mount.rowKind}:${mount.rowId} ${mount.duration.toFixed(1)}ms`,
-		);
-	const base = element.dataset.transcriptDebugBaseHud;
-	const content = [
-		base,
-		`feel latency ${formatMetric(score.inputLatencyMs)} · wheel q p95 ${formatMetric(score.p95WheelQueueingDelayMs)} max ${formatMetric(score.maxWheelQueueingDelayMs)} · gap ${score.maxFrameGapMs.toFixed(1)}ms · blank ${score.blankMs.toFixed(1)}ms (masked ${score.maskedGapMs.toFixed(1)}ms · true ${score.trueBlankMs.toFixed(1)}ms) · lumps ${score.lumpCount} · reversals ${score.reversalCount} · kills ${score.momentumKills}`,
-		trace.lastFlaggedCause
-			? `last flagged ${trace.lastFlaggedCause}`
-			: undefined,
-		recentMounts.length > 0
-			? `mount top5 ${recentMounts.join(" | ")}`
-			: undefined,
-	]
-		.filter((part) => part !== undefined && part.length > 0)
-		.join("\n");
-	if (hud.textContent !== content) {
-		hud.textContent = content;
-	}
-}
-
 function createRuntime(): RuntimeState {
 	let trace: RuntimeState;
 	const controller: TranscriptForensicsController = {
@@ -752,6 +874,7 @@ function createRuntime(): RuntimeState {
 	trace = {
 		activeRun: undefined,
 		adjustments: [],
+		anchorJournal: [],
 		attachmentVersion: 0,
 		blindWindows: [],
 		controller,
@@ -762,17 +885,16 @@ function createRuntime(): RuntimeState {
 		frames: [],
 		heartbeatEntryWitnesses: new Map(),
 		heartbeatWorker: undefined,
-		hudUpdateRequested: true,
+		lastAnchorSelectAt: undefined,
 		lastFrameAt: performance.now(),
-		lastFlaggedCause: undefined,
 		lastHeartbeatWitness: undefined,
-		lastHudAt: 0,
 		lastScrollTop: 0,
 		lifecycles: [],
 		longAnimationFrameObserver: undefined,
 		longAnimationFrames: [],
 		longTasks: [],
 		measurements: [],
+		measureObserver: undefined,
 		mounts: [],
 		longTaskObserver: undefined,
 		observedScrollTop: 0,
@@ -782,6 +904,7 @@ function createRuntime(): RuntimeState {
 		pendingWrites: [],
 		paintedContentVersions: new Map(),
 		reactCommits: [],
+		reportedAnchorFailureEpochs: new Set(),
 		resourceObserver: undefined,
 		resources: [],
 		rowLifecycles: [],
@@ -793,6 +916,7 @@ function createRuntime(): RuntimeState {
 		wheelEventTimings: [],
 		wheelListener: undefined,
 	};
+	installSuspectMeasureObserver(trace);
 	if (
 		typeof PerformanceObserver === "function" &&
 		PerformanceObserver.supportedEntryTypes.includes("longtask")
@@ -804,6 +928,17 @@ function createRuntime(): RuntimeState {
 					{ duration: entry.duration, startTime: entry.startTime },
 					TRACE_EVENT_LIMIT,
 				);
+				if (entry.duration > ANCHOR_JOURNAL_STALL_THRESHOLD_MS) {
+					recordAnchorJournal({
+						attribution: getMainThreadStallAttribution(
+							entry.startTime,
+							entry.duration,
+							entry.name,
+						),
+						durationMs: entry.duration,
+						type: "mainThreadStall",
+					});
+				}
 			}
 		});
 		trace.longTaskObserver.observe({ entryTypes: ["longtask"] });
@@ -852,6 +987,34 @@ function createRuntime(): RuntimeState {
 	installResourceObserver(trace);
 	installHeartbeatWorker(trace);
 	return trace;
+}
+
+function installSuspectMeasureObserver(trace: RuntimeState) {
+	if (
+		typeof PerformanceObserver !== "function" ||
+		!PerformanceObserver.supportedEntryTypes.includes("measure")
+	) {
+		return;
+	}
+	trace.measureObserver = new PerformanceObserver((list) => {
+		for (const entry of list.getEntries()) {
+			const name = getRenderSuspectMeasureName(entry.name);
+			if (!name) {
+				continue;
+			}
+			pushBounded(
+				trace.suspectMeasures,
+				{
+					detail: undefined,
+					duration: entry.duration,
+					name,
+					startTime: entry.startTime,
+				},
+				TRACE_EVENT_LIMIT,
+			);
+		}
+	});
+	trace.measureObserver.observe({ entryTypes: ["measure"] });
 }
 
 function installLongAnimationFrameObserver(trace: RuntimeState) {
@@ -909,43 +1072,111 @@ function installLongAnimationFrameObserver(trace: RuntimeState) {
 				typeof entry.styleAndLayoutStart === "number"
 					? entry.styleAndLayoutStart
 					: 0;
+			const longAnimationFrame: TranscriptForensicsLongAnimationFrame = {
+				blockingDuration:
+					"blockingDuration" in entry &&
+					typeof entry.blockingDuration === "number"
+						? entry.blockingDuration
+						: Math.max(0, entry.duration - 50),
+				duration: entry.duration,
+				forcedReflowCount: scripts.filter(
+					(script) => script.forcedStyleAndLayoutDuration > 0,
+				).length,
+				renderStart,
+				scripts,
+				startTime: entry.startTime,
+				styleAndLayoutDuration:
+					styleAndLayoutStart > 0
+						? Math.max(
+								0,
+								entry.startTime + entry.duration - styleAndLayoutStart,
+							)
+						: 0,
+			};
 			pushBounded(
 				trace.longAnimationFrames,
-				{
-					blockingDuration:
-						"blockingDuration" in entry &&
-						typeof entry.blockingDuration === "number"
-							? entry.blockingDuration
-							: Math.max(0, entry.duration - 50),
-					duration: entry.duration,
-					forcedReflowCount: scripts.filter(
-						(script) => script.forcedStyleAndLayoutDuration > 0,
-					).length,
-					renderStart,
-					scripts,
-					startTime: entry.startTime,
-					styleAndLayoutDuration:
-						styleAndLayoutStart > 0
-							? Math.max(
-									0,
-									entry.startTime + entry.duration - styleAndLayoutStart,
-								)
-							: 0,
-				},
+				longAnimationFrame,
 				TRACE_EVENT_LIMIT,
 			);
-			const topScript = [...scripts].sort(
-				(left, right) => right.duration - left.duration,
-			)[0];
-			trace.lastFlaggedCause = topScript
-				? `script ${topScript.functionName || topScript.sourceURL || "anonymous"} ${topScript.duration.toFixed(1)}ms`
-				: `long animation frame ${entry.duration.toFixed(1)}ms`;
+			if (entry.duration > ANCHOR_JOURNAL_STALL_THRESHOLD_MS) {
+				recordAnchorJournal({
+					attribution: getLongAnimationFrameAttribution(longAnimationFrame),
+					durationMs: entry.duration,
+					type: "mainThreadStall",
+				});
+			}
 		}
 	});
 	trace.longAnimationFrameObserver.observe({
 		buffered: true,
 		type: "long-animation-frame",
 	});
+}
+
+function getLongAnimationFrameAttribution(
+	entry: TranscriptForensicsLongAnimationFrame,
+) {
+	const script = entry.scripts.reduce<
+		TranscriptForensicsLongAnimationScript | undefined
+	>(
+		(longest, candidate) =>
+			!longest || candidate.duration > longest.duration ? candidate : longest,
+		undefined,
+	);
+	const scriptAttribution = script
+		? [script.sourceURL, script.functionName].filter(Boolean).join(" ") ||
+			script.invoker ||
+			"long-animation-frame"
+		: "long-animation-frame";
+	return getMainThreadStallAttribution(
+		entry.startTime,
+		entry.duration,
+		scriptAttribution,
+	);
+}
+
+function getMainThreadStallAttribution(
+	startTime: number,
+	duration: number,
+	fallback: string,
+) {
+	const namedMeasure = performance
+		.getEntriesByType("measure")
+		.flatMap((entry) => {
+			const name = getStallSuspectMeasureName(entry.name);
+			return name &&
+				intervalsOverlap(
+					startTime,
+					startTime + duration,
+					entry.startTime,
+					entry.startTime + entry.duration,
+				)
+				? [{ duration: entry.duration, name }]
+				: [];
+		})
+		.sort((left, right) => left.duration - right.duration)[0]?.name;
+	return namedMeasure ? `${namedMeasure} — ${fallback}` : fallback;
+}
+
+function getRenderSuspectMeasureName(name: string) {
+	if (name === "transcript:model-build") {
+		return "model-build";
+	}
+	if (name === "transcript:body-normalize") {
+		return "body-normalize";
+	}
+	return undefined;
+}
+
+function getStallSuspectMeasureName(name: string) {
+	const renderMeasure = getRenderSuspectMeasureName(name);
+	if (renderMeasure) {
+		return renderMeasure;
+	}
+	const suspectPrefix = "transcript:suspect:";
+	return name.startsWith(suspectPrefix)
+		? name.slice(suspectPrefix.length)
+		: undefined;
 }
 
 function installElementTimingObserver(trace: RuntimeState) {
@@ -988,12 +1219,6 @@ function installElementTimingObserver(trace: RuntimeState) {
 				);
 			}
 			trace.paintedContentVersions.set(rowId, contentVersion);
-			const latestEpisode = buildBlankEpisodes(trace, buildRowPaints(trace)).at(
-				-1,
-			);
-			if (latestEpisode) {
-				trace.lastFlaggedCause = `blank episode ${latestEpisode.durationMs.toFixed(1)}ms rows ${latestEpisode.rowIds.join(",")}`;
-			}
 		}
 	});
 	trace.elementTimingObserver.observe({ buffered: true, type: "element" });
@@ -1161,7 +1386,6 @@ function installHeartbeatWorker(trace: RuntimeState) {
 			),
 		};
 		pushBounded(trace.blindWindows, blindWindow, TRACE_EVENT_LIMIT);
-		trace.lastFlaggedCause = `heartbeat blind ${message.durationMs.toFixed(1)}ms`;
 		window.requestAnimationFrame(() => {
 			const currentElement = trace.scrollElement;
 			if (!currentElement) {
@@ -1303,30 +1527,9 @@ function startFrameLoop(trace: RuntimeState) {
 				trueBlankPts: trueBlankSamples.filter(Boolean).length,
 				trueBlankSamples,
 			};
-			const unpaintedRowId = blankRowIds.find((rowId) => rowId);
-			if (unpaintedRowId) {
-				trace.lastFlaggedCause = `unpainted row ${unpaintedRowId}`;
-			}
-			const hudAt = performance.now();
-			if (
-				trace.hudUpdateRequested &&
-				hudAt - trace.lastHudAt >= HUD_UPDATE_INTERVAL_MS
-			) {
-				trace.hudUpdateRequested = false;
-				trace.lastHudAt = hudAt;
-				renderTranscriptForensicsHud(element, trace);
-			}
 		}, 0);
-		if (at - previousFrameAt > FLAGGED_FRAME_MS) {
-			trace.lastFlaggedCause =
-				suspectMarks[0] ??
-				(longTaskMs > 0
-					? `long task ${longTaskMs.toFixed(1)}ms`
-					: `unattributed ${String((at - previousFrameAt).toFixed(1))}ms frame`);
-		}
 		trace.lastFrameAt = at;
 		trace.lastScrollTop = scrollTop;
-		publishTranscriptForensicsHud();
 		trace.frameHandle = window.requestAnimationFrame(tick);
 	};
 	trace.frameHandle = window.requestAnimationFrame(tick);
@@ -1601,15 +1804,14 @@ function resetRuntime(trace: RuntimeState) {
 	);
 	trace.activeRun = undefined;
 	trace.adjustments.length = 0;
+	trace.anchorJournal.length = 0;
 	trace.blindWindows.length = 0;
 	trace.elementPaints.length = 0;
 	trace.frames.length = 0;
 	trace.heartbeatEntryWitnesses.clear();
-	trace.lastFlaggedCause = undefined;
+	trace.lastAnchorSelectAt = undefined;
 	trace.lastFrameAt = resetAt;
 	trace.lastScrollTop = trace.observedScrollTop;
-	trace.hudUpdateRequested = true;
-	trace.lastHudAt = resetAt - HUD_UPDATE_INTERVAL_MS;
 	trace.longTasks.length = 0;
 	trace.longAnimationFrames.length = 0;
 	trace.measurements.length = 0;
@@ -1619,6 +1821,7 @@ function resetRuntime(trace: RuntimeState) {
 	trace.pendingUserDelta = 0;
 	trace.pendingWrites.length = 0;
 	trace.reactCommits.length = 0;
+	trace.reportedAnchorFailureEpochs.clear();
 	trace.resources.length = 0;
 	trace.rowLifecycles.length = 0;
 	trace.runs.length = 0;
@@ -2065,13 +2268,47 @@ function emptyFeelScore(): TranscriptForensicsFeelScore {
 	};
 }
 
-function formatMetric(value: number | null) {
-	return value === null ? "–" : `${value.toFixed(1)}ms`;
-}
-
 function pushBounded<TValue>(target: TValue[], value: TValue, limit: number) {
 	target.push(value);
 	if (target.length > limit) {
 		target.splice(0, target.length - limit);
 	}
+}
+
+function getAnchorJournalSlice(
+	journal: readonly TranscriptAnchorJournalEntry[],
+	epoch: number | undefined,
+) {
+	if (epoch === undefined) {
+		return journal.slice(-25);
+	}
+	let startIndex = -1;
+	for (let index = journal.length - 1; index >= 0; index -= 1) {
+		const entry = journal[index];
+		if (entry?.type === "scrollToTurn:start" && entry.epoch === epoch) {
+			startIndex = index;
+			break;
+		}
+	}
+	if (startIndex < 0) {
+		return journal.filter((entry) => "epoch" in entry && entry.epoch === epoch);
+	}
+	const startEntry = journal[startIndex];
+	if (startEntry?.type !== "scrollToTurn:start") {
+		return [];
+	}
+	const precedingEntry = journal[startIndex - 1];
+	const firstIndex =
+		precedingEntry?.type === "select" &&
+		precedingEntry.turnId === startEntry.turnId
+			? startIndex - 1
+			: startIndex;
+	const nextStartIndex = journal.findIndex(
+		(entry, index) => index > startIndex && entry.type === "scrollToTurn:start",
+	);
+	return journal.filter(
+		(entry, index) =>
+			(index >= firstIndex && (nextStartIndex < 0 || index < nextStartIndex)) ||
+			("epoch" in entry && entry.epoch === epoch),
+	);
 }

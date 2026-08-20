@@ -1,6 +1,10 @@
-import { useId } from "react";
-import { Input } from "@/app/ui/input";
-import type { SessionOverviewRangeFilter } from "@/features/sessions/components/sessions-overview-table-utils";
+import { SliderRangeInput } from "@/app/ui/slider-range-input";
+import { formatSessionOverviewRangeValue } from "@/features/sessions/components/sessions-overview-filter-state";
+import type {
+	SessionOverviewRangeBounds,
+	SessionOverviewRangeFilter,
+	SessionOverviewRangeFilterValues,
+} from "@/features/sessions/components/sessions-overview-table-utils";
 
 type RangeBounds = {
 	minimum: number;
@@ -13,15 +17,20 @@ export function SessionOverviewRangeFilterPanel({
 	formatValue,
 	label,
 	onChange,
+	onInteractionEnd,
+	onInteractionStart,
 	value,
+	variant = "default",
 }: {
 	bounds: RangeBounds;
 	formatValue: (value: number) => string;
 	label: string;
 	onChange: (value: SessionOverviewRangeFilter) => void;
+	onInteractionEnd?: () => void;
+	onInteractionStart?: () => void;
 	value: SessionOverviewRangeFilter;
+	variant?: "default" | "linear";
 }) {
-	const controlId = useId();
 	const boundedMinimum = clamp(
 		value.minimum ?? bounds.minimum,
 		bounds.minimum,
@@ -34,129 +43,100 @@ export function SessionOverviewRangeFilterPanel({
 	);
 	const effectiveMinimum = Math.min(boundedMinimum, boundedMaximum);
 	const effectiveMaximum = Math.max(boundedMinimum, boundedMaximum);
-	const rangeSize = bounds.maximum - bounds.minimum;
-	const minimumPercent =
-		rangeSize === 0
-			? 0
-			: ((effectiveMinimum - bounds.minimum) / rangeSize) * 100;
-	const maximumPercent =
-		rangeSize === 0
-			? 100
-			: ((effectiveMaximum - bounds.minimum) / rangeSize) * 100;
 	const isDisabled = bounds.minimum === bounds.maximum;
 
-	function setMinimum(nextValue: number) {
-		if (!Number.isFinite(nextValue)) {
-			return;
-		}
-
-		const nextMinimum = clamp(nextValue, bounds.minimum, effectiveMaximum);
-		onChange({
-			...value,
-			minimum: nextMinimum <= bounds.minimum ? null : nextMinimum,
-		});
+	function setRange([nextMinimum, nextMaximum]: readonly [number, number]) {
+		setMinimumAndMaximum(nextMinimum, nextMaximum);
 	}
 
-	function setMaximum(nextValue: number) {
-		if (!Number.isFinite(nextValue)) {
-			return;
-		}
-
-		const nextMaximum = clamp(nextValue, effectiveMinimum, bounds.maximum);
+	function setMinimumAndMaximum(nextMinimum: number, nextMaximum: number) {
+		const constrainedMinimum = clamp(nextMinimum, bounds.minimum, nextMaximum);
+		const constrainedMaximum = clamp(
+			nextMaximum,
+			constrainedMinimum,
+			bounds.maximum,
+		);
 		onChange({
-			...value,
-			maximum: nextMaximum >= bounds.maximum ? null : nextMaximum,
+			maximum: constrainedMaximum >= bounds.maximum ? null : constrainedMaximum,
+			minimum: constrainedMinimum <= bounds.minimum ? null : constrainedMinimum,
 		});
 	}
 
 	return (
-		<div className="space-y-3 p-3">
-			<div className="grid grid-cols-2 gap-2">
-				<label
-					htmlFor={`${controlId}-minimum-number`}
-					className="space-y-1 text-xs font-medium text-muted-foreground"
-				>
-					<span>Min</span>
-					<Input
-						id={`${controlId}-minimum-number`}
-						name={`${controlId}-minimum-number`}
-						type="number"
-						aria-label={`Minimum ${label}`}
-						className="h-9 rounded-lg bg-muted/60 px-2 text-base tabular-nums sm:text-sm"
-						disabled={isDisabled}
-						max={effectiveMaximum}
-						min={bounds.minimum}
-						step={bounds.step}
-						value={effectiveMinimum}
-						onChange={(event) => {
-							if (event.target.value.length > 0) {
-								setMinimum(event.target.valueAsNumber);
+		<div
+			className={
+				variant === "linear"
+					? "min-h-0 flex-1 px-2 pt-2.5 pb-2 [--slider-range-card-inset:0.5rem] [--slider-range-card-radius:var(--radius-xl)] [--session-range-slider-background:#fcfcfc] dark:[--session-range-slider-background:rgba(255,255,255,0.06)]"
+					: "px-2 pt-3 pb-2 [--slider-range-card-inset:0.5rem] [--slider-range-card-radius:var(--radius-xl)] [--session-range-slider-background:color-mix(in_srgb,var(--session-overview-text)_4%,var(--session-overview-surface))] dark:[--session-range-slider-background:rgba(255,255,255,0.06)]"
+			}
+		>
+			<SliderRangeInput
+				disabled={isDisabled}
+				formatValue={formatValue}
+				max={bounds.maximum}
+				maximumAriaLabel={`Maximum ${label}`}
+				min={bounds.minimum}
+				minimumAriaLabel={`Minimum ${label}`}
+				onChange={setRange}
+				onCommit={setRange}
+				onInteractionEnd={onInteractionEnd}
+				onInteractionStart={onInteractionStart}
+				progressOverlay="color-mix(in srgb, var(--session-overview-accent, #5e69c1) 18%, transparent)"
+				step={bounds.step}
+				trackBackground="var(--session-range-slider-background)"
+				value={[effectiveMinimum, effectiveMaximum]}
+			/>
+		</div>
+	);
+}
+
+export function SessionOverviewTokenRangeFilterPanel({
+	onChange,
+	onInteractionEnd,
+	onInteractionStart,
+	rangeFilterBounds,
+	rangeFilterValues,
+	variant = "default",
+}: {
+	onChange: (
+		filterKey: "input" | "output",
+		value: SessionOverviewRangeFilter,
+	) => void;
+	onInteractionEnd?: () => void;
+	onInteractionStart?: () => void;
+	rangeFilterBounds: SessionOverviewRangeBounds;
+	rangeFilterValues: SessionOverviewRangeFilterValues;
+	variant?: "default" | "linear";
+}) {
+	return (
+		<div className="flex min-h-0 flex-1 flex-col py-1.5">
+			{(["input", "output"] as const).map((filterKey) => {
+				const label = filterKey === "input" ? "Input tokens" : "Output tokens";
+
+				return (
+					<section
+						key={filterKey}
+						aria-label={label}
+						className="min-h-0 flex-1"
+					>
+						<div className="px-2.5 pt-1.5 text-[0.6875rem]/4 font-[500] tracking-[0.01em] text-(--session-overview-muted)">
+							{label}
+						</div>
+						<SessionOverviewRangeFilterPanel
+							bounds={rangeFilterBounds[filterKey]}
+							formatValue={(value) =>
+								formatSessionOverviewRangeValue(filterKey, value)
 							}
-						}}
-					/>
-				</label>
-				<label
-					htmlFor={`${controlId}-maximum-number`}
-					className="space-y-1 text-xs font-medium text-muted-foreground"
-				>
-					<span>Max</span>
-					<Input
-						id={`${controlId}-maximum-number`}
-						name={`${controlId}-maximum-number`}
-						type="number"
-						aria-label={`Maximum ${label}`}
-						className="h-9 rounded-lg bg-muted/60 px-2 text-base tabular-nums sm:text-sm"
-						disabled={isDisabled}
-						max={bounds.maximum}
-						min={effectiveMinimum}
-						step={bounds.step}
-						value={effectiveMaximum}
-						onChange={(event) => {
-							if (event.target.value.length > 0) {
-								setMaximum(event.target.valueAsNumber);
-							}
-						}}
-					/>
-				</label>
-			</div>
-			<div className="relative h-8 rounded-md outline-none focus-within:ring-2 focus-within:ring-ring/40">
-				<div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-border" />
-				<div
-					className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-(--session-overview-accent)"
-					style={{
-						left: `${minimumPercent}%`,
-						right: `${100 - maximumPercent}%`,
-					}}
-				/>
-				<input
-					name={`${controlId}-minimum-range`}
-					type="range"
-					aria-label={`Minimum ${label} slider`}
-					className="pointer-events-none absolute inset-x-0 top-1/2 h-6 w-full -translate-y-1/2 appearance-none bg-transparent outline-none [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-(--session-overview-surface) [&::-moz-range-thumb]:bg-(--session-overview-accent) [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:mt-[-6px] [&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-(--session-overview-surface) [&::-webkit-slider-thumb]:bg-(--session-overview-accent)"
-					disabled={isDisabled}
-					max={bounds.maximum}
-					min={bounds.minimum}
-					step={bounds.step}
-					value={effectiveMinimum}
-					onChange={(event) => setMinimum(event.target.valueAsNumber)}
-				/>
-				<input
-					name={`${controlId}-maximum-range`}
-					type="range"
-					aria-label={`Maximum ${label} slider`}
-					className="pointer-events-none absolute inset-x-0 top-1/2 h-6 w-full -translate-y-1/2 appearance-none bg-transparent outline-none [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-(--session-overview-surface) [&::-moz-range-thumb]:bg-(--session-overview-accent) [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:mt-[-6px] [&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-(--session-overview-surface) [&::-webkit-slider-thumb]:bg-(--session-overview-accent)"
-					disabled={isDisabled}
-					max={bounds.maximum}
-					min={bounds.minimum}
-					step={bounds.step}
-					value={effectiveMaximum}
-					onChange={(event) => setMaximum(event.target.valueAsNumber)}
-				/>
-			</div>
-			<div className="flex items-center justify-between gap-3 text-xs tabular-nums text-muted-foreground">
-				<span>{formatValue(bounds.minimum)}</span>
-				<span>{formatValue(bounds.maximum)}</span>
-			</div>
+							label={label}
+							onChange={(value) => onChange(filterKey, value)}
+							onInteractionEnd={onInteractionEnd}
+							onInteractionStart={onInteractionStart}
+							value={rangeFilterValues[filterKey]}
+							variant={variant}
+						/>
+					</section>
+				);
+			})}
 		</div>
 	);
 }

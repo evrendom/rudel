@@ -25,6 +25,7 @@ import { useMountEffect } from "@/app/hooks/useMountEffect";
 import { Button } from "@/app/ui/button";
 import {
 	ConversationTraceDerivedSectionRow,
+	type ConversationTraceEventSubtreeRenderer,
 	ConversationTraceTreeConnectorStyleProvider,
 	createTraceExpansionStore,
 	TraceExpansionNamespaceProvider,
@@ -49,6 +50,7 @@ import {
 	attachTranscriptTraceScroller,
 	createTranscriptTraceInstanceId,
 	ensureTranscriptTrace,
+	recordAnchorJournal,
 	recordTranscriptAdjustment,
 	recordTranscriptComponentLifecycle,
 	recordTranscriptMeasurement,
@@ -57,11 +59,14 @@ import {
 	recordTranscriptRowLifecycle,
 	recordTranscriptRowMount,
 	recordTranscriptViewportGeometry,
+	reportAnchorJournalFailure,
+	type TranscriptAnchorDeactivationClause,
 	type TranscriptForensicsContentFlags,
 	type TranscriptForensicsReactCommitReason,
 } from "./transcript-forensics";
 import {
 	deriveTranscriptStickyHeaderGroups,
+	TranscriptFoldSummaryControl,
 	type TranscriptMemberHeaderData,
 	type TranscriptModelHeaderData,
 	TranscriptStickyHeaderWrappers,
@@ -74,6 +79,11 @@ const TRANSCRIPT_EDGE_LOAD_DISTANCE = 10;
 const ACTIVE_TURN_MAX_FOCUS_OFFSET_PX = 160;
 const ACTIVE_TURN_FOCUS_RATIO = 0.3;
 const BLANK_FRAME_GAP_TOLERANCE_PX = 8;
+const TRANSCRIPT_ANCHOR_DRIFT_TOLERANCE_PX = 2;
+const TRANSCRIPT_ANCHOR_STABLE_FRAME_COUNT = 2;
+const TRANSCRIPT_ANCHOR_STABLE_SETTLE_EXPECTATION_MS =
+	TRANSCRIPT_ANCHOR_STABLE_FRAME_COUNT * 16;
+const TRANSCRIPT_ANCHOR_SETTLE_TIMEOUT_MS = 700;
 const TRANSCRIPT_ANCHOR_CANCEL_KEYS = new Set([
 	"ArrowDown",
 	"ArrowUp",
@@ -92,9 +102,36 @@ export function isTranscriptAnchorCancelKey(key: string) {
 export type SessionTranscriptListHandle = {
 	scrollToTurn: (
 		turnId: string,
-		options?: { expandFolds?: boolean },
+		options?: {
+			expandFolds?: boolean;
+			speaker?: SessionTurnSelection["speaker"];
+		},
 	) => Promise<boolean>;
 };
+
+export function getTranscriptAnchorRowIndex(
+	model: SessionTranscriptRowModel,
+	turnId: string,
+	speaker: SessionTurnSelection["speaker"] | undefined,
+) {
+	const firstRowIndex = model.turnFirstRowIndex.get(turnId);
+	if (firstRowIndex === undefined || speaker === undefined) {
+		return firstRowIndex;
+	}
+	if (speaker === "member") {
+		return model.rowIndex.get(`${turnId}:member`) ?? firstRowIndex;
+	}
+	for (let index = firstRowIndex; index < model.rows.length; index += 1) {
+		const row = model.rows[index];
+		if (!row || !("turnId" in row) || row.turnId !== turnId) {
+			break;
+		}
+		if (row.kind !== "member") {
+			return index;
+		}
+	}
+	return firstRowIndex;
+}
 
 type SessionTranscriptRenderMode =
 	| "default"
@@ -118,6 +155,7 @@ export const SessionTranscriptList = forwardRef<
 		onVisibleTurnIds?: (turnIds: readonly string[]) => void;
 		pendingCount: number;
 		renderMode?: SessionTranscriptRenderMode;
+		renderEventSubtree?: ConversationTraceEventSubtreeRenderer;
 		scrollContainerRef: React.RefObject<HTMLDivElement | null>;
 		selectedTurnId?: string;
 		stickyHeaderHeights?: Partial<Record<"member" | "model", number>>;
@@ -141,6 +179,7 @@ export const SessionTranscriptList = forwardRef<
 		onTurnRender,
 		onVisibleTurnIds,
 		pendingCount,
+		renderEventSubtree,
 		renderMode = "direct-position",
 		scrollContainerRef,
 		selectedTurnId,
@@ -240,9 +279,13 @@ export const SessionTranscriptList = forwardRef<
 	const lastBlankGapRef = useRef(0);
 	const loadingEdgesRef = useRef(new Set<"newer" | "older">());
 	const scrollModeRef = useRef<
-		{ kind: "free-scrolling" } | { kind: "anchoring-turn"; turnId: string }
+		| { kind: "free-scrolling" }
+		| { kind: "anchoring-turn"; turnId: string }
+		| { kind: "soft-anchored"; turnId: string }
 	>({ kind: "free-scrolling" });
 	const scrollOwnerEpochRef = useRef(0);
+	const anchorPinEnforcerRef = useRef<() => void>(() => {});
+	const anchorPinDeactivationRef = useRef<() => void>(() => {});
 	const pendingMeasurementRef = useRef<
 		| {
 				at: number;
@@ -265,6 +308,7 @@ export const SessionTranscriptList = forwardRef<
 			scrollUpdate: boolean,
 		) => {
 			scheduleFeederRef.current();
+			anchorPinEnforcerRef.current();
 			const range = instance.range;
 			const previousRange = stickyHeaderRangeRef.current;
 			const rangeChanged =
@@ -325,6 +369,7 @@ export const SessionTranscriptList = forwardRef<
 					}
 				});
 			}
+			anchorPinEnforcerRef.current();
 			return measured;
 		},
 		[],
@@ -349,7 +394,7 @@ export const SessionTranscriptList = forwardRef<
 				const cause =
 					adjustment !== 0 && currentMeasurement
 						? "resize-adjustment"
-						: scrollModeRef.current.kind === "anchoring-turn"
+						: scrollModeRef.current.kind !== "free-scrolling"
 							? "turn-anchor"
 							: anchorsPrepend
 								? "prepend-anchor"
@@ -494,43 +539,182 @@ export const SessionTranscriptList = forwardRef<
 		ref,
 		() => ({
 			scrollToTurn: async (turnId, options) => {
-				if (options?.expandFolds) {
+				if (
+					options?.expandFolds &&
+					modelRef.current.rowIndex.has(`${turnId}:fold`)
+				) {
 					onExpandTurn?.(turnId);
 					await new Promise<void>((resolve) =>
 						window.requestAnimationFrame(() => resolve()),
 					);
 				}
-				let index = modelRef.current.turnFirstRowIndex.get(turnId);
-				if (index === undefined && onLoadAnchor) {
-					const loaded = await onLoadAnchor(turnId);
-					if (loaded) {
-						index = await waitForTranscriptTurnIndex(modelRef, turnId);
-					}
-				}
+				const index = getTranscriptAnchorRowIndex(
+					modelRef.current,
+					turnId,
+					options?.speaker,
+				);
 				if (index === undefined) {
+					const scrollElement = scrollContainerRef.current;
+					if (scrollElement) {
+						scrollElement.dataset.transcriptAnchorOutcome = "missing-index";
+					}
+					if (debugEnabled) {
+						recordAnchorJournal({
+							turnFirstRowIndexSize: modelRef.current.turnFirstRowIndex.size,
+							turnId,
+							type: "scrollToTurn:missing-index",
+						});
+						reportAnchorJournalFailure(undefined);
+					}
 					return false;
 				}
 				const ownerEpoch = scrollOwnerEpochRef.current + 1;
+				const deactivatePreviousAnchor = anchorPinDeactivationRef.current;
 				scrollOwnerEpochRef.current = ownerEpoch;
 				scrollModeRef.current = { kind: "anchoring-turn", turnId };
+				deactivatePreviousAnchor();
 				markTranscriptMeasure("anchor", "start", debugEnabled);
 				const startedAt = performance.now();
-				virtualizer.scrollToIndex(index, { align: "start" });
-				await observeVirtualizerSettle({
-					index,
-					scrollContainerRef,
-					virtualizer,
+				const scrollElement = scrollContainerRef.current;
+				if (scrollElement) {
+					delete scrollElement.dataset.transcriptAnchorSettleMs;
+					publishTranscriptAnchorDomState(scrollElement, {
+						epoch: ownerEpoch,
+						outcome: undefined,
+						state: "anchoring",
+						turnId,
+					});
+				}
+				const estimatedStart =
+					virtualizer.measurementsCache[index]?.start ??
+					virtualizer.getVirtualItems().find((item) => item.index === index)
+						?.start;
+				if (debugEnabled) {
+					recordAnchorJournal({
+						epoch: ownerEpoch,
+						estimatedStart,
+						rowIndex: index,
+						scrollTop: scrollElement?.scrollTop,
+						turnId,
+						type: "scrollToTurn:start",
+					});
+				}
+				let deactivationRecorded = false;
+				const recordDeactivation = () => {
+					if (deactivationRecorded) {
+						return;
+					}
+					deactivationRecorded = true;
+					const clause: TranscriptAnchorDeactivationClause =
+						scrollModeRef.current.kind === "free-scrolling"
+							? "mode-free-scrolling"
+							: scrollOwnerEpochRef.current !== ownerEpoch
+								? "epoch-superseded"
+								: "turn-mismatch";
+					if (debugEnabled) {
+						recordAnchorJournal({
+							clause,
+							epoch: ownerEpoch,
+							type: "pin:deactivate",
+						});
+						reportAnchorJournalFailure(ownerEpoch);
+					}
+					const currentScrollElement = scrollContainerRef.current;
+					if (
+						currentScrollElement &&
+						scrollOwnerEpochRef.current === ownerEpoch
+					) {
+						currentScrollElement.dataset.transcriptAnchorOutcome = `cancelled:${clause}`;
+					}
+				};
+				anchorPinDeactivationRef.current = recordDeactivation;
+				const pin = startTranscriptAnchorPin({
+					getAnchorStart: () => {
+						const currentIndex = getTranscriptAnchorRowIndex(
+							modelRef.current,
+							turnId,
+							options?.speaker,
+						);
+						return currentIndex === undefined
+							? undefined
+							: (virtualizer.measurementsCache[currentIndex]?.start ??
+									virtualizer
+										.getVirtualItems()
+										.find((item) => item.index === currentIndex)?.start);
+					},
+					getScrollElement: () => scrollContainerRef.current,
+					isActive: () =>
+						scrollOwnerEpochRef.current === ownerEpoch &&
+						scrollModeRef.current.kind !== "free-scrolling" &&
+						scrollModeRef.current.turnId === turnId,
+					onDeactivate: recordDeactivation,
+					onSettle: debugEnabled
+						? ({ elapsedMs, settled, starvedMs, via }) => {
+								recordAnchorJournal({
+									elapsedMs,
+									epoch: ownerEpoch,
+									settled,
+									starvedMs,
+									type: "pin:settle",
+									via,
+								});
+								if (!settled) {
+									reportAnchorJournalFailure(ownerEpoch);
+								}
+							}
+						: undefined,
+					onWrite: (target, delta) => {
+						const measurement = pendingMeasurementRef.current;
+						recordTranscriptProgrammaticWrite({
+							at: performance.now(),
+							cause: "turn-anchor",
+							delta,
+							est: measurement?.est,
+							measured: measurement?.measured,
+							rowId: measurement?.rowId,
+							target,
+						});
+						if (debugEnabled) {
+							recordAnchorJournal({
+								delta,
+								epoch: ownerEpoch,
+								phase:
+									scrollModeRef.current.kind === "soft-anchored"
+										? "soft"
+										: "hard",
+								target,
+								type: "pin:write",
+							});
+						}
+					},
 				});
-				if (scrollOwnerEpochRef.current !== ownerEpoch) {
+				anchorPinEnforcerRef.current = pin.enforce;
+				virtualizer.scrollToIndex(index, { align: "start" });
+				void onLoadAnchor?.(turnId);
+				pin.enforce();
+				const settled = await pin.settled;
+				if (
+					!settled ||
+					scrollOwnerEpochRef.current !== ownerEpoch ||
+					scrollModeRef.current.kind !== "anchoring-turn" ||
+					scrollModeRef.current.turnId !== turnId
+				) {
+					recordDeactivation();
 					return false;
 				}
-				scrollModeRef.current = { kind: "free-scrolling" };
+				scrollModeRef.current = { kind: "soft-anchored", turnId };
 				scheduleFeederRef.current();
-				const element = scrollContainerRef.current;
-				if (element) {
-					element.dataset.transcriptAnchorSettleMs = String(
+				const settledScrollElement = scrollContainerRef.current;
+				if (settledScrollElement) {
+					settledScrollElement.dataset.transcriptAnchorSettleMs = String(
 						Math.round(performance.now() - startedAt),
 					);
+					publishTranscriptAnchorDomState(settledScrollElement, {
+						epoch: ownerEpoch,
+						outcome: "settled",
+						state: "soft",
+						turnId,
+					});
 				}
 				markTranscriptMeasure("anchor", "end", debugEnabled);
 				return true;
@@ -551,6 +735,12 @@ export const SessionTranscriptList = forwardRef<
 		if (!scrollElement) {
 			return;
 		}
+		publishTranscriptAnchorDomState(scrollElement, {
+			epoch: scrollOwnerEpochRef.current,
+			outcome: undefined,
+			state: "free",
+			turnId: undefined,
+		});
 		const detachTrace = debugEnabled
 			? attachTranscriptTraceScroller(scrollElement)
 			: () => undefined;
@@ -615,7 +805,7 @@ export const SessionTranscriptList = forwardRef<
 				turnItems,
 				turnTotal: new Set(indexedModel.rowTurnIndex.values()).size,
 			});
-			if (viewport && scrollModeRef.current.kind === "free-scrolling") {
+			if (viewport) {
 				feederInputRef.current.onVisibleTurnIds?.(visibleTurnIds);
 				viewportStore.publishViewport(
 					viewport.activeSelection,
@@ -639,13 +829,15 @@ export const SessionTranscriptList = forwardRef<
 				}
 				lastBlankGapRef.current = Math.round(blankGap);
 			}
-			triggerApproachingEdges({
-				firstVisibleIndex: visibleItems[0]?.index,
-				input: feederInputRef.current,
-				lastVisibleIndex: visibleItems.at(-1)?.index,
-				loadingEdges: loadingEdgesRef.current,
-				model: indexedModel,
-			});
+			if (scrollModeRef.current.kind !== "anchoring-turn") {
+				triggerApproachingEdges({
+					firstVisibleIndex: visibleItems[0]?.index,
+					input: feederInputRef.current,
+					lastVisibleIndex: visibleItems.at(-1)?.index,
+					loadingEdges: loadingEdgesRef.current,
+					model: indexedModel,
+				});
+			}
 			if (feederInputRef.current.debugEnabled) {
 				publishTranscriptDebugSnapshot(scrollElement, {
 					activeTurn: viewport?.activeTurn,
@@ -667,14 +859,37 @@ export const SessionTranscriptList = forwardRef<
 		};
 		const cancelAnchor = (event: Event) => {
 			if (
-				scrollModeRef.current.kind !== "anchoring-turn" ||
+				scrollModeRef.current.kind === "free-scrolling" ||
 				(event instanceof KeyboardEvent &&
 					!isTranscriptAnchorCancelKey(event.key))
 			) {
 				return;
 			}
+			const modeAtCancel = scrollModeRef.current.kind;
+			const cancelledEpoch = scrollOwnerEpochRef.current;
+			if (debugEnabled) {
+				recordAnchorJournal({
+					epoch: cancelledEpoch,
+					eventType: event.type,
+					key: event instanceof KeyboardEvent ? event.key : undefined,
+					modeAtCancel,
+					type: "cancelAnchor",
+				});
+			}
+			anchorPinEnforcerRef.current = () => {};
 			scrollOwnerEpochRef.current += 1;
 			scrollModeRef.current = { kind: "free-scrolling" };
+			publishTranscriptAnchorDomState(scrollElement, {
+				epoch: scrollOwnerEpochRef.current,
+				outcome: "cancelled:mode-free-scrolling",
+				state: "free",
+				turnId: undefined,
+			});
+			anchorPinDeactivationRef.current();
+			anchorPinDeactivationRef.current = () => {};
+			if (debugEnabled) {
+				reportAnchorJournalFailure(cancelledEpoch);
+			}
 			virtualizer.scrollToOffset(scrollElement.scrollTop, { behavior: "auto" });
 			schedule();
 		};
@@ -730,6 +945,7 @@ export const SessionTranscriptList = forwardRef<
 					}
 				>
 					<TranscriptStickyHeaderWrappers
+						onToggleFold={onToggleFold}
 						placements={stickyHeaderPlacements}
 						registerWrapper={registerStickyHeaderWrapper}
 					/>
@@ -760,6 +976,7 @@ export const SessionTranscriptList = forwardRef<
 								onLoadDirection={onLoadDirection}
 								onRetryTurn={onRetryTurn}
 								onToggleFold={onToggleFold}
+								renderEventSubtree={renderEventSubtree}
 								row={row}
 								userImageUrl={userImageUrl}
 								viewModel={viewModel}
@@ -783,23 +1000,6 @@ export const SessionTranscriptList = forwardRef<
 		</TraceExpansionStoreProvider>
 	);
 });
-
-async function waitForTranscriptTurnIndex(
-	modelRef: { current: SessionTranscriptRowModel },
-	turnId: string,
-) {
-	const startedAt = performance.now();
-	while (performance.now() - startedAt < 5_000) {
-		const index = modelRef.current.turnFirstRowIndex.get(turnId);
-		if (index !== undefined) {
-			return index;
-		}
-		await new Promise<void>((resolve) =>
-			window.requestAnimationFrame(() => resolve()),
-		);
-	}
-	return undefined;
-}
 
 export function shouldAnchorTranscriptPrepend(
 	previous: readonly SessionTranscriptRow[],
@@ -831,6 +1031,7 @@ type TranscriptVirtualRowProps = {
 	onLoadDirection: ((direction: "newer" | "older") => void) | undefined;
 	onRetryTurn: ((turnId: string) => void) | undefined;
 	onToggleFold: ((turnId: string) => void) | undefined;
+	renderEventSubtree: ConversationTraceEventSubtreeRenderer | undefined;
 	row: SessionTranscriptRow;
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailViewModel;
@@ -866,6 +1067,7 @@ const TranscriptVirtualRow = memo(function TranscriptVirtualRow({
 	onLoadDirection,
 	onRetryTurn,
 	onToggleFold,
+	renderEventSubtree,
 	row,
 	userImageUrl,
 	viewModel,
@@ -883,10 +1085,18 @@ const TranscriptVirtualRow = memo(function TranscriptVirtualRow({
 	const elementTimingAttributes = debugEnabled
 		? { elementtiming: "transcript-row" }
 		: {};
+	const pendingMinHeight =
+		row.kind === "turn-pending" ? row.estimatedHeight : undefined;
 	const style = directDomUpdates
-		? { left: 0, position: "absolute" as const, width: "100%" }
+		? {
+				left: 0,
+				minHeight: pendingMinHeight,
+				position: "absolute" as const,
+				width: "100%",
+			}
 		: {
 				left: 0,
+				minHeight: pendingMinHeight,
 				position: "absolute" as const,
 				top: virtualItem.start,
 				width: "100%",
@@ -929,6 +1139,7 @@ const TranscriptVirtualRow = memo(function TranscriptVirtualRow({
 					onLoadDirection={onLoadDirection}
 					onRetryTurn={onRetryTurn}
 					onToggleFold={onToggleFold}
+					renderEventSubtree={renderEventSubtree}
 					row={row}
 					userImageUrl={userImageUrl}
 					viewModel={viewModel}
@@ -960,6 +1171,7 @@ function areTranscriptVirtualRowPropsEqual(
 		left.onLoadDirection === right.onLoadDirection &&
 		left.onRetryTurn === right.onRetryTurn &&
 		left.onToggleFold === right.onToggleFold &&
+		left.renderEventSubtree === right.renderEventSubtree &&
 		left.row === right.row &&
 		left.userImageUrl === right.userImageUrl &&
 		left.viewModel === right.viewModel &&
@@ -978,6 +1190,7 @@ function TranscriptRowContent({
 	onLoadDirection,
 	onRetryTurn,
 	onToggleFold,
+	renderEventSubtree,
 	row,
 	userImageUrl,
 	viewModel,
@@ -988,6 +1201,7 @@ function TranscriptRowContent({
 	onLoadDirection: ((direction: "newer" | "older") => void) | undefined;
 	onRetryTurn: ((turnId: string) => void) | undefined;
 	onToggleFold: ((turnId: string) => void) | undefined;
+	renderEventSubtree: ConversationTraceEventSubtreeRenderer | undefined;
 	row: SessionTranscriptRow;
 	userImageUrl: string | undefined;
 	viewModel: SessionDetailViewModel;
@@ -1025,11 +1239,14 @@ function TranscriptRowContent({
 						modelHeaderData?.continues ??
 						(model.rowIndex.get(row.id) ?? 0) < model.rows.length - 1
 					}
-					isFirst={payload.isFirst}
+					isFirst={row.isFirst}
 					modelDisclosureId={row.turnId}
+					modelExpandable={false}
 					modelHeaderHeight={modelHeaderData?.renderHeight}
 					modelHeaderTerminal={modelHeaderData?.terminal}
+					modelSetting={modelHeaderData?.modelSetting ?? payload.modelSetting}
 					planMode={modelHeaderData?.planMode ?? payload.planMode}
+					renderEventSubtree={renderEventSubtree}
 					section={payload.traceSection}
 					stickyModelHeader={false}
 					userImageUrl={userImageUrl}
@@ -1048,17 +1265,44 @@ function TranscriptRowContent({
 			);
 		case "turn-fold":
 			return (
-				<button
-					aria-expanded={row.expanded}
-					data-transcript-fold-turn-id={row.turnId}
-					onClick={() => onToggleFold?.(row.turnId)}
-					type="button"
-					className="min-h-11 w-full px-3 text-left text-xs"
-				>
-					{row.expanded ? "Collapse" : "Show"}{" "}
-					{formatFoldCount(row.hidden.toolCalls, "tool call")} and{" "}
-					{formatFoldCount(row.hidden.events, "event")}
-				</button>
+				<ConversationTraceDerivedSectionRow
+					agentLabel={
+						modelHeaderData?.agentLabel ??
+						(viewModel.safeModelUsed
+							? formatModelDisplayLabel(viewModel.safeModelUsed)
+							: undefined)
+					}
+					agentModel={
+						modelHeaderData?.agentModel ??
+						row.agentModel ??
+						viewModel.safeModelUsed
+					}
+					allEvents={row.allEvents}
+					continuesAfter={
+						modelHeaderData?.continues ??
+						(model.rowIndex.get(row.id) ?? 0) < model.rows.length - 1
+					}
+					modelHeaderTrailing={
+						<TranscriptFoldSummaryControl
+							expanded={row.expanded}
+							hidden={row.hidden}
+							onToggle={() => onToggleFold?.(row.turnId)}
+							stickyTurnId={undefined}
+							turnId={row.turnId}
+						/>
+					}
+					isFirst
+					modelDisclosureId={row.turnId}
+					modelExpandable={false}
+					modelHeaderHeight={modelHeaderData?.renderHeight}
+					modelHeaderTerminal={modelHeaderData?.terminal}
+					modelSetting={modelHeaderData?.modelSetting ?? row.modelSetting}
+					planMode={modelHeaderData?.planMode ?? row.planMode}
+					renderEventSubtree={renderEventSubtree}
+					stickyModelHeader={false}
+					userImageUrl={userImageUrl}
+					userLabel={viewModel.safeUserDisplayName}
+				/>
 			);
 		case "turn-pending":
 			return (
@@ -1111,10 +1355,6 @@ function TranscriptRowContent({
 		case "subagents-anchor":
 			return <div id="subagents" className="h-px" />;
 	}
-}
-
-function formatFoldCount(count: number, label: string) {
-	return `${count.toLocaleString()} ${label}${count === 1 ? "" : "s"}`;
 }
 
 function TranscriptRowDebugBadge({
@@ -1264,11 +1504,12 @@ function estimateTranscriptRow(row: SessionTranscriptRow | undefined) {
 		case "section":
 			return row.section.estimatedHeight;
 		case "section-overflow":
-		case "turn-fold":
 		case "window-edge":
 			return 48;
+		case "turn-fold":
+			return 40;
 		case "turn-pending":
-			return 320;
+			return row.estimatedHeight ?? 320;
 		case "turn-error":
 			return 192;
 		case "no-response":
@@ -1369,36 +1610,125 @@ function triggerApproachingEdges(input: {
 	}
 }
 
-async function observeVirtualizerSettle(input: {
-	index: number;
-	scrollContainerRef: React.RefObject<HTMLDivElement | null>;
-	virtualizer: ReturnType<typeof useVirtualizer<HTMLDivElement, HTMLElement>>;
+type TranscriptAnchorScrollElement = Pick<
+	HTMLElement,
+	"clientHeight" | "scrollHeight" | "scrollTop"
+>;
+
+export function startTranscriptAnchorPin(input: {
+	getAnchorStart: () => number | undefined;
+	getScrollElement: () => TranscriptAnchorScrollElement | null;
+	isActive: () => boolean;
+	now?: () => number;
+	onDeactivate?: () => void;
+	onSettle?: (result: {
+		elapsedMs: number;
+		settled: boolean;
+		starvedMs: number;
+		via: "stable-frames" | "timeout";
+	}) => void;
+	onWrite: (target: number, delta: number) => void;
+	requestFrame?: (callback: FrameRequestCallback) => number;
 }) {
-	const startedAt = performance.now();
-	await new Promise<void>((resolve) => {
-		const observe = () => {
-			const item = input.virtualizer
-				.getVirtualItems()
-				.find((candidate) => candidate.index === input.index);
-			const scrollElement = input.scrollContainerRef.current;
-			const scrollTop = scrollElement?.scrollTop;
-			const maximumScrollTop = scrollElement
-				? scrollElement.scrollHeight - scrollElement.clientHeight
-				: undefined;
-			if (
-				(item &&
-					scrollTop !== undefined &&
-					(Math.abs(item.start - scrollTop) <= 2 ||
-						(maximumScrollTop !== undefined &&
-							item.start >= maximumScrollTop &&
-							maximumScrollTop - scrollTop <= 2))) ||
-				performance.now() - startedAt >= 5_000
-			) {
-				resolve();
-				return;
-			}
-			window.requestAnimationFrame(observe);
-		};
-		window.requestAnimationFrame(observe);
+	const now = input.now ?? (() => performance.now());
+	const requestFrame =
+		input.requestFrame ??
+		((callback) => window.requestAnimationFrame(callback));
+	const startedAt = now();
+	let deactivated = false;
+	let settleResolved = false;
+	let stableFrames = 0;
+	let resolveSettled: (settled: boolean) => void = () => {};
+	const settled = new Promise<boolean>((resolve) => {
+		resolveSettled = resolve;
 	});
+	const resolveSettle = (didSettle: boolean) => {
+		if (settleResolved) {
+			return;
+		}
+		settleResolved = true;
+		resolveSettled(didSettle);
+	};
+	const enforce = () => {
+		if (deactivated) {
+			return false;
+		}
+		if (!input.isActive()) {
+			deactivated = true;
+			input.onDeactivate?.();
+			resolveSettle(false);
+			return false;
+		}
+		const anchorStart = input.getAnchorStart();
+		const scrollElement = input.getScrollElement();
+		if (anchorStart === undefined || !scrollElement) {
+			stableFrames = 0;
+			return false;
+		}
+		const maximumScrollTop = Math.max(
+			0,
+			scrollElement.scrollHeight - scrollElement.clientHeight,
+		);
+		const target = Math.min(Math.max(0, anchorStart), maximumScrollTop);
+		const delta = target - scrollElement.scrollTop;
+		if (Math.abs(delta) > TRANSCRIPT_ANCHOR_DRIFT_TOLERANCE_PX) {
+			stableFrames = 0;
+			input.onWrite(target, delta);
+			scrollElement.scrollTop = target;
+			return false;
+		}
+		return true;
+	};
+	const checkFrame = () => {
+		if (enforce()) {
+			stableFrames += 1;
+		}
+		if (
+			stableFrames >= TRANSCRIPT_ANCHOR_STABLE_FRAME_COUNT ||
+			now() - startedAt >= TRANSCRIPT_ANCHOR_SETTLE_TIMEOUT_MS
+		) {
+			const didSettle = input.isActive();
+			const elapsedMs = now() - startedAt;
+			const via =
+				stableFrames >= TRANSCRIPT_ANCHOR_STABLE_FRAME_COUNT
+					? "stable-frames"
+					: "timeout";
+			const expectedMs =
+				via === "stable-frames"
+					? TRANSCRIPT_ANCHOR_STABLE_SETTLE_EXPECTATION_MS
+					: TRANSCRIPT_ANCHOR_SETTLE_TIMEOUT_MS;
+			input.onSettle?.({
+				elapsedMs,
+				settled: didSettle,
+				starvedMs: Math.max(0, elapsedMs - expectedMs),
+				via,
+			});
+			resolveSettle(didSettle);
+			return;
+		}
+		if (!settleResolved) {
+			requestFrame(checkFrame);
+		}
+	};
+	requestFrame(checkFrame);
+	return { enforce, settled };
+}
+
+function publishTranscriptAnchorDomState(
+	element: HTMLElement,
+	state: {
+		epoch: number;
+		outcome: string | undefined;
+		state: "anchoring" | "free" | "soft";
+		turnId: string | undefined;
+	},
+) {
+	element.dataset.transcriptAnchorState = state.state;
+	element.dataset.transcriptAnchorTurn = state.turnId ?? "";
+	element.dataset.transcriptAnchorEpoch = String(state.epoch);
+	if (state.outcome === undefined) {
+		delete element.dataset.transcriptAnchorOutcome;
+	} else {
+		element.dataset.transcriptAnchorOutcome = state.outcome;
+	}
 }
