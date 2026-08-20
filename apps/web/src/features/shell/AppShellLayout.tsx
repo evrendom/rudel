@@ -172,9 +172,12 @@ function ShellLayout({
 		isSessionOverviewRoute ||
 		canonicalPathname.startsWith(`${appRoutes.session()}/`) ||
 		isNewSessionPath(canonicalPathname);
+	const isDashboardWorkspaceRoute = canonicalPathname === appRoutes.dashboard();
 	const isSkillsWorkspaceRoute = canonicalPathname === appRoutes.skills();
 	const isFixedWorkspaceRoute =
-		isSessionWorkspaceRoute || isSkillsWorkspaceRoute;
+		isDashboardWorkspaceRoute ||
+		isSessionWorkspaceRoute ||
+		isSkillsWorkspaceRoute;
 	const [shellHeaderPortal, setShellHeaderPortal] =
 		React.useState<HTMLElement | null>(null);
 	const [newseshListHeaderPortal, setNewseshListHeaderPortal] =

@@ -21,7 +21,7 @@ export function DashboardPage() {
 
 	if (!isOverviewKpisPending && totalSessionCount === 0) {
 		return (
-			<div className="dashboardy-page flex min-h-full flex-1 px-4 pb-6 pt-2 sm:px-6 lg:px-[76px] lg:pb-8">
+			<div className="dashboardy-page flex h-full min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-2 sm:px-6 lg:px-[76px] lg:pb-8">
 				<div className="mx-auto flex w-full flex-col">
 					<CliSetupHint />
 				</div>
@@ -30,20 +30,22 @@ export function DashboardPage() {
 	}
 
 	return (
-		<div className="dashboardy-page flex min-h-full flex-1 px-4 pb-6 pt-2 sm:px-6 lg:px-[76px] lg:pb-8 @5xl/main:h-full @5xl/main:min-h-0 @5xl/main:overflow-hidden">
-			<div className="@container/dashboard-page mx-auto flex min-h-0 w-full flex-1 flex-col">
-				<div className="grid min-h-0 flex-1 grid-cols-1 items-start gap-4 @5xl/dashboard-page:grid-cols-[minmax(0,1.65fr)_minmax(19rem,0.75fr)] @5xl/dashboard-page:items-stretch @5xl/dashboard-page:overflow-hidden">
-					<DashboardCostControl
-						errorDeveloperTrend={errorDeveloperTrend}
-						errorModelTrend={errorModelTrend}
-						errorProjectTrend={errorProjectTrend}
-						isPending={isCostControlPending}
-						modelTokensTrend={modelTokensTrend}
-						performanceUsers={performanceUsers}
-						projects={projectInvestment}
-						repositoryDailyTrend={repositoriesDailyTrend}
-						userDailyTrend={userDailyTrend}
-					/>
+		<div className="dashboardy-page flex h-full min-h-0 min-w-0 flex-1 overflow-y-auto @5xl/main:overflow-hidden">
+			<div className="@container/dashboard-page flex min-h-0 min-w-0 flex-1">
+				<div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 items-start @5xl/dashboard-page:grid-cols-[minmax(0,3fr)_minmax(20rem,1fr)] @5xl/dashboard-page:items-stretch @5xl/dashboard-page:overflow-hidden">
+					<main className="flex min-w-0 flex-col px-4 pb-6 pt-2 sm:px-6 lg:pb-8 lg:pl-[76px] lg:pr-6 @5xl/dashboard-page:min-h-0 @5xl/dashboard-page:overflow-y-auto @5xl/dashboard-page:overscroll-contain">
+						<DashboardCostControl
+							errorDeveloperTrend={errorDeveloperTrend}
+							errorModelTrend={errorModelTrend}
+							errorProjectTrend={errorProjectTrend}
+							isPending={isCostControlPending}
+							modelTokensTrend={modelTokensTrend}
+							performanceUsers={performanceUsers}
+							projects={projectInvestment}
+							repositoryDailyTrend={repositoriesDailyTrend}
+							userDailyTrend={userDailyTrend}
+						/>
+					</main>
 					<DashboardRepositoryUploadStatus
 						isPending={isRepositoryUploadStatusPending}
 						projects={projectInvestment}

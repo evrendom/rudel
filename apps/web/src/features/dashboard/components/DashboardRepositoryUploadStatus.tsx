@@ -62,7 +62,7 @@ function RepositoryUploadStatusSkeleton() {
 	return (
 		<div className="grid divide-y divide-[color:var(--dashboardy-border)]">
 			{REPOSITORY_UPLOAD_SKELETON_KEYS.map((key) => (
-				<div key={key} className="px-4 py-3">
+				<div key={key} className="px-5 py-3 sm:px-6">
 					<div className="flex min-h-5 items-center justify-between gap-3">
 						<div className="flex min-w-0 items-center gap-2">
 							<Skeleton className="h-4 w-28 max-w-full rounded" />
@@ -90,8 +90,8 @@ export function DashboardRepositoryUploadStatus({
 	const sessionDataOnlyCount = repositoryRows.length - automaticCount;
 
 	return (
-		<aside className="@container/repository-uploads dashboardy-card flex min-h-[32rem] flex-col overflow-hidden rounded-2xl border @5xl/dashboard-page:h-full @5xl/dashboard-page:min-h-0">
-			<header className="flex shrink-0 items-center justify-between gap-4 border-b border-[color:var(--dashboardy-border)] px-4 py-3.5">
+		<aside className="@container/repository-uploads flex min-h-[32rem] min-w-0 flex-col overflow-hidden border-t border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface-opaque)] @5xl/dashboard-page:h-full @5xl/dashboard-page:min-h-0 @5xl/dashboard-page:border-l @5xl/dashboard-page:border-t-0">
+			<header className="flex shrink-0 items-center justify-between gap-4 border-b border-[color:var(--dashboardy-border)] px-5 py-3.5 sm:px-6">
 				<h2 className="min-w-0 truncate text-base font-semibold tracking-[-0.015em] text-[color:var(--dashboardy-heading)]">
 					Repo uploads
 				</h2>
@@ -119,7 +119,7 @@ export function DashboardRepositoryUploadStatus({
 							return (
 								<li
 									key={row.key}
-									className="flex min-h-12 items-center justify-between gap-3 px-4 py-2.5"
+									className="flex min-h-12 items-center justify-between gap-3 px-5 py-2.5 sm:px-6"
 								>
 									<div className="flex min-w-0 items-baseline gap-2">
 										<p
@@ -171,12 +171,12 @@ export function DashboardRepositoryUploadStatus({
 						})}
 					</ul>
 				) : (
-					<div className="flex min-h-72 items-center justify-center px-5">
-						<div className="max-w-xs text-center">
-							<p className="text-sm font-medium text-[color:var(--dashboardy-heading)]">
+					<div className="flex min-h-72 items-center justify-center px-5 sm:px-6">
+						<div className="flex max-w-xs flex-col gap-1 text-center">
+							<p className="text-base font-medium text-[color:var(--dashboardy-heading)] sm:text-sm">
 								No repositories yet
 							</p>
-							<p className="mt-1 text-[13px] leading-5 text-[color:var(--dashboardy-muted)]">
+							<p className="text-base/6 text-pretty text-[color:var(--dashboardy-muted)] sm:text-sm/5">
 								Repositories appear here after their first session upload.
 							</p>
 						</div>
