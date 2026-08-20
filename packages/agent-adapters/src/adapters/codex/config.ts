@@ -3,7 +3,9 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { parse as parseTOML, stringify as stringifyTOML } from "smol-toml";
 
-export const CONFIG_PATH = join(homedir(), ".codex", "config.toml");
+export const CONFIG_PATH =
+	process.env.RUDEL_CODEX_CONFIG_PATH ??
+	join(homedir(), ".codex", "config.toml");
 const HOOK_COMMAND = ["rudel", "hooks", "codex", "turn-complete"] as const;
 const LEGACY_HOOK_COMMAND = "rudel hooks codex turn-complete";
 

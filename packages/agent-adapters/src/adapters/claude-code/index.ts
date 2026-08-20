@@ -28,7 +28,9 @@ import {
 	removeHook,
 } from "./settings.js";
 
-const SESSIONS_BASE_DIR = join(homedir(), ".claude", "projects");
+const SESSIONS_BASE_DIR =
+	process.env.RUDEL_CLAUDE_SESSIONS_DIR ??
+	join(homedir(), ".claude", "projects");
 const SAFE_BASENAME_PATTERN = /^[A-Za-z0-9_-]{1,200}$/;
 
 // ── Exported utilities ──
