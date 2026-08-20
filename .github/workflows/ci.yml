@@ -83,7 +83,7 @@ jobs:
         run: bun run check-types:decimal-e2e
 
       - name: Verify
-        run: bun run turbo run lint check-types test build --concurrency=2
+        run: bun run turbo run lint check-types test build --concurrency=1
 
       - name: Verify browser resource budgets in Chrome
         run: bun run --cwd apps/web test:resource-budgets:chrome
