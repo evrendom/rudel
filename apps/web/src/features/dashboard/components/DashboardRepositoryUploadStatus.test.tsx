@@ -48,6 +48,7 @@ describe("DashboardRepositoryUploadStatus", () => {
 		const repositoryList = screen.getByRole("list");
 		expect(repositoryList.parentElement).toHaveClass("overflow-hidden");
 		expect(repositoryList.parentElement).not.toHaveClass("overflow-y-auto");
+		expect(repositoryList).not.toHaveClass("divide-y");
 		expect(within(repositoryList).getAllByRole("listitem")).toHaveLength(1);
 		expect(within(repositoryList).getByText("rudel-v2")).toBeVisible();
 		expect(within(repositoryList).getByText("5 sessions")).toBeInTheDocument();

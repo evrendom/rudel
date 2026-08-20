@@ -16,6 +16,26 @@ vi.mock("@/components/analytics/CliSetupHint", () => ({
 }));
 
 describe("DashboardPage", () => {
+	it("renders the empty dashboard layout alongside repository uploads", () => {
+		mockUseDashboardPageData.mockReturnValue({
+			isOverviewKpisPending: false,
+			isRepositoryUploadStatusPending: false,
+			projectInvestment: [],
+			totalSessionCount: 1,
+		});
+
+		render(
+			<MemoryRouter>
+				<DashboardPage />
+			</MemoryRouter>,
+		);
+
+		expect(
+			screen.getByRole("heading", { name: "Dashboard layout preview" }),
+		).toBeInTheDocument();
+		expect(screen.getByText("Repo uploads")).toBeVisible();
+	});
+
 	it("shows the setup hint when the workspace has never uploaded sessions", () => {
 		mockUseDashboardPageData.mockReturnValue({
 			endDate: "2026-04-08",

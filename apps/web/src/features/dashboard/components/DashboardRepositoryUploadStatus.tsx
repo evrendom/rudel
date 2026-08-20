@@ -60,7 +60,7 @@ function buildRepositoryUploadRows(
 
 function RepositoryUploadStatusSkeleton() {
 	return (
-		<div className="grid divide-y divide-[color:var(--dashboardy-border)]">
+		<div className="grid">
 			{REPOSITORY_UPLOAD_SKELETON_KEYS.map((key) => (
 				<div key={key} className="px-4 py-2.5">
 					<div className="flex min-h-8 items-center justify-between gap-3">
@@ -115,7 +115,7 @@ export function DashboardRepositoryUploadStatus({
 				{isPending ? (
 					<RepositoryUploadStatusSkeleton />
 				) : repositoryRows.length > 0 ? (
-					<ul className="flex h-full min-h-0 list-none flex-col divide-y divide-[color:var(--dashboardy-border)]">
+					<ul className="flex h-full min-h-0 list-none flex-col">
 						{repositoryRows.map((row) => {
 							const isAutomatic = row.automatedSessions > 0;
 
