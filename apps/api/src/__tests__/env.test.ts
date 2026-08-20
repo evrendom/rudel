@@ -3,7 +3,9 @@ import {
 	readBooleanEnv,
 	readNonNegativeSafeIntegerEnv,
 	readRequiredSecretEnv,
+	readSkillAnalyticsCutoverConfig,
 	readUsageEventAnalyticsCutoverConfig,
+	shouldUsePersistentSkillAnalytics,
 	shouldUseUsageEventAnalytics,
 } from "../lib/env.js";
 
@@ -144,5 +146,37 @@ describe("usage-event analytics cutover configuration", () => {
 		expect(config.mode).toBe("all");
 		expect(shouldUseUsageEventAnalytics("org-owner", config)).toBe(true);
 		expect(shouldUseUsageEventAnalytics("org-third", config)).toBe(true);
+	});
+});
+
+describe("skill analytics cutover configuration", () => {
+	test("fails closed unless all or a non-empty canary is explicit", () => {
+		for (const mode of [undefined, "", "enabled", "ALL"]) {
+			const config = readSkillAnalyticsCutoverConfig({
+				SKILL_ANALYTICS_CUTOVER_MODE: mode,
+			});
+			expect(config.mode).toBe("off");
+			expect(shouldUsePersistentSkillAnalytics("org-a", config)).toBe(false);
+		}
+		const emptyCanary = readSkillAnalyticsCutoverConfig({
+			SKILL_ANALYTICS_CANARY_ORG_IDS: " , ",
+			SKILL_ANALYTICS_CUTOVER_MODE: "canary",
+		});
+		expect(emptyCanary.mode).toBe("off");
+	});
+
+	test("routes normalized canaries and all mode", () => {
+		const canary = readSkillAnalyticsCutoverConfig({
+			SKILL_ANALYTICS_CANARY_ORG_IDS: " org-a,org-b,org-a ",
+			SKILL_ANALYTICS_CUTOVER_MODE: "canary",
+		});
+		expect([...canary.canaryOrganizationIds]).toEqual(["org-a", "org-b"]);
+		expect(shouldUsePersistentSkillAnalytics("org-a", canary)).toBe(true);
+		expect(shouldUsePersistentSkillAnalytics("org-c", canary)).toBe(false);
+
+		const all = readSkillAnalyticsCutoverConfig({
+			SKILL_ANALYTICS_CUTOVER_MODE: "all",
+		});
+		expect(shouldUsePersistentSkillAnalytics("org-c", all)).toBe(true);
 	});
 });

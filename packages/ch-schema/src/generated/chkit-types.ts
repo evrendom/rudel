@@ -207,6 +207,87 @@ export const RudelSessionLanguageSignalsRowSchema = z.object({
 export type RudelSessionLanguageSignalsRowInput = z.input<typeof RudelSessionLanguageSignalsRowSchema>
 export type RudelSessionLanguageSignalsRowOutput = z.output<typeof RudelSessionLanguageSignalsRowSchema>
 
+export type RudelSkillReceiptsRow = {
+  organization_id: string
+  user_id: string
+  agent: string
+  session_id: string
+  source_content_sha256: string
+  parser_version: number
+  extraction_seq: string
+  extracted_at: string
+}
+
+export const RudelSkillReceiptsRowSchema = z.object({
+  organization_id: z.string(),
+  user_id: z.string(),
+  agent: z.string(),
+  session_id: z.string(),
+  source_content_sha256: z.string(),
+  parser_version: z.number(),
+  extraction_seq: z.string(),
+  extracted_at: z.string(),
+})
+
+export type RudelSkillReceiptsRowInput = z.input<typeof RudelSkillReceiptsRowSchema>
+export type RudelSkillReceiptsRowOutput = z.output<typeof RudelSkillReceiptsRowSchema>
+
+export type RudelSkillUsesRow = {
+  organization_id: string
+  skill_name: string
+  agent: string
+  user_id: string
+  session_id: string
+  content_sha256: string
+  source_content_sha256: string
+  used_at: string
+  parser_version: number
+  extraction_seq: string
+  extracted_at: string
+}
+
+export const RudelSkillUsesRowSchema = z.object({
+  organization_id: z.string(),
+  skill_name: z.string(),
+  agent: z.string(),
+  user_id: z.string(),
+  session_id: z.string(),
+  content_sha256: z.string(),
+  source_content_sha256: z.string(),
+  used_at: z.string(),
+  parser_version: z.number(),
+  extraction_seq: z.string(),
+  extracted_at: z.string(),
+})
+
+export type RudelSkillUsesRowInput = z.input<typeof RudelSkillUsesRowSchema>
+export type RudelSkillUsesRowOutput = z.output<typeof RudelSkillUsesRowSchema>
+
+export type RudelSkillVersionContentsRow = {
+  organization_id: string
+  skill_name: string
+  content_sha256: string
+  user_id: string
+  content: string
+  parser_version: number
+  extraction_seq: string
+  extracted_at: string
+}
+
+export const RudelSkillVersionContentsRowSchema = z.object({
+  organization_id: z.string(),
+  skill_name: z.string(),
+  content_sha256: z.string(),
+  user_id: z.string(),
+  content: z.string(),
+  parser_version: z.number(),
+  extraction_seq: z.string(),
+  extracted_at: z.string(),
+})
+
+export type RudelSkillVersionContentsRowInput = z.input<typeof RudelSkillVersionContentsRowSchema>
+export type RudelSkillVersionContentsRowOutput = z.output<typeof RudelSkillVersionContentsRowSchema>
+
 export type RudelUsageEventsRow = {
   organization_id: string
   user_id: string

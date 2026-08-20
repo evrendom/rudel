@@ -24,6 +24,8 @@ interface PullRequestMetadata {
 // document and may quote a marker while explaining the boundary. Keep these
 // explicit exclusions narrow and review additions as policy changes.
 const TRACKED_FILE_EXCLUSIONS = new Set([
+	// Synthetic parser corpus intentionally exercises Windows skill paths.
+	"apps/api/src/services/fixtures/skill-transcript-corpus.ts",
 	"scripts/check-disclosure.ts",
 	"CONTRIBUTING.md",
 ]);

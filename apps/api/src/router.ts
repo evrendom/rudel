@@ -82,12 +82,22 @@ import {
 	UsageExtractionSupersededError,
 } from "./services/session-ownership.service.js";
 import {
+	hashSkillSourceContent,
+	SKILL_PARSER_VERSION,
+} from "./services/skill-extraction.js";
+import type { SkillExtractionResult } from "./services/skill-extraction.types.js";
+import {
+	hasMatchingSkillExtractionReceipt,
+	readSkillExtractionReceipt,
+	writeSkillExtraction,
+} from "./services/skill-extraction-ingest.service.js";
+import {
 	hasMatchingUsageExtractionReceipt,
 	shouldReplaceUsageEventsForVersion,
 	writeUsageExtraction,
 } from "./services/usage-event-ingest.service.js";
 import {
-	extractUsageEventsOffThread,
+	extractSessionFactsOffThread,
 	UsageExtractionExecutionError,
 	UsageExtractionQueueAbortedError,
 	UsageExtractionQueueClosedError,
@@ -421,6 +431,14 @@ const ingestSessionHandler = os.ingestSession
 		// an old unfiltered CLI upload and a current pre-filtered CLI upload
 		// converge after server filtering instead of creating duplicate rows.
 		const contentHash = computeIngestContentHash(filteredInput);
+		const usageExtractionEnabled = readBooleanEnv(
+			"USAGE_EVENT_EXTRACTION_ENABLED",
+			true,
+		);
+		const skillExtractionEnabled = readBooleanEnv(
+			"SKILL_EXTRACTION_ENABLED",
+			true,
+		);
 		const response = {
 			success: true as const,
 			sessionId: input.sessionId,
@@ -445,11 +463,32 @@ const ingestSessionHandler = os.ingestSession
 				userId: context.user.id,
 			}))
 		) {
-			logger.info(
-				"Skipping duplicate session ingest (organization_id={organizationId} session_id={sessionId})",
-				{ organizationId: orgId, sessionId: input.sessionId },
-			);
-			return response;
+			const skillReceiptMatches =
+				!skillExtractionEnabled ||
+				hasMatchingSkillExtractionReceipt(
+					await readSkillExtractionReceipt(getClickhouse(), {
+						agent: filteredInput.source === "claude_code" ? "claude" : "codex",
+						organizationId: orgId,
+						sessionId: input.sessionId,
+						userId: context.user.id,
+					}),
+					{
+						parserVersion: SKILL_PARSER_VERSION,
+						sourceContentSha256: hashSkillSourceContent(filteredInput.content),
+					},
+				);
+			if (!skillReceiptMatches) {
+				logger.info(
+					"Reprocessing duplicate session with a missing or stale skill receipt (organization_id={organizationId} session_id={sessionId})",
+					{ organizationId: orgId, sessionId: input.sessionId },
+				);
+			} else {
+				logger.info(
+					"Skipping duplicate session ingest (organization_id={organizationId} session_id={sessionId})",
+					{ organizationId: orgId, sessionId: input.sessionId },
+				);
+				return response;
+			}
 		}
 
 		// Acknowledged async inserts can batch concurrent requests into one part.
@@ -481,27 +520,31 @@ const ingestSessionHandler = os.ingestSession
 			userId: context.user.id,
 		});
 
-		if (!readBooleanEnv("USAGE_EVENT_EXTRACTION_ENABLED", true)) {
+		if (!usageExtractionEnabled && !skillExtractionEnabled) {
 			logger.warn(
-				"Usage-event extraction bypassed after raw ingest (organization_id={organizationId} session_id={sessionId})",
+				"Session fact extraction bypassed after raw ingest (organization_id={organizationId} session_id={sessionId})",
 				{ organizationId: orgId, sessionId: input.sessionId },
 			);
 			return response;
 		}
 
-		const usageGeneration = await reserveUsageExtractionGeneration(
-			orgId,
-			input.sessionId,
-			context.user.id,
-		);
+		const usageGeneration = usageExtractionEnabled
+			? await reserveUsageExtractionGeneration(
+					orgId,
+					input.sessionId,
+					context.user.id,
+				)
+			: null;
 		const subagents: Record<string, string> = {};
 		for (const subagent of filteredInput.subagents ?? []) {
 			subagents[subagent.agentId] = subagent.content;
 		}
 		let usageExtraction: UsageExtractionResult;
+		let skillExtraction: SkillExtractionResult | null;
 		try {
-			usageExtraction = await extractUsageEventsOffThread({
+			const extraction = await extractSessionFactsOffThread({
 				bytes: contentShape.contentBytes,
+				extractSkills: skillExtractionEnabled,
 				input: {
 					organizationId: orgId,
 					userId: context.user.id,
@@ -511,11 +554,18 @@ const ingestSessionHandler = os.ingestSession
 					subagents,
 				},
 				signal,
+				skillSessionDate: timestamps.sessionDate,
 				userId: context.user.id,
 			});
+			usageExtraction = extraction.usage;
+			skillExtraction = extraction.skills;
 		} catch (error) {
 			if (error instanceof UsageExtractionExecutionError) {
-				if (error.shouldPersistReceipt) {
+				if (
+					usageExtractionEnabled &&
+					usageGeneration !== null &&
+					error.shouldPersistReceipt
+				) {
 					await writeUsageExtraction(getClickhouse(), {
 						contentSha256: contentHash,
 						extraction: error.extraction,
@@ -581,6 +631,20 @@ const ingestSessionHandler = os.ingestSession
 				});
 			}
 			throw error;
+		}
+		if (skillExtractionEnabled && skillExtraction) {
+			await writeSkillExtraction(getClickhouse(), {
+				extractedAt: getNextIngestedAt(),
+				extraction: skillExtraction,
+				organizationId: orgId,
+				rawRevisionIngestedAt: ingestedAt,
+				sessionDate: new Date(timestamps.sessionDate),
+				sessionId: input.sessionId,
+				userId: context.user.id,
+			});
+		}
+		if (!usageExtractionEnabled || usageGeneration === null) {
+			return response;
 		}
 		await writeUsageExtraction(getClickhouse(), {
 			contentSha256: contentHash,

@@ -48,6 +48,9 @@ const allowedClickHouseTables = new Set([
 	"rudel.claude_sessions",
 	"rudel.codex_sessions",
 	"rudel.session_analytics",
+	"rudel.skill_receipts",
+	"rudel.skill_uses",
+	"rudel.skill_version_contents",
 	"rudel.usage_events",
 ]);
 
