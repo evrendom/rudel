@@ -367,6 +367,30 @@ export const SessionAnalyticsSummaryComparisonSchema = z.object({
 	}),
 });
 
+export const HistoricalSkillSummarySchema = z.object({
+	name: z.string(),
+	sessionCount: z.number().int().nonnegative(),
+});
+
+export const HistoricalSkillVersionSchema = z.object({
+	contentSha256: z.string().length(64),
+	content: z.string(),
+	sessionCount: z.number().int().positive(),
+	firstUsedAt: z.string(),
+	lastUsedAt: z.string(),
+});
+
+export const HistoricalSkillDetailSchema = z.object({
+	name: z.string(),
+	sessionCount: z.number().int().nonnegative(),
+	versions: z.array(HistoricalSkillVersionSchema),
+	unavailableSessionCount: z.number().int().nonnegative(),
+});
+
+export const HistoricalSkillDetailInputSchema = z.object({
+	name: z.string().min(1).max(MAX_ID_FILTER_LENGTH),
+});
+
 export const SessionListInputSchema = DaysInputSchema.extend({
 	// When both are supplied they replace the rolling `days` lookback, so a
 	// range that does not end today (e.g. a past month) returns that window
@@ -759,6 +783,13 @@ export type ProjectDetailData = z.infer<typeof ProjectDetailDataSchema>;
 export type ProjectContributor = z.infer<typeof ProjectContributorSchema>;
 export type ProjectTrendDataPoint = z.infer<typeof ProjectTrendDataPointSchema>;
 export type SessionAnalytics = z.infer<typeof SessionAnalyticsSchema>;
+export type HistoricalSkillSummary = z.infer<
+	typeof HistoricalSkillSummarySchema
+>;
+export type HistoricalSkillVersion = z.infer<
+	typeof HistoricalSkillVersionSchema
+>;
+export type HistoricalSkillDetail = z.infer<typeof HistoricalSkillDetailSchema>;
 export type SessionDetail = z.infer<typeof SessionDetailSchema>;
 export type DimensionAnalysisDataPoint = z.infer<
 	typeof DimensionAnalysisDataPointSchema

@@ -10,6 +10,7 @@ import {
 	handleAvatarGetRequest,
 	handleAvatarUploadRequest,
 } from "./handlers/avatar-http.js";
+import { handleSessionDetailStatsRequest } from "./handlers/session-detail-stats-http.js";
 import {
 	readBetterAuthSecret,
 	readBooleanEnv,
@@ -17,6 +18,7 @@ import {
 	readNonNegativeSafeIntegerEnv,
 	readPositiveSafeIntegerEnv,
 } from "./lib/env.js";
+import { maybeCompressSessionDetailRpcResponse } from "./lib/http-compression.js";
 import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
 import { resolveWrappedShareLookupSource } from "./lib/wrapped-share-lookup-source.js";
 import { setupLogging } from "./logging.js";
@@ -489,6 +491,15 @@ async function handleRequest(
 		});
 	}
 
+	if (url.pathname === "/api/dev/session-detail-stats") {
+		return handleSessionDetailStatsRequest({
+			cors,
+			enabled: isLoopbackOrigin(preferredFrontendOrigin),
+			getSession: (req) => auth.api.getSession({ headers: req.headers }),
+			request,
+		});
+	}
+
 	const { matched, response } = await rpcHandler.handle(request, {
 		prefix: "/rpc",
 		context: await getContext(request, requestId, wrappedShareLookupSource),
@@ -506,7 +517,11 @@ async function handleRequest(
 		for (const [key, value] of Object.entries(cors)) {
 			response.headers.set(key, value);
 		}
-		return response;
+		return maybeCompressSessionDetailRpcResponse({
+			pathname: url.pathname,
+			requestHeaders: request.headers,
+			response,
+		});
 	}
 
 	// Static file serving (production: frontend assets)

@@ -1,10 +1,11 @@
 import { getLogger } from "@logtape/logtape";
-import { ORPCError } from "@orpc/server";
+import { ORPCError, type Router } from "@orpc/server";
 import {
 	getAdapter,
 	getMissingTranscriptTimestampMessage,
 } from "@rudel/agent-adapters";
 import {
+	type contract,
 	INGEST_AGGREGATE_CONTENT_MAX_BYTES,
 	type IngestSessionInput,
 	PRODUCT_ANALYTICS_EVENTS,
@@ -46,6 +47,7 @@ import {
 	hashProjectPath,
 } from "./lib/product-analytics.js";
 import {
+	type AppContext,
 	authMiddleware,
 	ingestAuthMiddleware,
 	os,
@@ -854,7 +856,7 @@ const deleteOrganization = os.deleteOrganization
 		}
 	});
 
-export const router = os.router({
+export const router: Router<typeof contract, AppContext> = os.router({
 	health,
 	me,
 	profile: profileRouter,
