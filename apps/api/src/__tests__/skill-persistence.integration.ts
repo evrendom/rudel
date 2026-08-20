@@ -32,6 +32,16 @@ import {
 	type SkillExtractionBackfillOptions,
 } from "../services/skill-extraction-backfill.service.js";
 import {
+	buildActiveSkillUsesCte,
+	buildSkillExtractionRows,
+	buildSkillExtractionSeq,
+	createSkillExtractionRun,
+	writeSkillExtraction,
+	writeSkillExtractionRowBatch,
+	writeSkillUseRows,
+	writeSkillVersionContentRows,
+} from "../services/skill-extraction-ingest.service.js";
+import {
 	type ApiTestServer,
 	startApiTestServer,
 } from "./helpers/api-test-server.js";
@@ -201,10 +211,13 @@ describe("persistent skill extraction through the real API", () => {
 		expect(await countPhysicalSkillUseRows()).toBe(physicalAfterUpgrade);
 	});
 
-	test("selects the complete higher-sequence run when extracted_at ties", async () => {
+	test("keeps a fast newer raw revision active after a slow older extraction finishes", async () => {
 		const clickhouse = getClickhouse();
-		const extractedAt = "2026-08-20 12:00:00.000";
-		const sessionId = `skill_tie_${RUN_ID}`;
+		const sessionId = `skill_raw_order_${RUN_ID}`;
+		const olderRawRevision = new Date("2026-08-20T11:00:00.000Z");
+		const newerRawRevision = new Date("2026-08-20T11:01:00.000Z");
+		const olderSeq = buildSkillExtractionSeq(olderRawRevision, 1);
+		const newerSeq = buildSkillExtractionSeq(newerRawRevision, 1);
 		const olderContentHash = "1".repeat(64);
 		const newerContentHash = "2".repeat(64);
 		await clickhouse.insert({
@@ -212,42 +225,95 @@ describe("persistent skill extraction through the real API", () => {
 			values: [
 				{
 					organization_id: userId,
-					skill_name: "tie-skill",
-					content_sha256: olderContentHash,
-					content: "older body",
-					parser_version: 1,
-					extraction_seq: "100",
-					extracted_at: extractedAt,
-				},
-				{
-					organization_id: userId,
-					skill_name: "tie-skill",
+					skill_name: "raw-order-skill",
 					content_sha256: newerContentHash,
+					user_id: userId,
 					content: "newer body",
-					parser_version: 2,
-					extraction_seq: "101",
-					extracted_at: extractedAt,
+					parser_version: 1,
+					extraction_seq: newerSeq,
+					extracted_at: "2026-08-20 11:02:00.000",
 				},
 			],
 		});
 		await clickhouse.insert({
 			table: "rudel.skill_uses",
 			values: [
-				buildTieUseRow(sessionId, olderContentHash, "a".repeat(64), "100"),
-				buildTieUseRow(sessionId, newerContentHash, "b".repeat(64), "101"),
+				buildUseRow({
+					contentSha256: newerContentHash,
+					extractedAt: "2026-08-20 11:02:00.000",
+					extractionSeq: newerSeq,
+					parserVersion: 1,
+					sessionId,
+					skillName: "raw-order-skill",
+					sourceContentSha256: "b".repeat(64),
+					usedAt: "2026-08-20 11:01:00.000",
+				}),
 			],
 		});
 		await clickhouse.insert({
 			table: "rudel.skill_receipts",
 			values: [
-				buildTieReceiptRow(sessionId, "a".repeat(64), 1, "100"),
-				buildTieReceiptRow(sessionId, "b".repeat(64), 2, "101"),
+				buildReceiptRow({
+					extractedAt: "2026-08-20 11:02:00.000",
+					extractionSeq: newerSeq,
+					parserVersion: 1,
+					sessionId,
+					sourceContentSha256: "b".repeat(64),
+				}),
+			],
+		});
+
+		// The older raw revision finishes later and is appended after the newer run.
+		await clickhouse.insert({
+			table: "rudel.skill_version_contents",
+			values: [
+				{
+					organization_id: userId,
+					skill_name: "raw-order-skill",
+					content_sha256: olderContentHash,
+					user_id: userId,
+					content: "older body",
+					parser_version: 1,
+					extraction_seq: olderSeq,
+					extracted_at: "2026-08-20 11:10:00.000",
+				},
+			],
+		});
+		await clickhouse.insert({
+			table: "rudel.skill_uses",
+			values: [
+				buildUseRow({
+					contentSha256: olderContentHash,
+					extractedAt: "2026-08-20 11:10:00.000",
+					extractionSeq: olderSeq,
+					parserVersion: 1,
+					sessionId,
+					skillName: "raw-order-skill",
+					sourceContentSha256: "a".repeat(64),
+					usedAt: "2026-08-20 11:00:00.000",
+				}),
+			],
+		});
+		await clickhouse.insert({
+			table: "rudel.skill_receipts",
+			values: [
+				buildReceiptRow({
+					extractedAt: "2026-08-20 11:10:00.000",
+					extractionSeq: olderSeq,
+					parserVersion: 1,
+					sessionId,
+					sourceContentSha256: "a".repeat(64),
+				}),
 			],
 		});
 
 		const detail = HistoricalSkillDetailSchema.parse(
 			readJsonEnvelope(
-				(await callRpc("analytics/skills/detail", { name: "tie-skill" })).body,
+				(
+					await callRpc("analytics/skills/detail", {
+						name: "raw-order-skill",
+					})
+				).body,
 			),
 		);
 		expect(detail.versions).toHaveLength(1);
@@ -258,10 +324,264 @@ describe("persistent skill extraction through the real API", () => {
 		});
 	});
 
-	test("writes one insert per table for a batch and isolates a parse failure", async () => {
+	test("keeps the committed generation active when a newer use is orphaned before and after FINAL", async () => {
+		const clickhouse = getClickhouse();
+		const sessionId = `skill_orphan_generation_${RUN_ID}`;
+		const skillName = "orphan-generation-skill";
+		const committedHash = "6".repeat(64);
+		const orphanHash = "7".repeat(64);
+		await insertSkillRun({
+			content: "committed body",
+			contentSha256: committedHash,
+			extractedAt: "2026-08-20 11:11:00.000",
+			extractionSeq: buildSkillExtractionSeq(
+				new Date("2026-08-20T11:10:00.000Z"),
+				1,
+			),
+			parserVersion: 1,
+			sessionId,
+			skillName,
+			sourceContentSha256: "8".repeat(64),
+		});
+		const orphanSeq = buildSkillExtractionSeq(
+			new Date("2026-08-20T11:12:00.000Z"),
+			1,
+		);
+		await clickhouse.insert({
+			table: "rudel.skill_version_contents",
+			values: [
+				{
+					organization_id: userId,
+					skill_name: skillName,
+					content_sha256: orphanHash,
+					user_id: userId,
+					content: "orphan body",
+					parser_version: 1,
+					extraction_seq: orphanSeq,
+					extracted_at: "2026-08-20 11:13:00.000",
+				},
+			],
+		});
+		await clickhouse.insert({
+			table: "rudel.skill_uses",
+			values: [
+				buildUseRow({
+					contentSha256: orphanHash,
+					extractedAt: "2026-08-20 11:13:00.000",
+					extractionSeq: orphanSeq,
+					parserVersion: 1,
+					sessionId,
+					skillName,
+					sourceContentSha256: "9".repeat(64),
+					usedAt: "2026-08-20 11:12:00.000",
+				}),
+			],
+		});
+
+		const assertCommittedGeneration = async () => {
+			const detail = HistoricalSkillDetailSchema.parse(
+				readJsonEnvelope(
+					(await callRpc("analytics/skills/detail", { name: skillName })).body,
+				),
+			);
+			expect(detail).toMatchObject({ sessionCount: 1 });
+			expect(detail.versions).toHaveLength(1);
+			expect(detail.versions[0]).toMatchObject({
+				content: "committed body",
+				contentSha256: committedHash,
+			});
+		};
+
+		await assertCommittedGeneration();
+		await clickhouse.execute({
+			query: "OPTIMIZE TABLE rudel.skill_uses FINAL",
+		});
+		await assertCommittedGeneration();
+	});
+
+	test("activates a higher-parser replay for the same raw revision", async () => {
+		const rawRevision = new Date("2026-08-20T11:20:00.000Z");
+		const sessionId = `skill_parser_replay_${RUN_ID}`;
+		await insertSkillRun({
+			content: "parser one body",
+			contentSha256: "3".repeat(64),
+			extractedAt: "2026-08-20 11:21:00.000",
+			extractionSeq: buildSkillExtractionSeq(rawRevision, 1),
+			parserVersion: 1,
+			sessionId,
+			skillName: "parser-replay-skill",
+			sourceContentSha256: "c".repeat(64),
+		});
+		await insertSkillRun({
+			content: "parser two body",
+			contentSha256: "4".repeat(64),
+			extractedAt: "2026-08-20 11:22:00.000",
+			extractionSeq: buildSkillExtractionSeq(rawRevision, 2),
+			parserVersion: 2,
+			sessionId,
+			skillName: "parser-replay-skill",
+			sourceContentSha256: "d".repeat(64),
+		});
+
+		const detail = HistoricalSkillDetailSchema.parse(
+			readJsonEnvelope(
+				(
+					await callRpc("analytics/skills/detail", {
+						name: "parser-replay-skill",
+					})
+				).body,
+			),
+		);
+		expect(detail.versions).toHaveLength(1);
+		expect(detail.versions[0]?.content).toBe("parser two body");
+	});
+
+	test("retries a failed attempt with a fresh deterministic run and activates it", async () => {
+		const sessionId = `skill_receipt_retry_${RUN_ID}`;
+		const rawRevision = new Date("2026-08-20T11:30:00.000Z");
+		const clickhouse = getClickhouse();
+		const writeInput = {
+			extractedAt: new Date("2026-08-20T11:31:00.000Z"),
+			extraction: extractSessionSkills({
+				content: claudeTranscript(
+					"receipt-retry-skill",
+					"# Receipt retry body\n",
+				),
+				parserVersion: 1,
+				sessionDate: rawRevision.toISOString(),
+				source: "claude_code" as const,
+			}),
+			organizationId: userId,
+			rawRevisionIngestedAt: rawRevision,
+			sessionDate: rawRevision,
+			sessionId,
+			userId,
+		};
+		const failedRun = createSkillExtractionRun(writeInput);
+		const failedRows = buildSkillExtractionRows(failedRun, []);
+		await writeSkillVersionContentRows(clickhouse, failedRows.contentRows);
+		await writeSkillUseRows(clickhouse, failedRows.useRows);
+
+		const beforeRetry = HistoricalSkillDetailSchema.parse(
+			readJsonEnvelope(
+				(
+					await callRpc("analytics/skills/detail", {
+						name: "receipt-retry-skill",
+					})
+				).body,
+			),
+		);
+		expect(beforeRetry).toMatchObject({ sessionCount: 0, versions: [] });
+
+		const retryRun = createSkillExtractionRun(writeInput);
+		expect(retryRun).not.toBe(failedRun);
+		expect(retryRun.extractionSeq).toBe(failedRun.extractionSeq);
+		const retryRows = buildSkillExtractionRows(retryRun, []);
+		await writeSkillExtractionRowBatch(clickhouse, retryRows);
+
+		const afterRetry = HistoricalSkillDetailSchema.parse(
+			readJsonEnvelope(
+				(
+					await callRpc("analytics/skills/detail", {
+						name: "receipt-retry-skill",
+					})
+				).body,
+			),
+		);
+		expect(afterRetry).toMatchObject({ sessionCount: 1 });
+		expect(afterRetry.versions[0]?.content).toBe("# Receipt retry body\n");
+	});
+
+	test("keeps a live newer revision active when an older backfill flushes later", async () => {
+		const clickhouse = getClickhouse();
+		const organizationId = `skill_concurrent_org_${RUN_ID}`;
+		const backfillUserId = `skill_concurrent_user_${RUN_ID}`;
+		const sessionId = `skill_concurrent_${RUN_ID}`;
+		const skillName = "concurrent-skill";
+		const sessionDate = new Date(Date.now() - 120_000);
+		const olderIngestedAt = new Date(Date.now() - 90_000);
+		const cutoff = new Date(Date.now() - 60_000);
+		const newerIngestedAt = new Date(Date.now() - 30_000);
+		const oldContent = claudeTranscript(skillName, "# Backfill old body\n");
+		const newContent = claudeTranscript(skillName, "# Live new body\n");
+		let liveInserted = false;
+		const concurrentExecutor = createInsertInterceptor(
+			clickhouse,
+			async (table) => {
+				if (liveInserted || table !== "rudel.skill_version_contents") return;
+				liveInserted = true;
+				await ingestRudelClaudeSessions(clickhouse, [
+					buildRawClaudeRow({
+						content: newContent,
+						ingestedAt: newerIngestedAt,
+						organizationId,
+						sessionDate,
+						sessionId,
+						userId: backfillUserId,
+					}),
+				]);
+				await writeSkillExtraction(clickhouse, {
+					extractedAt: new Date(),
+					extraction: extractSessionSkills({
+						content: newContent,
+						parserVersion: SKILL_PARSER_VERSION,
+						sessionDate: sessionDate.toISOString(),
+						source: "claude_code",
+					}),
+					organizationId,
+					rawRevisionIngestedAt: newerIngestedAt,
+					sessionDate,
+					sessionId,
+					userId: backfillUserId,
+				});
+			},
+		);
+		try {
+			await ingestRudelClaudeSessions(clickhouse, [
+				buildRawClaudeRow({
+					content: oldContent,
+					ingestedAt: olderIngestedAt,
+					organizationId,
+					sessionDate,
+					sessionId,
+					userId: backfillUserId,
+				}),
+			]);
+			const result = await backfillSkillExtractions(concurrentExecutor, {
+				batchMaxBytes: 16 * 1024 * 1024,
+				batchMaxRows: 1,
+				cutoff,
+				maxSessionBytes: 16 * 1024 * 1024,
+				maxSessions: 10,
+				organizationId,
+			});
+			expect(result).toMatchObject({ completedCount: 1, failedCount: 0 });
+			expect(liveInserted).toBe(true);
+			const [active] = await clickhouse.query<{ content: string }>({
+				query: `
+					WITH ${buildActiveSkillUsesCte()}
+					SELECT contents.content
+					FROM active_skill_uses AS uses
+					INNER ANY JOIN rudel.skill_version_contents AS contents
+						ON contents.organization_id = uses.organization_id
+						AND contents.skill_name = uses.skill_name
+						AND contents.content_sha256 = uses.content_sha256
+					WHERE uses.organization_id = {organizationId:String}
+						AND uses.skill_name = {skillName:String}
+				`,
+				query_params: { organizationId, skillName },
+			});
+			expect(active?.content).toBe("# Live new body\n");
+		} finally {
+			await deleteSkillTestOrganization(organizationId, true);
+		}
+	});
+
+	test("buffers writes across raw read batches and isolates a parse failure", async () => {
 		const batchOrganizationId = `skill_batch_org_${RUN_ID}`;
 		const batchUserId = `skill_batch_user_${RUN_ID}`;
-		const goodSessionId = `skill_batch_good_${RUN_ID}`;
+		const firstGoodSessionId = `skill_batch_good_one_${RUN_ID}`;
+		const secondGoodSessionId = `skill_batch_good_two_${RUN_ID}`;
 		const failedSessionId = `skill_batch_failed_${RUN_ID}`;
 		const clickhouse = getClickhouse();
 		const ingestedAt = new Date(Date.now() - 60_000);
@@ -271,11 +591,19 @@ describe("persistent skill extraction through the real API", () => {
 		try {
 			await ingestRudelClaudeSessions(clickhouse, [
 				buildRawClaudeRow({
-					content: claudeTranscript("batch-good", "# Good batch body\n"),
+					content: claudeTranscript("batch-good-one", "# Good batch one\n"),
 					ingestedAt,
 					organizationId: batchOrganizationId,
 					sessionDate,
-					sessionId: goodSessionId,
+					sessionId: firstGoodSessionId,
+					userId: batchUserId,
+				}),
+				buildRawClaudeRow({
+					content: claudeTranscript("batch-good-two", "# Good batch two\n"),
+					ingestedAt,
+					organizationId: batchOrganizationId,
+					sessionDate,
+					sessionId: secondGoodSessionId,
 					userId: batchUserId,
 				}),
 				buildRawClaudeRow({
@@ -291,7 +619,7 @@ describe("persistent skill extraction through the real API", () => {
 				countingExecutor,
 				{
 					batchMaxBytes: 16 * 1024 * 1024,
-					batchMaxRows: 10,
+					batchMaxRows: 1,
 					cutoff: new Date(),
 					maxSessionBytes: 16 * 1024 * 1024,
 					maxSessions: 10,
@@ -307,7 +635,7 @@ describe("persistent skill extraction through the real API", () => {
 				},
 			);
 
-			expect(result).toMatchObject({ completedCount: 1, failedCount: 1 });
+			expect(result).toMatchObject({ completedCount: 2, failedCount: 1 });
 			expect(insertTables.sort()).toEqual([
 				"rudel.skill_receipts",
 				"rudel.skill_uses",
@@ -315,16 +643,16 @@ describe("persistent skill extraction through the real API", () => {
 			]);
 			expect(
 				await countBatchRows("rudel.skill_receipts", batchOrganizationId),
-			).toBe(1);
+			).toBe(2);
 			expect(
 				await countBatchRows("rudel.skill_uses", batchOrganizationId),
-			).toBe(1);
+			).toBe(2);
 			expect(
 				await countBatchRows(
 					"rudel.skill_version_contents",
 					batchOrganizationId,
 				),
-			).toBe(1);
+			).toBe(2);
 		} finally {
 			for (const table of [
 				"rudel.skill_receipts",
@@ -339,49 +667,297 @@ describe("persistent skill extraction through the real API", () => {
 			}
 		}
 	});
+
+	test("chunks oversized content-version lookups without changing deduplication", async () => {
+		const skillCount = 1_001;
+		const organizationId = `skill_lookup_chunks_org_${RUN_ID}`;
+		const backfillUserId = `skill_lookup_chunks_user_${RUN_ID}`;
+		const sessionId = `skill_lookup_chunks_${RUN_ID}`;
+		const clickhouse = getClickhouse();
+		const ingestedAt = new Date(Date.now() - 60_000);
+		const sessionDate = new Date(Date.now() - 120_000);
+		const content = manyClaudeSkillsTranscript(skillCount);
+		const extraction = extractSessionSkills({
+			content,
+			parserVersion: SKILL_PARSER_VERSION,
+			sessionDate: sessionDate.toISOString(),
+			source: "claude_code",
+		});
+		expect(extraction.uses).toHaveLength(skillCount);
+		const run = createSkillExtractionRun({
+			extractedAt: new Date(),
+			extraction,
+			organizationId,
+			rawRevisionIngestedAt: ingestedAt,
+			sessionDate,
+			sessionId,
+			userId: backfillUserId,
+		});
+		const [existingContentRow] = buildSkillExtractionRows(run, []).contentRows;
+		assert.ok(existingContentRow);
+		const lookupChunkSizes: number[] = [];
+		let insertedContentRowCount = 0;
+		const countingExecutor = createSkillVersionLookupInterceptor(clickhouse, {
+			async beforeInsert(table, rowCount) {
+				if (table === "rudel.skill_version_contents") {
+					insertedContentRowCount += rowCount;
+				}
+			},
+			async beforeLookup(statement) {
+				const versionIdentities = statement.query_params?.versionIdentities;
+				assert.ok(Array.isArray(versionIdentities));
+				lookupChunkSizes.push(versionIdentities.length);
+			},
+		});
+		try {
+			await writeSkillVersionContentRows(clickhouse, [existingContentRow]);
+			await ingestRudelClaudeSessions(clickhouse, [
+				buildRawClaudeRow({
+					content,
+					ingestedAt,
+					organizationId,
+					sessionDate,
+					sessionId,
+					userId: backfillUserId,
+				}),
+			]);
+			const result = await backfillSkillExtractions(countingExecutor, {
+				batchMaxBytes: 16 * 1024 * 1024,
+				batchMaxRows: 1,
+				cutoff: new Date(),
+				maxSessionBytes: 16 * 1024 * 1024,
+				maxSessions: 10,
+				organizationId,
+			});
+
+			expect(result).toMatchObject({ completedCount: 1, failedCount: 0 });
+			expect(lookupChunkSizes).toEqual([1_000, 1]);
+			expect(insertedContentRowCount).toBe(skillCount - 1);
+			expect(
+				await countBatchRows("rudel.skill_version_contents", organizationId),
+			).toBe(skillCount);
+		} finally {
+			await deleteSkillTestOrganization(organizationId, true);
+		}
+	});
+
+	test("reinserts content and continues when a version lookup chunk fails", async () => {
+		const organizationId = `skill_lookup_failure_org_${RUN_ID}`;
+		const backfillUserId = `skill_lookup_failure_user_${RUN_ID}`;
+		const sessionId = `skill_lookup_failure_${RUN_ID}`;
+		const clickhouse = getClickhouse();
+		const ingestedAt = new Date(Date.now() - 60_000);
+		const sessionDate = new Date(Date.now() - 120_000);
+		let lookupFailed = false;
+		let insertedContentRowCount = 0;
+		const failingExecutor = createSkillVersionLookupInterceptor(clickhouse, {
+			async beforeInsert(table, rowCount) {
+				if (table === "rudel.skill_version_contents") {
+					insertedContentRowCount += rowCount;
+				}
+			},
+			async beforeLookup() {
+				if (lookupFailed) return;
+				lookupFailed = true;
+				throw new Error("intentional content-version lookup failure");
+			},
+		});
+		try {
+			await ingestRudelClaudeSessions(clickhouse, [
+				buildRawClaudeRow({
+					content: claudeTranscript(
+						"lookup-failure-skill",
+						"# Lookup failure body\n",
+					),
+					ingestedAt,
+					organizationId,
+					sessionDate,
+					sessionId,
+					userId: backfillUserId,
+				}),
+			]);
+			const result = await backfillSkillExtractions(failingExecutor, {
+				batchMaxBytes: 16 * 1024 * 1024,
+				batchMaxRows: 1,
+				cutoff: new Date(),
+				maxSessionBytes: 16 * 1024 * 1024,
+				maxSessions: 10,
+				organizationId,
+			});
+
+			expect(lookupFailed).toBe(true);
+			expect(result).toMatchObject({ completedCount: 1, failedCount: 0 });
+			expect(insertedContentRowCount).toBe(1);
+			expect(
+				await countBatchRows("rudel.skill_version_contents", organizationId),
+			).toBe(1);
+		} finally {
+			await deleteSkillTestOrganization(organizationId, true);
+		}
+	});
+
+	test("accounts a receipt-buffer flush failure per candidate without aborting the job", async () => {
+		const organizationId = `skill_flush_org_${RUN_ID}`;
+		const backfillUserId = `skill_flush_user_${RUN_ID}`;
+		const sessionId = `skill_flush_${RUN_ID}`;
+		const clickhouse = getClickhouse();
+		const ingestedAt = new Date(Date.now() - 60_000);
+		const sessionDate = new Date(Date.now() - 120_000);
+		const cutoff = new Date();
+		const options: SkillExtractionBackfillOptions = {
+			batchMaxBytes: 16 * 1024 * 1024,
+			batchMaxRows: 1,
+			cutoff,
+			maxSessionBytes: 16 * 1024 * 1024,
+			maxSessions: 10,
+			organizationId,
+		};
+		let receiptFailed = false;
+		const failingExecutor = createInsertInterceptor(
+			clickhouse,
+			async (table) => {
+				if (table === "rudel.skill_receipts" && !receiptFailed) {
+					receiptFailed = true;
+					throw new Error("intentional receipt flush failure");
+				}
+			},
+		);
+		try {
+			await ingestRudelClaudeSessions(clickhouse, [
+				buildRawClaudeRow({
+					content: claudeTranscript("flush-skill", "# Flush body\n"),
+					ingestedAt,
+					organizationId,
+					sessionDate,
+					sessionId,
+					userId: backfillUserId,
+				}),
+			]);
+			const failed = await backfillSkillExtractions(failingExecutor, options);
+			expect(failed).toMatchObject({ completedCount: 0, failedCount: 1 });
+			expect(failed.issues[0]?.detail).toContain(
+				"skill receipt write flush failed",
+			);
+			expect(await countBatchRows("rudel.skill_receipts", organizationId)).toBe(
+				0,
+			);
+			expect(await countBatchRows("rudel.skill_uses", organizationId)).toBe(1);
+			const [active] = await clickhouse.query<{ row_count: number }>({
+				query: `
+					WITH ${buildActiveSkillUsesCte()}
+					SELECT count() AS row_count
+					FROM active_skill_uses
+				`,
+				query_params: { organizationId },
+			});
+			expect(active?.row_count ?? 0).toBe(0);
+		} finally {
+			await deleteSkillTestOrganization(organizationId, true);
+		}
+	});
 });
 
-function buildTieUseRow(
-	sessionId: string,
-	contentSha256: string,
-	sourceContentSha256: string,
-	extractionSeq: string,
-): Record<string, unknown> {
+function buildUseRow(input: {
+	readonly contentSha256: string;
+	readonly extractedAt: string;
+	readonly extractionSeq: string;
+	readonly organizationId?: string;
+	readonly parserVersion: number;
+	readonly sessionId: string;
+	readonly skillName: string;
+	readonly sourceContentSha256: string;
+	readonly usedAt: string;
+	readonly userId?: string;
+}): Record<string, unknown> {
 	return {
 		agent: "claude",
-		content_sha256: contentSha256,
-		extracted_at: "2026-08-20 12:00:00.000",
-		extraction_seq: extractionSeq,
-		is_deleted: 0,
-		organization_id: userId,
-		parser_version: extractionSeq === "100" ? 1 : 2,
-		session_id: sessionId,
-		skill_name: "tie-skill",
-		source_content_sha256: sourceContentSha256,
-		used_at:
-			extractionSeq === "100"
-				? "2026-08-20 10:00:00.000"
-				: "2026-08-20 11:00:00.000",
-		user_id: userId,
+		content_sha256: input.contentSha256,
+		extracted_at: input.extractedAt,
+		extraction_seq: input.extractionSeq,
+		organization_id: input.organizationId ?? userId,
+		parser_version: input.parserVersion,
+		session_id: input.sessionId,
+		skill_name: input.skillName,
+		source_content_sha256: input.sourceContentSha256,
+		used_at: input.usedAt,
+		user_id: input.userId ?? userId,
 	};
 }
 
-function buildTieReceiptRow(
-	sessionId: string,
-	sourceContentSha256: string,
-	parserVersion: number,
-	extractionSeq: string,
-): Record<string, unknown> {
+function buildReceiptRow(input: {
+	readonly extractedAt: string;
+	readonly extractionSeq: string;
+	readonly organizationId?: string;
+	readonly parserVersion: number;
+	readonly sessionId: string;
+	readonly sourceContentSha256: string;
+	readonly userId?: string;
+}): Record<string, unknown> {
 	return {
 		agent: "claude",
-		extracted_at: "2026-08-20 12:00:00.000",
-		extraction_seq: extractionSeq,
-		organization_id: userId,
-		parser_version: parserVersion,
-		session_id: sessionId,
-		source_content_sha256: sourceContentSha256,
-		user_id: userId,
+		extracted_at: input.extractedAt,
+		extraction_seq: input.extractionSeq,
+		organization_id: input.organizationId ?? userId,
+		parser_version: input.parserVersion,
+		session_id: input.sessionId,
+		source_content_sha256: input.sourceContentSha256,
+		user_id: input.userId ?? userId,
 	};
+}
+
+async function insertSkillRun(input: {
+	readonly content: string;
+	readonly contentSha256: string;
+	readonly extractedAt: string;
+	readonly extractionSeq: string;
+	readonly parserVersion: number;
+	readonly sessionId: string;
+	readonly skillName: string;
+	readonly sourceContentSha256: string;
+}): Promise<void> {
+	const clickhouse = getClickhouse();
+	await clickhouse.insert({
+		table: "rudel.skill_version_contents",
+		values: [
+			{
+				organization_id: userId,
+				skill_name: input.skillName,
+				content_sha256: input.contentSha256,
+				user_id: userId,
+				content: input.content,
+				parser_version: input.parserVersion,
+				extraction_seq: input.extractionSeq,
+				extracted_at: input.extractedAt,
+			},
+		],
+	});
+	await clickhouse.insert({
+		table: "rudel.skill_uses",
+		values: [
+			buildUseRow({
+				contentSha256: input.contentSha256,
+				extractedAt: input.extractedAt,
+				extractionSeq: input.extractionSeq,
+				parserVersion: input.parserVersion,
+				sessionId: input.sessionId,
+				skillName: input.skillName,
+				sourceContentSha256: input.sourceContentSha256,
+				usedAt: input.extractedAt,
+			}),
+		],
+	});
+	await clickhouse.insert({
+		table: "rudel.skill_receipts",
+		values: [
+			buildReceiptRow({
+				extractedAt: input.extractedAt,
+				extractionSeq: input.extractionSeq,
+				parserVersion: input.parserVersion,
+				sessionId: input.sessionId,
+				sourceContentSha256: input.sourceContentSha256,
+			}),
+		],
+	});
 }
 
 function buildRawClaudeRow(input: {
@@ -427,6 +1003,63 @@ function createCountingExecutor(
 		query: <Row>(statement: ClickHouseStatement) =>
 			delegate.query<Row>(statement),
 	};
+}
+
+function createInsertInterceptor(
+	delegate: ClickHouseExecutor,
+	beforeInsert: (table: string) => Promise<void>,
+): ClickHouseExecutor {
+	return {
+		close: () => delegate.close(),
+		execute: (statement) => delegate.execute(statement),
+		insert: async (params) => {
+			await beforeInsert(params.table);
+			await delegate.insert(params);
+		},
+		query: <Row>(statement: ClickHouseStatement) =>
+			delegate.query<Row>(statement),
+	};
+}
+
+function createSkillVersionLookupInterceptor(
+	delegate: ClickHouseExecutor,
+	handlers: {
+		readonly beforeInsert: (table: string, rowCount: number) => Promise<void>;
+		readonly beforeLookup: (statement: ClickHouseStatement) => Promise<void>;
+	},
+): ClickHouseExecutor {
+	return {
+		close: () => delegate.close(),
+		execute: (statement) => delegate.execute(statement),
+		insert: async (params) => {
+			await handlers.beforeInsert(params.table, params.values.length);
+			await delegate.insert(params);
+		},
+		query: async <Row>(statement: ClickHouseStatement) => {
+			if (statement.query.includes("versionIdentities:Array")) {
+				await handlers.beforeLookup(statement);
+			}
+			return delegate.query<Row>(statement);
+		},
+	};
+}
+
+async function deleteSkillTestOrganization(
+	organizationId: string,
+	includeRaw: boolean,
+): Promise<void> {
+	const tables = [
+		"rudel.skill_receipts",
+		"rudel.skill_uses",
+		"rudel.skill_version_contents",
+		...(includeRaw ? ["rudel.claude_sessions"] : []),
+	];
+	for (const table of tables) {
+		await getClickhouse().execute({
+			query: `DELETE FROM ${getSafeClickHouseTable(table)} WHERE organization_id = {organizationId:String} SETTINGS lightweight_deletes_sync = 3`,
+			query_params: { organizationId },
+		});
+	}
 }
 
 async function countBatchRows(
@@ -529,6 +1162,16 @@ function claudeTranscript(skillName: string, body: string): string {
 			type: "user",
 		}),
 	].join("\n");
+}
+
+function manyClaudeSkillsTranscript(skillCount: number): string {
+	return Array.from({ length: skillCount }, (_, index) => {
+		const suffix = index.toString().padStart(4, "0");
+		return claudeTranscript(
+			`lookup-skill-${suffix}`,
+			`# Lookup body ${suffix}\n`,
+		);
+	}).join("\n");
 }
 
 function backfillOptions(

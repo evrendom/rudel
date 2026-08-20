@@ -1,3 +1,6 @@
+import { Buffer } from "node:buffer";
+import { TupleParam } from "@clickhouse/client-web";
+import { getLogger } from "@logtape/logtape";
 import {
 	type ClickHouseExecutor,
 	getSafeClickHouseTable,
@@ -9,24 +12,44 @@ import {
 } from "./skill-extraction.js";
 import type { SkillAgent } from "./skill-extraction.types.js";
 import {
-	buildActiveSkillUsesCte,
 	buildSkillExtractionRows,
+	buildSkillVersionContentRows,
+	chunkSkillVersionLookupIdentities,
 	createSkillExtractionRun,
+	type ExistingSkillVersionRow,
 	hasMatchingSkillExtractionReceipt,
 	mergeSkillExtractionRows,
-	type ActiveSkillUseRow,
-	type ExistingSkillVersionRow,
 	type SkillExtractionReceiptState,
+	type SkillExtractionRows,
 	type SkillExtractionRunInput,
-	writeSkillExtractionRowBatch,
+	writeSkillReceiptRows,
+	writeSkillUseRows,
+	writeSkillVersionContentRows,
 } from "./skill-extraction-ingest.service.js";
 
+const logger = getLogger(["rudel", "api", "skill-extraction-backfill"]);
+
 const MAX_ISSUES = 100;
+const MAX_READ_BATCH_ROWS = 64;
+const WRITE_BUFFER_MAX_BYTES = 32 * 1024 * 1024;
+const WRITE_BUFFER_TARGET_ROWS = 1_000;
 const SOURCE_SCAN_SETTINGS = {
 	max_bytes_to_read: String(16 * 1024 * 1024 * 1024),
 	max_execution_time: 300,
 	max_rows_to_read: "5000000",
 	result_overflow_mode: "throw",
+} as const;
+const SKILL_SCAN_SETTINGS = {
+	max_bytes_to_read: String(2 * 1024 * 1024 * 1024),
+	max_execution_time: 60,
+	max_rows_to_read: "10000000",
+	result_overflow_mode: "throw",
+} as const;
+const SKILL_VERSION_LOOKUP_SETTINGS = {
+	max_bytes_to_read: String(2 * 1024 * 1024 * 1024),
+	max_execution_time: 60,
+	max_rows_to_read: "10000000",
+	timeout_before_checking_execution_speed: 0,
 } as const;
 
 export interface SkillExtractionBackfillOptions {
@@ -132,11 +155,6 @@ interface ReceiptRow {
 	user_id: string;
 }
 
-interface BatchActiveSkillUseRow extends ActiveSkillUseRow {
-	session_id: string;
-	user_id: string;
-}
-
 interface RevisionRow {
 	latest_ingested_at: string;
 	session_id: string;
@@ -153,6 +171,28 @@ type CandidateResult =
 interface PreparedCandidate {
 	readonly candidate: RawSessionCandidate;
 	readonly run: SkillExtractionRunInput;
+}
+
+type BufferedDataTable = "content" | "use";
+
+interface BufferedCandidateWrite {
+	readonly candidate: RawSessionCandidate;
+	readonly pendingDataTables: Set<BufferedDataTable>;
+	readonly rows: SkillExtractionRows;
+	receiptQueued: boolean;
+	status: "pending" | "failed" | "completed";
+}
+
+interface CandidateWriteBuffer {
+	byteCount: number;
+	entries: BufferedCandidateWrite[];
+	rowCount: number;
+}
+
+interface SkillWriteBuffers {
+	readonly content: CandidateWriteBuffer;
+	readonly receipt: CandidateWriteBuffer;
+	readonly use: CandidateWriteBuffer;
 }
 
 export function previewSkillExtractionBackfill(
@@ -198,13 +238,13 @@ async function runSkillExtractionBackfill(
 	}
 
 	const batches = createRawSessionBatches(readableCandidates, options);
+	const writeBuffers = createSkillWriteBuffers();
 	let processed = census.candidates.length - readableCandidates.length;
 	for (const [batchIndex, batch] of batches.entries()) {
-		const [rawRows, receipts, revisions, activeUses] = await Promise.all([
+		const [rawRows, receipts, revisions] = await Promise.all([
 			readRawSessions(executor, batch, options.cutoff, options.maxSessionBytes),
 			readExtractionReceipts(executor, batch),
 			readCurrentRevisions(executor, batch),
-			readBatchActiveSkillUses(executor, batch),
 		]);
 		const rawByIdentity = new Map(
 			rawRows.map((row) => [rawIdentity(row.user_id, row.session_id), row]),
@@ -224,7 +264,6 @@ async function runSkillExtractionBackfill(
 				row.latest_ingested_at,
 			]),
 		);
-		const activeUsesByIdentity = groupActiveUsesByIdentity(activeUses);
 		const prepared: PreparedCandidate[] = [];
 
 		for (const candidate of batch.candidates) {
@@ -261,24 +300,17 @@ async function runSkillExtractionBackfill(
 				executor,
 				prepared,
 			);
-			const rows = mergeSkillExtractionRows(
-				prepared.map(({ candidate, run }) =>
-					buildSkillExtractionRows(
-						run,
-						activeUsesByIdentity.get(
-							rawIdentity(candidate.userId, candidate.sessionId),
-						) ?? [],
-						existingVersions,
-					),
-				),
-			);
-			try {
-				await writeSkillExtractionRowBatch(executor, rows);
-				for (let index = 0; index < prepared.length; index += 1) {
-					applyResult(result, { status: "completed" });
-				}
-			} catch (error) {
-				for (const { candidate } of prepared) {
+			for (const { candidate, run } of prepared) {
+				try {
+					await enqueueSkillExtractionRows(
+						executor,
+						writeBuffers,
+						candidate,
+						buildSkillExtractionRows(run, existingVersions),
+						result,
+					);
+					await flushFullSkillWriteBuffers(executor, writeBuffers, result);
+				} catch (error) {
 					applyResult(result, {
 						status: "failed",
 						issue: issue(
@@ -298,6 +330,7 @@ async function runSkillExtractionBackfill(
 			totalCandidateCount: census.candidates.length,
 		});
 	}
+	await flushAllSkillWriteBuffers(executor, writeBuffers, result);
 	return result;
 }
 
@@ -346,11 +379,264 @@ function prepareCandidate(
 			extractedAt: getNextIngestedAt(),
 			extraction,
 			organizationId: candidate.organizationId,
+			rawRevisionIngestedAt: parseClickHouseUtc(raw.raw_ingested_at),
 			sessionDate: parseClickHouseUtc(raw.raw_session_date),
 			sessionId: candidate.sessionId,
 			userId: candidate.userId,
 		}),
 	};
+}
+
+function createSkillWriteBuffers(): SkillWriteBuffers {
+	return {
+		content: { byteCount: 0, entries: [], rowCount: 0 },
+		receipt: { byteCount: 0, entries: [], rowCount: 0 },
+		use: { byteCount: 0, entries: [], rowCount: 0 },
+	};
+}
+
+async function enqueueSkillExtractionRows(
+	executor: ClickHouseExecutor,
+	buffers: SkillWriteBuffers,
+	candidate: RawSessionCandidate,
+	rows: SkillExtractionRows,
+	result: SkillExtractionBackfillResult,
+): Promise<void> {
+	const contentBytes = estimateContentRowsBytes(rows.contentRows);
+	const useBytes = estimateUseRowsBytes(rows.useRows);
+	const writeContentDirectly = contentBytes >= WRITE_BUFFER_MAX_BYTES;
+	const writeUsesDirectly = useBytes >= WRITE_BUFFER_MAX_BYTES;
+	const pendingDataTables = new Set<BufferedDataTable>([
+		...(rows.contentRows.length > 0 && !writeContentDirectly
+			? (["content"] as const)
+			: []),
+		...(rows.useRows.length > 0 && !writeUsesDirectly
+			? (["use"] as const)
+			: []),
+	]);
+	const state: BufferedCandidateWrite = {
+		candidate,
+		pendingDataTables,
+		receiptQueued: false,
+		rows,
+		status: "pending",
+	};
+	if (shouldFlushBeforeEnqueue(buffers.content, contentBytes)) {
+		await flushDataWriteBuffer(executor, buffers, "content", result);
+	}
+	if (shouldFlushBeforeEnqueue(buffers.use, useBytes)) {
+		await flushDataWriteBuffer(executor, buffers, "use", result);
+	}
+	if (writeContentDirectly) {
+		try {
+			for (const chunk of createByteBoundedRowChunks(rows.contentRows)) {
+				await writeSkillVersionContentRows(executor, chunk);
+			}
+		} catch (error) {
+			failBufferedCandidates([state], "content", error, result);
+			return;
+		}
+	}
+	if (writeUsesDirectly) {
+		try {
+			for (const chunk of createByteBoundedRowChunks(rows.useRows)) {
+				await writeSkillUseRows(executor, chunk);
+			}
+		} catch (error) {
+			failBufferedCandidates([state], "use", error, result);
+			return;
+		}
+	}
+	if (rows.useRows.length > 0 && !writeUsesDirectly) {
+		buffers.use.entries.push(state);
+		buffers.use.rowCount += rows.useRows.length;
+		buffers.use.byteCount += useBytes;
+	}
+	if (rows.contentRows.length > 0 && !writeContentDirectly) {
+		buffers.content.entries.push(state);
+		buffers.content.rowCount += rows.contentRows.length;
+		buffers.content.byteCount += contentBytes;
+	}
+	queueReceiptWhenDataReady(buffers, state);
+}
+
+function queueReceiptWhenDataReady(
+	buffers: SkillWriteBuffers,
+	state: BufferedCandidateWrite,
+): void {
+	if (
+		state.status !== "pending" ||
+		state.receiptQueued ||
+		state.pendingDataTables.size > 0
+	) {
+		return;
+	}
+	state.receiptQueued = true;
+	buffers.receipt.entries.push(state);
+	buffers.receipt.rowCount += state.rows.receiptRows.length;
+	buffers.receipt.byteCount += estimateReceiptRowsBytes(state.rows.receiptRows);
+}
+
+async function flushFullSkillWriteBuffers(
+	executor: ClickHouseExecutor,
+	buffers: SkillWriteBuffers,
+	result: SkillExtractionBackfillResult,
+): Promise<void> {
+	if (shouldFlushWriteBuffer(buffers.content)) {
+		await flushDataWriteBuffer(executor, buffers, "content", result);
+	}
+	if (shouldFlushWriteBuffer(buffers.use)) {
+		await flushDataWriteBuffer(executor, buffers, "use", result);
+	}
+	if (shouldFlushWriteBuffer(buffers.receipt)) {
+		await flushReceiptWriteBuffer(executor, buffers.receipt, result);
+	}
+}
+
+async function flushAllSkillWriteBuffers(
+	executor: ClickHouseExecutor,
+	buffers: SkillWriteBuffers,
+	result: SkillExtractionBackfillResult,
+): Promise<void> {
+	await flushDataWriteBuffer(executor, buffers, "content", result);
+	await flushDataWriteBuffer(executor, buffers, "use", result);
+	await flushReceiptWriteBuffer(executor, buffers.receipt, result);
+}
+
+async function flushDataWriteBuffer(
+	executor: ClickHouseExecutor,
+	buffers: SkillWriteBuffers,
+	table: BufferedDataTable,
+	result: SkillExtractionBackfillResult,
+): Promise<void> {
+	const buffer = buffers[table];
+	const entries = buffer.entries.filter((entry) => entry.status === "pending");
+	buffer.entries = [];
+	buffer.byteCount = 0;
+	buffer.rowCount = 0;
+	if (entries.length === 0) return;
+	const rows = mergeSkillExtractionRows(entries.map((entry) => entry.rows));
+	try {
+		if (table === "content") {
+			await writeSkillVersionContentRows(executor, rows.contentRows);
+		} else {
+			await writeSkillUseRows(executor, rows.useRows);
+		}
+		for (const entry of entries) {
+			entry.pendingDataTables.delete(table);
+			queueReceiptWhenDataReady(buffers, entry);
+		}
+	} catch (error) {
+		failBufferedCandidates(entries, table, error, result);
+	}
+}
+
+async function flushReceiptWriteBuffer(
+	executor: ClickHouseExecutor,
+	buffer: CandidateWriteBuffer,
+	result: SkillExtractionBackfillResult,
+): Promise<void> {
+	const entries = buffer.entries.filter((entry) => entry.status === "pending");
+	buffer.entries = [];
+	buffer.byteCount = 0;
+	buffer.rowCount = 0;
+	if (entries.length === 0) return;
+	const rows = mergeSkillExtractionRows(entries.map((entry) => entry.rows));
+	try {
+		await writeSkillReceiptRows(executor, rows.receiptRows);
+		for (const entry of entries) {
+			entry.status = "completed";
+			applyResult(result, { status: "completed" });
+		}
+	} catch (error) {
+		failBufferedCandidates(entries, "receipt", error, result);
+	}
+}
+
+function shouldFlushWriteBuffer(buffer: CandidateWriteBuffer): boolean {
+	return (
+		buffer.rowCount >= WRITE_BUFFER_TARGET_ROWS ||
+		buffer.byteCount >= WRITE_BUFFER_MAX_BYTES
+	);
+}
+
+function shouldFlushBeforeEnqueue(
+	buffer: CandidateWriteBuffer,
+	additionalBytes: number,
+): boolean {
+	return (
+		buffer.rowCount > 0 &&
+		buffer.byteCount + additionalBytes > WRITE_BUFFER_MAX_BYTES
+	);
+}
+
+function estimateContentRowsBytes(
+	rows: SkillExtractionRows["contentRows"],
+): number {
+	return estimateSerializedRowsBytes(rows);
+}
+
+function estimateUseRowsBytes(rows: SkillExtractionRows["useRows"]): number {
+	return estimateSerializedRowsBytes(rows);
+}
+
+function estimateReceiptRowsBytes(
+	rows: SkillExtractionRows["receiptRows"],
+): number {
+	return estimateSerializedRowsBytes(rows);
+}
+
+function estimateSerializedRowsBytes(rows: readonly unknown[]): number {
+	return rows.reduce<number>(
+		(total, row) =>
+			total + Buffer.byteLength(JSON.stringify(row) ?? "", "utf8") + 1,
+		0,
+	);
+}
+
+function createByteBoundedRowChunks<Row>(rows: readonly Row[]): Row[][] {
+	const chunks: Row[][] = [];
+	let chunk: Row[] = [];
+	let chunkBytes = 0;
+	for (const row of rows) {
+		const rowBytes = estimateSerializedRowsBytes([row]);
+		if (chunk.length > 0 && chunkBytes + rowBytes > WRITE_BUFFER_MAX_BYTES) {
+			chunks.push(chunk);
+			chunk = [];
+			chunkBytes = 0;
+		}
+		chunk.push(row);
+		chunkBytes += rowBytes;
+		if (rowBytes >= WRITE_BUFFER_MAX_BYTES) {
+			chunks.push(chunk);
+			chunk = [];
+			chunkBytes = 0;
+		}
+	}
+	if (chunk.length > 0) chunks.push(chunk);
+	return chunks;
+}
+
+function failBufferedCandidates(
+	entries: readonly BufferedCandidateWrite[],
+	table: BufferedDataTable | "receipt",
+	error: unknown,
+	result: SkillExtractionBackfillResult,
+): void {
+	const detail = error instanceof Error ? error.message : String(error);
+	for (const entry of entries) {
+		if (entry.status !== "pending") continue;
+		entry.status = "failed";
+		entry.pendingDataTables.clear();
+		applyResult(result, {
+			status: "failed",
+			issue: issue(
+				entry.candidate,
+				"unexpected_error",
+				`skill ${table} write flush failed: ${detail}`,
+			),
+		});
+	}
 }
 
 async function listRawSessionCandidates(
@@ -561,6 +847,7 @@ async function readExtractionReceipts(
 	const first = batch.candidates[0];
 	if (!first) return [];
 	return executor.query<ReceiptRow>({
+		clickhouse_settings: SKILL_SCAN_SETTINGS,
 		query: `
 			SELECT
 				user_id,
@@ -578,6 +865,7 @@ async function readExtractionReceipts(
 				FROM ${getSafeClickHouseTable("rudel.skill_receipts")}
 				WHERE organization_id = {organizationId:String}
 					AND agent = {agent:String}
+					AND user_id IN {userIds:Array(String)}
 					AND session_id IN {sessionIds:Array(String)}
 				GROUP BY organization_id, user_id, agent, session_id
 			)
@@ -586,28 +874,9 @@ async function readExtractionReceipts(
 			agent: getAgent(first.source),
 			organizationId: first.organizationId,
 			sessionIds: batch.candidates.map((candidate) => candidate.sessionId),
-		},
-	});
-}
-
-async function readBatchActiveSkillUses(
-	executor: ClickHouseExecutor,
-	batch: RawSessionBatch,
-): Promise<readonly BatchActiveSkillUseRow[]> {
-	const first = batch.candidates[0];
-	if (!first) return [];
-	return executor.query<BatchActiveSkillUseRow>({
-		query: `
-			WITH ${buildActiveSkillUsesCte()}
-			SELECT user_id, session_id, skill_name, toString(used_at) AS used_at
-			FROM active_skill_uses
-			WHERE agent = {agent:String}
-				AND session_id IN {sessionIds:Array(String)}
-		`,
-		query_params: {
-			agent: getAgent(first.source),
-			organizationId: first.organizationId,
-			sessionIds: batch.candidates.map((candidate) => candidate.sessionId),
+			userIds: [
+				...new Set(batch.candidates.map((candidate) => candidate.userId)),
+			],
 		},
 	});
 }
@@ -618,29 +887,52 @@ async function readExistingBatchSkillVersions(
 ): Promise<readonly ExistingSkillVersionRow[]> {
 	const first = prepared[0];
 	if (!first) return [];
-	const skillNames = [
-		...new Set(
-			prepared.flatMap(({ run }) =>
-				run.extraction.uses
-					.filter((use) => use.content !== null)
-					.map((use) => use.name),
-			),
-		),
-	];
-	if (skillNames.length === 0) return [];
-	return executor.query<ExistingSkillVersionRow>({
-		query: `
-			SELECT skill_name, content_sha256
-			FROM ${getSafeClickHouseTable("rudel.skill_version_contents")}
-			WHERE organization_id = {organizationId:String}
-				AND skill_name IN {skillNames:Array(String)}
-			GROUP BY organization_id, skill_name, content_sha256
-		`,
-		query_params: {
-			organizationId: first.candidate.organizationId,
-			skillNames,
-		},
-	});
+	const identitiesByKey = new Map<string, TupleParam>();
+	for (const { run } of prepared) {
+		for (const row of buildSkillVersionContentRows(run, [])) {
+			identitiesByKey.set(
+				`${row.skill_name}\u0000${row.content_sha256}\u0000${row.user_id}`,
+				new TupleParam([row.skill_name, row.content_sha256, row.user_id]),
+			);
+		}
+	}
+	const versionIdentities = [...identitiesByKey.values()];
+	if (versionIdentities.length === 0) return [];
+	const existingByKey = new Map<string, ExistingSkillVersionRow>();
+	for (const chunk of chunkSkillVersionLookupIdentities(versionIdentities)) {
+		try {
+			const existing = await executor.query<ExistingSkillVersionRow>({
+				clickhouse_settings: SKILL_VERSION_LOOKUP_SETTINGS,
+				query: `
+					SELECT user_id, skill_name, content_sha256
+					FROM ${getSafeClickHouseTable("rudel.skill_version_contents")}
+					WHERE organization_id = {organizationId:String}
+						AND (skill_name, content_sha256, user_id) IN {versionIdentities:Array(Tuple(String, FixedString(64), String))}
+					GROUP BY organization_id, skill_name, content_sha256, user_id
+				`,
+				query_params: {
+					organizationId: first.candidate.organizationId,
+					versionIdentities: chunk,
+				},
+			});
+			for (const row of existing) {
+				existingByKey.set(
+					`${row.skill_name}\u0000${row.content_sha256}\u0000${row.user_id}`,
+					row,
+				);
+			}
+		} catch (error) {
+			logger.warn(
+				"Backfill skill content-version lookup failed; candidates will be reinserted (organization_id={organizationId} tuple_count={tupleCount} error={error})",
+				{
+					error: error instanceof Error ? error.message : String(error),
+					organizationId: first.candidate.organizationId,
+					tupleCount: chunk.length,
+				},
+			);
+		}
+	}
+	return [...existingByKey.values()];
 }
 
 async function readCurrentRevisions(
@@ -650,6 +942,7 @@ async function readCurrentRevisions(
 	const first = batch.candidates[0];
 	if (!first) return [];
 	return executor.query<RevisionRow>({
+		clickhouse_settings: SOURCE_SCAN_SETTINGS,
 		query: `
 			SELECT
 				user_id,
@@ -657,11 +950,19 @@ async function readCurrentRevisions(
 				toString(max(ingested_at)) AS latest_ingested_at
 			FROM ${getRawTable(first.source)}
 			WHERE organization_id = {organizationId:String}
+				AND session_date IN {sessionDates:Array(DateTime64(3, 'UTC'))}
 				AND session_id IN {sessionIds:Array(String)}
 			GROUP BY organization_id, user_id, session_id
 		`,
 		query_params: {
 			organizationId: first.organizationId,
+			sessionDates: [
+				...new Set(
+					batch.candidates.map((candidate) =>
+						toClickHouseTimestamp(parseClickHouseUtc(candidate.sessionDate)),
+					),
+				),
+			],
 			sessionIds: batch.candidates.map((candidate) => candidate.sessionId),
 		},
 	});
@@ -772,6 +1073,11 @@ function validateOptions(options: SkillExtractionBackfillOptions): void {
 			throw new Error(`Skill backfill ${name} must be positive`);
 		}
 	}
+	if (options.batchMaxRows > MAX_READ_BATCH_ROWS) {
+		throw new Error(
+			`Skill backfill batchMaxRows must not exceed ${MAX_READ_BATCH_ROWS}`,
+		);
+	}
 	const parserVersion = options.parserVersion ?? SKILL_PARSER_VERSION;
 	if (
 		!Number.isSafeInteger(parserVersion) ||
@@ -796,19 +1102,6 @@ function compareCandidates(
 
 function rawIdentity(userId: string, sessionId: string): string {
 	return `${userId}\u0000${sessionId}`;
-}
-
-function groupActiveUsesByIdentity(
-	rows: readonly BatchActiveSkillUseRow[],
-): ReadonlyMap<string, readonly ActiveSkillUseRow[]> {
-	const grouped = new Map<string, ActiveSkillUseRow[]>();
-	for (const row of rows) {
-		const key = rawIdentity(row.user_id, row.session_id);
-		const group = grouped.get(key) ?? [];
-		group.push({ skill_name: row.skill_name, used_at: row.used_at });
-		grouped.set(key, group);
-	}
-	return grouped;
 }
 
 function getAgent(source: "claude_code" | "codex"): SkillAgent {

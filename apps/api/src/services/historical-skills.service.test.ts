@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
-	resolveHistoricalSkillVersions,
 	type HistoricalSkillContentRow,
 	type HistoricalSkillVersionUseRow,
+	resolveHistoricalSkillVersions,
 } from "./historical-skills.service.js";
 
 describe("historical skill detail version guardrails", () => {

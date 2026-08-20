@@ -13,7 +13,7 @@ describe("skill persistence physical schema", () => {
 		expect(definition).toContain("skill_version_contents");
 		expect(definition).toContain("source_content_sha256");
 		expect(definition).toContain("parser_version");
-		expect(definition).toContain("is_deleted");
+		expect(definition).not.toContain("is_deleted");
 		expect(definition).toContain("extraction_seq");
 		expect(definition).not.toContain("record_kind");
 		expect(definition).not.toContain("partitionBy");
@@ -42,13 +42,13 @@ describe("skill persistence physical schema", () => {
 		expect(migration).toContain("ReplacingMergeTree(extraction_seq)");
 		expect(migration).toContain("`extraction_seq` UInt64");
 		expect(migration).toContain(
-			"PRIMARY KEY (`organization_id`, `user_id`, `agent`, `session_id`)",
+			"PRIMARY KEY (`organization_id`, `agent`, `user_id`, `session_id`)",
 		);
 		expect(migration).toContain(
 			"PRIMARY KEY (`organization_id`, `skill_name`, `agent`, `user_id`, `session_id`)",
 		);
 		expect(migration).toContain(
-			"PRIMARY KEY (`organization_id`, `skill_name`, `content_sha256`)",
+			"PRIMARY KEY (`organization_id`, `skill_name`, `content_sha256`, `user_id`)",
 		);
 		expect(migration).not.toContain("PARTITION BY");
 
@@ -57,11 +57,15 @@ describe("skill persistence physical schema", () => {
 		)?.[1];
 		expect(usesDefinition).toBeDefined();
 		expect(usesDefinition).not.toContain("record_kind");
+		expect(usesDefinition).not.toContain("is_deleted");
 		const usesKey = usesDefinition?.match(/PRIMARY KEY \(([^)]+)\)/u)?.[1];
 		expect(usesKey).toBeDefined();
 		expect(usesKey).not.toContain("used_at");
 		expect(usesKey).not.toContain("content_sha256");
 		expect(usesKey).not.toContain("parser_version");
 		expect(usesKey).not.toContain("extracted_at");
+		expect(usesKey).not.toContain("extraction_seq");
+		const usesOrder = usesDefinition?.match(/ORDER BY \(([^)]+)\)/u)?.[1];
+		expect(usesOrder?.endsWith("`extraction_seq`")).toBe(true);
 	});
 });

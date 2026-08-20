@@ -48,6 +48,26 @@ async function countByUser(targetUserId: string): Promise<number> {
 	return Number(rows[0]?.count ?? 0);
 }
 
+async function countSkillRows(
+	column: "organization_id" | "user_id",
+	value: string,
+): Promise<number> {
+	const counts = await Promise.all(
+		[
+			"rudel.skill_receipts",
+			"rudel.skill_uses",
+			"rudel.skill_version_contents",
+		].map(async (table) => {
+			const [row] = await ch.query<CountRow>({
+				query: `SELECT count() AS count FROM ${getSafeClickHouseTable(table)} WHERE ${column} = {value:String}`,
+				query_params: { value },
+			});
+			return Number(row?.count ?? 0);
+		}),
+	);
+	return counts.reduce((total, count) => total + count, 0);
+}
+
 async function countSnapshotsByOrg(targetOrgId: string): Promise<number> {
 	const rows = await ch.query<CountRow>({
 		query: `SELECT count() AS count FROM ${getSafeClickHouseTable("rudel.wrapped_user_archetype_snapshots_v1")} WHERE organization_id = {orgId:String}`,
@@ -98,6 +118,64 @@ async function ingestSnapshot(
 	await ingestRudelWrappedUserArchetypeSnapshotsV1(ch, [
 		createSnapshot(snapshotId, userId, targetOrgId),
 	]);
+}
+
+async function ingestSkillRows(
+	sessionId: string,
+	userId: string,
+	targetOrgId: string,
+): Promise<void> {
+	const sourceContentSha256 = "a".repeat(64);
+	const contentSha256 = "b".repeat(64);
+	const extractedAt = "2026-08-20 10:00:00.000";
+	await ch.insert({
+		table: "rudel.skill_version_contents",
+		values: [
+			{
+				content: "shared purge skill body",
+				content_sha256: contentSha256,
+				extracted_at: extractedAt,
+				extraction_seq: "1",
+				organization_id: targetOrgId,
+				parser_version: 1,
+				skill_name: "purge-skill",
+				user_id: userId,
+			},
+		],
+	});
+	await ch.insert({
+		table: "rudel.skill_uses",
+		values: [
+			{
+				agent: "claude",
+				content_sha256: contentSha256,
+				extracted_at: extractedAt,
+				extraction_seq: "1",
+				organization_id: targetOrgId,
+				parser_version: 1,
+				session_id: sessionId,
+				skill_name: "purge-skill",
+				source_content_sha256: sourceContentSha256,
+				used_at: extractedAt,
+				user_id: userId,
+			},
+		],
+	});
+	await ch.insert({
+		table: "rudel.skill_receipts",
+		values: [
+			{
+				agent: "claude",
+				extracted_at: extractedAt,
+				extraction_seq: "1",
+				organization_id: targetOrgId,
+				parser_version: 1,
+				session_id: sessionId,
+				source_content_sha256: sourceContentSha256,
+				user_id: userId,
+			},
+		],
+	});
 }
 
 function createSnapshot(
@@ -164,16 +242,23 @@ async function waitFor(
 }
 
 afterAll(async () => {
-	await ch
-		.execute({
-			query: `DELETE FROM ${getSafeClickHouseTable("rudel.claude_sessions")} WHERE organization_id = {orgId:String} OR user_id IN ({u1:String}, {u2:String})`,
-			query_params: {
-				orgId,
-				u1: userIdAlpha,
-				u2: userIdBeta,
-			},
-		})
-		.catch(() => {});
+	for (const table of [
+		"rudel.claude_sessions",
+		"rudel.skill_receipts",
+		"rudel.skill_uses",
+		"rudel.skill_version_contents",
+	]) {
+		await ch
+			.execute({
+				query: `DELETE FROM ${getSafeClickHouseTable(table)} WHERE organization_id = {orgId:String} OR user_id IN ({u1:String}, {u2:String})`,
+				query_params: {
+					orgId,
+					u1: userIdAlpha,
+					u2: userIdBeta,
+				},
+			})
+			.catch(() => {});
+	}
 	await ch
 		.execute({
 			query: `DELETE FROM ${getSafeClickHouseTable("rudel.wrapped_user_archetype_snapshots_v1")} WHERE organization_id = {orgId:String} OR user_id IN ({u1:String}, {u2:String})`,
@@ -190,9 +275,12 @@ describe("ClickHouse session purge (integration)", () => {
 	test("organization purge removes rows scoped to organization_id", async () => {
 		await ingestSession(sessionByOrgId, userIdAlpha, orgId);
 		await ingestSnapshot(snapshotByOrgId, userIdAlpha, orgId);
+		await ingestSkillRows(sessionByOrgId, userIdAlpha, orgId);
 		const inserted = await waitFor(
 			async () =>
-				(await countByOrg(orgId)) > 0 && (await countSnapshotsByOrg(orgId)) > 0,
+				(await countByOrg(orgId)) > 0 &&
+				(await countSnapshotsByOrg(orgId)) > 0 &&
+				(await countSkillRows("organization_id", orgId)) === 3,
 		);
 		expect(inserted).toBe(true);
 
@@ -201,7 +289,8 @@ describe("ClickHouse session purge (integration)", () => {
 		const cleared = await waitFor(
 			async () =>
 				(await countByOrg(orgId)) === 0 &&
-				(await countSnapshotsByOrg(orgId)) === 0,
+				(await countSnapshotsByOrg(orgId)) === 0 &&
+				(await countSkillRows("organization_id", orgId)) === 0,
 		);
 		expect(cleared).toBe(true);
 	}, 120000);
@@ -211,13 +300,17 @@ describe("ClickHouse session purge (integration)", () => {
 		await ingestSession(sessionByUserBeta, userIdBeta, orgId);
 		await ingestSnapshot(snapshotByUserAlpha, userIdAlpha, orgId);
 		await ingestSnapshot(snapshotByUserBeta, userIdBeta, orgId);
+		await ingestSkillRows(sessionByUserAlpha, userIdAlpha, orgId);
+		await ingestSkillRows(sessionByUserBeta, userIdBeta, orgId);
 
 		const inserted = await waitFor(
 			async () =>
 				(await countByUser(userIdAlpha)) > 0 &&
 				(await countByUser(userIdBeta)) > 0 &&
 				(await countSnapshotsByUser(userIdAlpha)) > 0 &&
-				(await countSnapshotsByUser(userIdBeta)) > 0,
+				(await countSnapshotsByUser(userIdBeta)) > 0 &&
+				(await countSkillRows("user_id", userIdAlpha)) === 3 &&
+				(await countSkillRows("user_id", userIdBeta)) === 3,
 		);
 		expect(inserted).toBe(true);
 
@@ -230,6 +323,8 @@ describe("ClickHouse session purge (integration)", () => {
 		expect(await countByUser(userIdBeta)).toBeGreaterThan(0);
 		expect(await countSnapshotsByUser(userIdAlpha)).toBe(0);
 		expect(await countSnapshotsByUser(userIdBeta)).toBeGreaterThan(0);
+		expect(await countSkillRows("user_id", userIdAlpha)).toBe(0);
+		expect(await countSkillRows("user_id", userIdBeta)).toBe(3);
 
 		await deleteUserSessions(userIdBeta);
 	}, 120000);

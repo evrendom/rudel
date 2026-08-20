@@ -637,6 +637,7 @@ const ingestSessionHandler = os.ingestSession
 				extractedAt: getNextIngestedAt(),
 				extraction: skillExtraction,
 				organizationId: orgId,
+				rawRevisionIngestedAt: ingestedAt,
 				sessionDate: new Date(timestamps.sessionDate),
 				sessionId: input.sessionId,
 				userId: context.user.id,

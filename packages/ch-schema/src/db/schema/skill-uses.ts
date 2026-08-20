@@ -14,7 +14,6 @@ const rudel_skill_uses = table({
 		{ name: "source_content_sha256", type: "FixedString(64)" },
 		{ name: "used_at", type: "DateTime64(3, 'UTC')" },
 		{ name: "parser_version", type: "UInt16" },
-		{ name: "is_deleted", type: "UInt8", default: "fn:0" },
 		{ name: "extraction_seq", type: "UInt64" },
 		{ name: "extracted_at", type: "DateTime64(3, 'UTC')" },
 	],
@@ -25,13 +24,20 @@ const rudel_skill_uses = table({
 		"user_id",
 		"session_id",
 	],
-	orderBy: ["organization_id", "skill_name", "agent", "user_id", "session_id"],
+	orderBy: [
+		"organization_id",
+		"skill_name",
+		"agent",
+		"user_id",
+		"session_id",
+		"extraction_seq",
+	],
 	settings: {
 		index_granularity: "8192",
 		storage_policy: "'s3'",
 	},
 	comment:
-		"Versioned session skill uses and tombstones. Mutable usage timestamps and content hashes are excluded from the replacing key.",
+		"Versioned session skill uses bound to an exact completed extraction receipt. Mutable usage timestamps and content hashes are excluded from the replacing key.",
 });
 
 const rudel_skill_receipts = table({
@@ -48,8 +54,8 @@ const rudel_skill_receipts = table({
 		{ name: "extraction_seq", type: "UInt64" },
 		{ name: "extracted_at", type: "DateTime64(3, 'UTC')" },
 	],
-	primaryKey: ["organization_id", "user_id", "agent", "session_id"],
-	orderBy: ["organization_id", "user_id", "agent", "session_id"],
+	primaryKey: ["organization_id", "agent", "user_id", "session_id"],
+	orderBy: ["organization_id", "agent", "user_id", "session_id"],
 	settings: {
 		index_granularity: "8192",
 		storage_policy: "'s3'",
@@ -66,19 +72,20 @@ const rudel_skill_version_contents = table({
 		{ name: "organization_id", type: "String" },
 		{ name: "skill_name", type: "String" },
 		{ name: "content_sha256", type: "FixedString(64)" },
+		{ name: "user_id", type: "String" },
 		{ name: "content", type: "String" },
 		{ name: "parser_version", type: "UInt16" },
 		{ name: "extraction_seq", type: "UInt64" },
 		{ name: "extracted_at", type: "DateTime64(3, 'UTC')" },
 	],
-	primaryKey: ["organization_id", "skill_name", "content_sha256"],
-	orderBy: ["organization_id", "skill_name", "content_sha256"],
+	primaryKey: ["organization_id", "skill_name", "content_sha256", "user_id"],
+	orderBy: ["organization_id", "skill_name", "content_sha256", "user_id"],
 	settings: {
 		index_granularity: "8192",
 		storage_policy: "'s3'",
 	},
 	comment:
-		"Deduplicated product-readable SKILL.md bodies keyed by workspace, exact skill name, and SHA-256.",
+		"User-erasable product-readable SKILL.md bodies keyed by workspace, exact skill name, SHA-256, and uploader.",
 });
 
 export default schema(

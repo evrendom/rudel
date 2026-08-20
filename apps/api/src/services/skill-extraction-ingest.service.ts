@@ -1,4 +1,6 @@
-import { createHash, randomInt } from "node:crypto";
+import { createHash } from "node:crypto";
+import { TupleParam } from "@clickhouse/client-web";
+import { getLogger } from "@logtape/logtape";
 import {
 	ingestRudelSkillReceipts,
 	ingestRudelSkillUses,
@@ -17,11 +19,22 @@ import type {
 	SkillExtractionResult,
 } from "./skill-extraction.types.js";
 
-const EXTRACTION_RANDOM_BIT_COUNT = 20n;
-const EXTRACTION_RANDOM_LIMIT = 2 ** Number(EXTRACTION_RANDOM_BIT_COUNT);
+const EXTRACTION_PARSER_BIT_COUNT = 16n;
 const SKILL_RECEIPTS_TABLE = "rudel.skill_receipts";
 const SKILL_USES_TABLE = "rudel.skill_uses";
 const SKILL_VERSION_CONTENTS_TABLE = "rudel.skill_version_contents";
+// The measured 1 MiB URI failure point is roughly 7,040 ordinary tuples.
+// Capping chunks at 1,000 leaves about sevenfold headroom for URL encoding and
+// longer identifiers; an exceptional oversized tuple safely degrades to insert.
+const SKILL_VERSION_LOOKUP_MAX_TUPLES = 1_000;
+const SKILL_VERSION_LOOKUP_SETTINGS = {
+	max_bytes_to_read: String(2 * 1024 * 1024 * 1024),
+	max_execution_time: 60,
+	max_rows_to_read: "10000000",
+	timeout_before_checking_execution_speed: 0,
+} as const;
+
+const logger = getLogger(["rudel", "api", "skill-extraction-ingest"]);
 
 export interface SkillExtractionReceiptState {
 	readonly parserVersion: number;
@@ -32,6 +45,7 @@ export interface SkillExtractionWriteInput {
 	readonly extractedAt: Date;
 	readonly extraction: SkillExtractionResult;
 	readonly organizationId: string;
+	readonly rawRevisionIngestedAt: Date;
 	readonly sessionDate: Date;
 	readonly sessionId: string;
 	readonly userId: string;
@@ -49,19 +63,30 @@ export interface SkillExtractionRows {
 
 export type SkillExtractionWriteResult = SkillExtractionRows;
 
-export interface ActiveSkillUseRow {
-	skill_name: string;
-	used_at: string;
-}
-
 export interface ExistingSkillVersionRow {
 	content_sha256: string;
 	skill_name: string;
+	user_id: string;
+}
+
+export function chunkSkillVersionLookupIdentities(
+	identities: readonly TupleParam[],
+): readonly (readonly TupleParam[])[] {
+	const chunks: TupleParam[][] = [];
+	for (
+		let index = 0;
+		index < identities.length;
+		index += SKILL_VERSION_LOOKUP_MAX_TUPLES
+	) {
+		chunks.push(
+			identities.slice(index, index + SKILL_VERSION_LOOKUP_MAX_TUPLES),
+		);
+	}
+	return chunks;
 }
 
 interface SkillExtractionReceiptRow {
 	parser_version: number;
-	receipt_state: readonly [string, number, string, string];
 	source_content_sha256: string;
 }
 
@@ -71,7 +96,23 @@ export function buildActiveSkillUsesCte(options?: {
 	const skillNameFilter = options?.filterSkillName
 		? "AND skill_name = {skillName:String}"
 		: "";
+	const filteredIdentityCte = options?.filterSkillName
+		? `
+		skill_filtered_use_identities AS (
+			SELECT DISTINCT user_id, agent, session_id
+			FROM ${getSafeClickHouseTable(SKILL_USES_TABLE)}
+			WHERE organization_id = {organizationId:String}
+				AND skill_name = {skillName:String}
+		),`
+		: "";
+	const receiptIdentityFilter = options?.filterSkillName
+		? `AND (user_id, agent, session_id) IN (
+				SELECT user_id, agent, session_id
+				FROM skill_filtered_use_identities
+			)`
+		: "";
 	return `
+		${filteredIdentityCte}
 		latest_skill_receipt_rows AS (
 			SELECT
 				organization_id,
@@ -84,6 +125,7 @@ export function buildActiveSkillUsesCte(options?: {
 				) AS receipt_state
 			FROM ${getSafeClickHouseTable(SKILL_RECEIPTS_TABLE)}
 			WHERE organization_id = {organizationId:String}
+				${receiptIdentityFilter}
 			GROUP BY organization_id, user_id, agent, session_id
 		),
 		latest_skill_receipts AS (
@@ -98,31 +140,47 @@ export function buildActiveSkillUsesCte(options?: {
 				tupleElement(receipt_state, 4) AS receipt_extracted_at
 			FROM latest_skill_receipt_rows
 		),
-		latest_skill_use_row_states AS (
+		committed_skill_use_row_states AS (
 			SELECT
-				organization_id,
-				user_id,
-				agent,
-				session_id,
-				skill_name,
+				uses.organization_id AS organization_id,
+				uses.user_id AS user_id,
+				uses.agent AS agent,
+				uses.session_id AS session_id,
+				uses.skill_name AS skill_name,
+				uses.extraction_seq AS extraction_seq,
 				argMax(
 					tuple(
-						content_sha256,
-						source_content_sha256,
-						used_at,
-						parser_version,
-						is_deleted,
-						extraction_seq,
-						extracted_at
+						uses.content_sha256,
+						uses.source_content_sha256,
+						uses.used_at,
+						uses.parser_version,
+						uses.extracted_at
 					),
-					extraction_seq
+					uses.extracted_at
 				) AS use_state
-			FROM ${getSafeClickHouseTable(SKILL_USES_TABLE)}
-			WHERE organization_id = {organizationId:String}
-				${skillNameFilter}
-			GROUP BY organization_id, user_id, agent, session_id, skill_name
+			FROM (
+				SELECT *
+				FROM ${getSafeClickHouseTable(SKILL_USES_TABLE)}
+				WHERE organization_id = {organizationId:String}
+					${skillNameFilter}
+			) AS uses
+			INNER ANY JOIN latest_skill_receipts AS receipts
+				ON receipts.organization_id = uses.organization_id
+				AND receipts.user_id = uses.user_id
+				AND receipts.agent = uses.agent
+				AND receipts.session_id = uses.session_id
+			WHERE uses.extraction_seq = receipts.receipt_extraction_seq
+				AND uses.source_content_sha256 = receipts.receipt_source_content_sha256
+				AND uses.parser_version = receipts.receipt_parser_version
+			GROUP BY
+				uses.organization_id,
+				uses.user_id,
+				uses.agent,
+				uses.session_id,
+				uses.skill_name,
+				uses.extraction_seq
 		),
-		latest_skill_use_rows AS (
+		active_skill_uses AS (
 			SELECT
 				organization_id,
 				user_id,
@@ -133,44 +191,31 @@ export function buildActiveSkillUsesCte(options?: {
 				tupleElement(use_state, 2) AS source_content_sha256,
 				tupleElement(use_state, 3) AS used_at,
 				tupleElement(use_state, 4) AS parser_version,
-				tupleElement(use_state, 5) AS is_deleted,
-				tupleElement(use_state, 6) AS extraction_seq,
-				tupleElement(use_state, 7) AS extracted_at
-			FROM latest_skill_use_row_states
-		),
-		active_skill_uses AS (
-			SELECT uses.*
-			FROM latest_skill_use_rows AS uses
-			INNER ANY JOIN latest_skill_receipts AS receipts
-				ON receipts.organization_id = uses.organization_id
-				AND receipts.user_id = uses.user_id
-				AND receipts.agent = uses.agent
-				AND receipts.session_id = uses.session_id
-			WHERE uses.is_deleted = 0
-				AND uses.source_content_sha256 = receipts.receipt_source_content_sha256
-				AND uses.parser_version = receipts.receipt_parser_version
+				extraction_seq,
+				tupleElement(use_state, 5) AS extracted_at
+			FROM committed_skill_use_row_states
 		)
 	`;
 }
 
 export function buildSkillExtractionSeq(
-	extractedAt: Date,
-	randomBits: number,
+	rawRevisionIngestedAt: Date,
+	parserVersion: number,
 ): string {
-	const epochMilliseconds = extractedAt.getTime();
+	const epochMilliseconds = rawRevisionIngestedAt.getTime();
 	if (!Number.isSafeInteger(epochMilliseconds) || epochMilliseconds < 0) {
-		throw new Error("Skill extraction timestamp must be a valid epoch date");
+		throw new Error("Skill raw revision timestamp must be a valid epoch date");
 	}
 	if (
-		!Number.isSafeInteger(randomBits) ||
-		randomBits < 0 ||
-		randomBits >= EXTRACTION_RANDOM_LIMIT
+		!Number.isSafeInteger(parserVersion) ||
+		parserVersion <= 0 ||
+		parserVersion > 65_535
 	) {
-		throw new Error("Skill extraction random value must fit in 20 bits");
+		throw new Error("Skill parser version is out of range");
 	}
 	return (
-		(BigInt(epochMilliseconds) << EXTRACTION_RANDOM_BIT_COUNT) |
-		BigInt(randomBits)
+		(BigInt(epochMilliseconds) << EXTRACTION_PARSER_BIT_COUNT) |
+		BigInt(parserVersion & 0xffff)
 	).toString();
 }
 
@@ -181,8 +226,8 @@ export function createSkillExtractionRun(
 	return {
 		...input,
 		extractionSeq: buildSkillExtractionSeq(
-			input.extractedAt,
-			randomInt(EXTRACTION_RANDOM_LIMIT),
+			input.rawRevisionIngestedAt,
+			input.extraction.parserVersion,
 		),
 	};
 }
@@ -192,11 +237,8 @@ export async function writeSkillExtraction(
 	input: SkillExtractionWriteInput,
 ): Promise<SkillExtractionWriteResult> {
 	const run = createSkillExtractionRun(input);
-	const [activeUses, existingVersions] = await Promise.all([
-		readActiveSessionSkillUses(executor, run),
-		readExistingSkillVersions(executor, run),
-	]);
-	const rows = buildSkillExtractionRows(run, activeUses, existingVersions);
+	const existingVersions = await readExistingSkillVersions(executor, run);
+	const rows = buildSkillExtractionRows(run, existingVersions);
 	await writeSkillExtractionRowBatch(executor, rows);
 	return rows;
 }
@@ -206,30 +248,48 @@ export async function writeSkillExtractionRowBatch(
 	rows: SkillExtractionRows,
 ): Promise<void> {
 	if (rows.contentRows.length > 0) {
-		await ingestRudelSkillVersionContents(executor, [...rows.contentRows], {
-			validate: true,
-		});
+		await writeSkillVersionContentRows(executor, rows.contentRows);
 	}
 	if (rows.useRows.length > 0) {
-		await ingestRudelSkillUses(executor, [...rows.useRows], { validate: true });
+		await writeSkillUseRows(executor, rows.useRows);
 	}
 	if (rows.receiptRows.length > 0) {
-		await ingestRudelSkillReceipts(executor, [...rows.receiptRows], {
-			validate: true,
-		});
+		await writeSkillReceiptRows(executor, rows.receiptRows);
 	}
+}
+
+export async function writeSkillVersionContentRows(
+	executor: ClickHouseExecutor,
+	rows: readonly RudelSkillVersionContentsRow[],
+): Promise<void> {
+	await ingestRudelSkillVersionContents(executor, [...rows], {
+		validate: true,
+	});
+}
+
+export async function writeSkillUseRows(
+	executor: ClickHouseExecutor,
+	rows: readonly RudelSkillUsesRow[],
+): Promise<void> {
+	await ingestRudelSkillUses(executor, [...rows], { validate: true });
+}
+
+export async function writeSkillReceiptRows(
+	executor: ClickHouseExecutor,
+	rows: readonly RudelSkillReceiptsRow[],
+): Promise<void> {
+	await ingestRudelSkillReceipts(executor, [...rows], { validate: true });
 }
 
 export function buildSkillExtractionRows(
 	input: SkillExtractionRunInput,
-	activeUses: readonly ActiveSkillUseRow[],
 	existingVersions: readonly ExistingSkillVersionRow[],
 ): SkillExtractionRows {
 	validateRunInput(input);
 	return {
 		contentRows: buildSkillVersionContentRows(input, existingVersions),
 		receiptRows: [buildSkillReceiptRow(input)],
-		useRows: buildSkillUseRows(input, activeUses),
+		useRows: buildSkillUseRows(input),
 	};
 }
 
@@ -243,7 +303,7 @@ export function mergeSkillExtractionRows(
 		for (const row of rows.contentRows) {
 			setNewestRow(
 				contents,
-				`${row.organization_id}\u0000${row.skill_name}\u0000${row.content_sha256}`,
+				`${row.organization_id}\u0000${row.skill_name}\u0000${row.content_sha256}\u0000${row.user_id}`,
 				row,
 			);
 		}
@@ -257,7 +317,7 @@ export function mergeSkillExtractionRows(
 		for (const row of rows.useRows) {
 			setNewestRow(
 				uses,
-				`${row.organization_id}\u0000${row.skill_name}\u0000${row.agent}\u0000${row.user_id}\u0000${row.session_id}`,
+				`${row.organization_id}\u0000${row.skill_name}\u0000${row.agent}\u0000${row.user_id}\u0000${row.session_id}\u0000${row.extraction_seq}`,
 				row,
 			);
 		}
@@ -282,8 +342,7 @@ export async function readSkillExtractionReceipt(
 		query: `
 			SELECT
 				tupleElement(receipt_state, 1) AS source_content_sha256,
-				tupleElement(receipt_state, 2) AS parser_version,
-				receipt_state
+				tupleElement(receipt_state, 2) AS parser_version
 			FROM (
 				SELECT
 					argMax(
@@ -328,17 +387,11 @@ export function hasMatchingSkillExtractionReceipt(
 
 export function buildSkillUseRows(
 	input: SkillExtractionRunInput,
-	activeUses: readonly ActiveSkillUseRow[],
 ): readonly RudelSkillUsesRow[] {
 	const extractedAt = toClickHouseTimestamp(input.extractedAt);
-	const currentRows = input.extraction.uses.map((use) =>
+	return input.extraction.uses.map((use) =>
 		buildUseRow(use, input, extractedAt),
 	);
-	const desiredNames = new Set(input.extraction.uses.map((use) => use.name));
-	const tombstones = activeUses
-		.filter((active) => !desiredNames.has(active.skill_name))
-		.map((active) => buildTombstoneRow(active, input, extractedAt));
-	return [...currentRows, ...tombstones];
 }
 
 export function buildSkillVersionContentRows(
@@ -347,7 +400,7 @@ export function buildSkillVersionContentRows(
 ): readonly RudelSkillVersionContentsRow[] {
 	const existing = new Set(
 		existingVersions.map((row) =>
-			versionKey(row.skill_name, row.content_sha256),
+			versionKey(row.user_id, row.skill_name, row.content_sha256),
 		),
 	);
 	const rowsByKey = new Map<string, RudelSkillVersionContentsRow>();
@@ -355,12 +408,13 @@ export function buildSkillVersionContentRows(
 	for (const use of input.extraction.uses) {
 		if (use.content === null) continue;
 		const contentSha256 = hashContent(use.content);
-		const key = versionKey(use.name, contentSha256);
+		const key = versionKey(input.userId, use.name, contentSha256);
 		if (existing.has(key) || rowsByKey.has(key)) continue;
 		rowsByKey.set(key, {
 			organization_id: input.organizationId,
 			skill_name: use.name,
 			content_sha256: contentSha256,
+			user_id: input.userId,
 			content: use.content,
 			parser_version: input.extraction.parserVersion,
 			extraction_seq: input.extractionSeq,
@@ -370,56 +424,49 @@ export function buildSkillVersionContentRows(
 	return [...rowsByKey.values()];
 }
 
-async function readActiveSessionSkillUses(
-	executor: ClickHouseExecutor,
-	input: SkillExtractionRunInput,
-): Promise<readonly ActiveSkillUseRow[]> {
-	return executor.query<ActiveSkillUseRow>({
-		query: `
-			WITH ${buildActiveSkillUsesCte()}
-			SELECT
-				skill_name,
-				toString(used_at) AS used_at
-			FROM active_skill_uses
-			WHERE organization_id = {organizationId:String}
-				AND user_id = {userId:String}
-				AND agent = {agent:String}
-				AND session_id = {sessionId:String}
-		`,
-		query_params: {
-			agent: input.extraction.agent,
-			organizationId: input.organizationId,
-			sessionId: input.sessionId,
-			userId: input.userId,
-		},
-	});
-}
-
 async function readExistingSkillVersions(
 	executor: ClickHouseExecutor,
 	input: SkillExtractionRunInput,
 ): Promise<readonly ExistingSkillVersionRow[]> {
-	const skillNames = [
-		...new Set(
-			input.extraction.uses
-				.filter((use) => use.content !== null)
-				.map((use) => use.name),
-		),
-	];
-	if (skillNames.length === 0) return [];
-	return executor.query<ExistingSkillVersionRow>({
-		query: `
-			SELECT skill_name, content_sha256
-			FROM ${getSafeClickHouseTable(SKILL_VERSION_CONTENTS_TABLE)}
-			WHERE organization_id = {organizationId:String}
-				AND skill_name IN {skillNames:Array(String)}
-			GROUP BY organization_id, skill_name, content_sha256
-		`,
-		query_params: {
-			organizationId: input.organizationId,
-			skillNames,
-		},
-	});
+	const versionIdentities = buildSkillVersionContentRows(input, []).map(
+		(row) => new TupleParam([row.skill_name, row.content_sha256, row.user_id]),
+	);
+	if (versionIdentities.length === 0) return [];
+	const existingByKey = new Map<string, ExistingSkillVersionRow>();
+	for (const chunk of chunkSkillVersionLookupIdentities(versionIdentities)) {
+		try {
+			const existing = await executor.query<ExistingSkillVersionRow>({
+				clickhouse_settings: SKILL_VERSION_LOOKUP_SETTINGS,
+				query: `
+					SELECT user_id, skill_name, content_sha256
+					FROM ${getSafeClickHouseTable(SKILL_VERSION_CONTENTS_TABLE)}
+					WHERE organization_id = {organizationId:String}
+						AND (skill_name, content_sha256, user_id) IN {versionIdentities:Array(Tuple(String, FixedString(64), String))}
+					GROUP BY organization_id, skill_name, content_sha256, user_id
+				`,
+				query_params: {
+					organizationId: input.organizationId,
+					versionIdentities: chunk,
+				},
+			});
+			for (const row of existing) {
+				existingByKey.set(
+					versionKey(row.user_id, row.skill_name, row.content_sha256),
+					row,
+				);
+			}
+		} catch (error) {
+			logger.warn(
+				"Skill content-version lookup failed; candidates will be reinserted (organization_id={organizationId} tuple_count={tupleCount} error={error})",
+				{
+					error: error instanceof Error ? error.message : String(error),
+					organizationId: input.organizationId,
+					tupleCount: chunk.length,
+				},
+			);
+		}
+	}
+	return [...existingByKey.values()];
 }
 
 function buildUseRow(
@@ -437,28 +484,6 @@ function buildUseRow(
 		source_content_sha256: input.extraction.sourceContentSha256,
 		used_at: toClickHouseTimestamp(new Date(use.usedAt)),
 		parser_version: input.extraction.parserVersion,
-		is_deleted: 0,
-		extraction_seq: input.extractionSeq,
-		extracted_at: extractedAt,
-	};
-}
-
-function buildTombstoneRow(
-	active: ActiveSkillUseRow,
-	input: SkillExtractionRunInput,
-	extractedAt: string,
-): RudelSkillUsesRow {
-	return {
-		organization_id: input.organizationId,
-		skill_name: active.skill_name,
-		agent: input.extraction.agent,
-		user_id: input.userId,
-		session_id: input.sessionId,
-		content_sha256: "",
-		source_content_sha256: input.extraction.sourceContentSha256,
-		used_at: normalizeClickHouseTimestamp(active.used_at),
-		parser_version: input.extraction.parserVersion,
-		is_deleted: 1,
 		extraction_seq: input.extractionSeq,
 		extracted_at: extractedAt,
 	};
@@ -504,6 +529,9 @@ function validateWriteInput(input: SkillExtractionWriteInput): void {
 	if (Number.isNaN(input.extractedAt.getTime())) {
 		throw new Error("Skill extraction timestamp must be valid");
 	}
+	if (Number.isNaN(input.rawRevisionIngestedAt.getTime())) {
+		throw new Error("Skill raw revision timestamp must be valid");
+	}
 	if (Number.isNaN(input.sessionDate.getTime())) {
 		throw new Error("Skill extraction session date must be valid");
 	}
@@ -533,20 +561,14 @@ function hashContent(content: string): string {
 	return createHash("sha256").update(content, "utf8").digest("hex");
 }
 
-function versionKey(skillName: string, contentSha256: string): string {
-	return `${skillName}\u0000${contentSha256}`;
+function versionKey(
+	userId: string,
+	skillName: string,
+	contentSha256: string,
+): string {
+	return `${userId}\u0000${skillName}\u0000${contentSha256}`;
 }
 
 function toClickHouseTimestamp(value: Date): string {
 	return value.toISOString().replace("T", " ").replace("Z", "");
-}
-
-function normalizeClickHouseTimestamp(value: string): string {
-	const date = new Date(
-		/(?:Z|[+-]\d\d:\d\d)$/u.test(value) ? value : `${value.replace(" ", "T")}Z`,
-	);
-	if (Number.isNaN(date.getTime())) {
-		throw new Error(`Invalid ClickHouse timestamp: ${value}`);
-	}
-	return toClickHouseTimestamp(date);
 }

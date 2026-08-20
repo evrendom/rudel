@@ -35,10 +35,15 @@ export interface HistoricalSkillContentRow {
 
 const HISTORICAL_SKILL_VERSION_LIMIT = 100;
 const HISTORICAL_SKILL_QUERY_SETTINGS = {
+	max_bytes_to_read: String(2 * 1024 * 1024 * 1024),
 	max_execution_time: 30,
+	max_bytes_in_set: String(64 * 1024 * 1024),
 	max_result_bytes: String(128 * 1024 * 1024),
 	max_result_rows: "10000",
+	max_rows_in_set: "1000000",
+	max_rows_to_read: "10000000",
 	result_overflow_mode: "throw",
+	timeout_before_checking_execution_speed: 0,
 } as const;
 
 const HISTORICAL_SKILL_CONTENT_QUERY_SETTINGS = {
@@ -102,15 +107,24 @@ export async function getHistoricalSkillDetail(
 				SELECT
 					agent,
 					content_sha256,
-					uniqExact(tuple(user_id, session_id)) AS session_count,
-					formatDateTime(min(used_at), '%Y-%m-%dT%H:%i:%SZ', 'UTC') AS first_used_at,
-					formatDateTime(max(used_at), '%Y-%m-%dT%H:%i:%SZ', 'UTC') AS last_used_at
-				FROM active_skill_uses
-				WHERE skill_name = {skillName:String}
-					AND content_sha256 != ''
-				GROUP BY agent, content_sha256
-				ORDER BY last_used_at DESC, agent ASC, content_sha256 ASC
-				LIMIT {versionLimit:UInt32}
+					session_count,
+					formatDateTime(first_used_at_raw, '%Y-%m-%dT%H:%i:%SZ', 'UTC') AS first_used_at,
+					formatDateTime(last_used_at_raw, '%Y-%m-%dT%H:%i:%SZ', 'UTC') AS last_used_at
+				FROM (
+					SELECT
+						agent,
+						content_sha256,
+						uniqExact(tuple(user_id, session_id)) AS session_count,
+						min(used_at) AS first_used_at_raw,
+						max(used_at) AS last_used_at_raw
+					FROM active_skill_uses
+					WHERE skill_name = {skillName:String}
+						AND content_sha256 != ''
+					GROUP BY agent, content_sha256
+					ORDER BY last_used_at_raw DESC, agent ASC, content_sha256 ASC
+					LIMIT {versionLimit:UInt32}
+				)
+				ORDER BY last_used_at_raw DESC, agent ASC, content_sha256 ASC
 			`,
 			query_params: {
 				organizationId,
@@ -128,20 +142,12 @@ export async function getHistoricalSkillDetail(
 			: await queryClickhouse<HistoricalSkillContentRow>({
 					clickhouse_settings: HISTORICAL_SKILL_CONTENT_QUERY_SETTINGS,
 					query: `
-				SELECT content_sha256, tupleElement(content_state, 1) AS content
-				FROM (
-					SELECT
-						content_sha256,
-						argMax(
-							tuple(content, parser_version, extraction_seq, extracted_at),
-							extraction_seq
-						) AS content_state
-					FROM rudel.skill_version_contents
-					WHERE organization_id = {organizationId:String}
-						AND skill_name = {skillName:String}
-						AND content_sha256 IN {contentHashes:Array(String)}
-					GROUP BY organization_id, skill_name, content_sha256
-				)
+				SELECT content_sha256, any(content) AS content
+				FROM rudel.skill_version_contents
+				WHERE organization_id = {organizationId:String}
+					AND skill_name = {skillName:String}
+					AND content_sha256 IN {contentHashes:Array(String)}
+				GROUP BY organization_id, skill_name, content_sha256
 			`,
 					query_params: {
 						contentHashes,
@@ -176,7 +182,7 @@ export function resolveHistoricalSkillVersions(
 	contentRows: readonly HistoricalSkillContentRow[],
 ): {
 	readonly unavailableSessionCount: number;
-	readonly versions: readonly HistoricalSkillVersion[];
+	readonly versions: HistoricalSkillVersion[];
 } {
 	const contentByHash = new Map(
 		contentRows.map((row) => [row.content_sha256, row.content]),

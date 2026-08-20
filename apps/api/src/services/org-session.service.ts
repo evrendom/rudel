@@ -13,6 +13,11 @@ const SKILL_VERSION_CONTENTS_TABLE = "rudel.skill_version_contents";
 const USAGE_EVENTS_TABLE = "rudel.usage_events";
 const WRAPPED_USER_ARCHETYPE_SNAPSHOTS_TABLE =
 	"rudel.wrapped_user_archetype_snapshots_v1";
+const PRIVACY_DELETE_SCAN_SETTINGS = {
+	max_bytes_to_read: String(2 * 1024 * 1024 * 1024),
+	max_execution_time: 90,
+	max_rows_to_read: "10000000",
+} as const;
 
 interface SessionCountRow {
 	count: string;
@@ -159,13 +164,7 @@ async function deleteSessions(
 		{ column, table: SESSION_LANGUAGE_SIGNALS_TABLE },
 		{ column, table: SKILL_RECEIPTS_TABLE },
 		{ column, table: SKILL_USES_TABLE },
-		{
-			// skill_version_contents is deduplicated by the legacy workspace key and
-			// intentionally has no user_id. In production that key is the uploader's
-			// user ID, so account erasure must target organization_id here.
-			column: column === "user_id" ? "organization_id" : column,
-			table: SKILL_VERSION_CONTENTS_TABLE,
-		},
+		{ column, table: SKILL_VERSION_CONTENTS_TABLE },
 		{ column, table: USAGE_EVENTS_TABLE },
 		{ column, table: WRAPPED_USER_ARCHETYPE_SNAPSHOTS_TABLE },
 	];
@@ -204,12 +203,16 @@ async function deleteSessionsFromTable(
 	// Sync level 3 waits for active SharedMergeTree replicas. The read-back
 	// confirms query-level deletion; merges reclaim the physical data later.
 	await clickhouse.execute({
-		clickhouse_settings: { lightweight_deletes_sync: "3" },
+		clickhouse_settings: {
+			...PRIVACY_DELETE_SCAN_SETTINGS,
+			lightweight_deletes_sync: "3",
+		},
 		query: `DELETE FROM ${table} WHERE ${predicate}`,
 		query_params: queryParams,
 	});
 
 	const remainingRows = await clickhouse.query({
+		clickhouse_settings: PRIVACY_DELETE_SCAN_SETTINGS,
 		query: `SELECT 1 FROM ${table} WHERE ${predicate} LIMIT 1`,
 		query_params: queryParams,
 	});
