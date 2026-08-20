@@ -5,6 +5,10 @@ import {
 } from "../index.js";
 
 describe("CLI session upload status contract", () => {
+	test("keeps UUID batches below reverse-proxy URI limits", () => {
+		expect(CLI_SESSION_UPLOAD_STATUS_MAX_IDS).toBeLessThanOrEqual(64);
+	});
+
 	test("accepts a bounded unique batch", () => {
 		const sessionIds = Array.from(
 			{ length: CLI_SESSION_UPLOAD_STATUS_MAX_IDS },

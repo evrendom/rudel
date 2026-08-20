@@ -249,7 +249,9 @@ export const CliSetupStatusSchema = z.object({
 	hasCliLogin: z.boolean(),
 });
 
-export const CLI_SESSION_UPLOAD_STATUS_MAX_IDS = 500;
+// @clickhouse/client-web transports query parameters in the request URL.
+// Keep UUID-sized batches below common reverse-proxy URI limits.
+export const CLI_SESSION_UPLOAD_STATUS_MAX_IDS = 64;
 
 export const CliSessionUploadStatusInputSchema = z.object({
 	organizationId: z.string().max(200).optional(),
