@@ -8,6 +8,7 @@ import {
 } from "@rudel/agent-adapters";
 import type { IngestSessionInput, Source } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
+import pMap from "p-map";
 import type { BatchUploadItem } from "../lib/batch-upload.js";
 import { renderBatchSummary, runBatchUpload } from "../lib/batch-upload-ui.js";
 import { classifySession } from "../lib/classifier.js";
@@ -27,6 +28,12 @@ import {
 	type SessionTag,
 } from "../lib/types.js";
 import { allowsInsecureEndpoint } from "../lib/upload-endpoint.js";
+import {
+	orderUploadProjectsNewFirst,
+	type ReconciledUploadProject,
+	reconcileUploadProjects,
+	type UploadProjectTarget,
+} from "../lib/upload-reconciliation.js";
 import {
 	formatRedactionSummary,
 	type UploadConfig,
@@ -50,6 +57,13 @@ interface ResolvedUploadFlags extends UploadFlags {
 	endpoint: string;
 }
 
+interface InteractiveUploadProject extends UploadProjectTarget {
+	readonly duplicateSessions: readonly SessionFile[];
+	readonly newSessions: readonly SessionFile[];
+	readonly statusKnown: boolean;
+	readonly uploadedSessions: readonly SessionFile[];
+}
+
 async function runInteractiveUpload(
 	flags: ResolvedUploadFlags,
 	allowPlaintextEndpoint: boolean,
@@ -64,31 +78,122 @@ async function runInteractiveUpload(
 		persistRemoteCache: !flags.dryRun,
 	});
 
-	spin.stop(`Found ${allProjects.length} project(s)`);
-
 	if (allProjects.length === 0) {
+		spin.stop("No local sessions found");
 		p.log.warn("No projects with sessions found.");
 		p.outro("Nothing to upload.");
 		return;
 	}
 
+	const targets = await pMap(
+		allProjects,
+		async (project): Promise<UploadProjectTarget> => ({
+			organizationId: flags.org ?? (await getProjectOrgId(project.projectPath)),
+			project,
+		}),
+		{ concurrency: 10 },
+	);
+	let uploadProjects: InteractiveUploadProject[];
+	if (credentials) {
+		spin.message("Checking which sessions are already uploaded...");
+		let reconciled: ReconciledUploadProject[];
+		try {
+			reconciled = await reconcileUploadProjects(targets, {
+				allowInsecureEndpoint: allowPlaintextEndpoint,
+				authType: credentials.authType,
+				endpoint: flags.endpoint,
+				token: credentials.token,
+			});
+		} catch (error) {
+			spin.stop("Could not check uploaded sessions");
+			return error instanceof Error ? error : new Error(String(error));
+		}
+		uploadProjects = reconciled.map((project) => ({
+			...project,
+			statusKnown: true,
+		}));
+	} else {
+		uploadProjects = targets.map((target) => ({
+			...target,
+			duplicateSessions: [],
+			newSessions: target.project.sessions,
+			statusKnown: false,
+			uploadedSessions: [],
+		}));
+	}
+
+	const totalLocalSessions = allProjects.reduce(
+		(sum, project) => sum + project.sessionCount,
+		0,
+	);
+	const totalNewSessions = uploadProjects.reduce(
+		(sum, project) => sum + project.newSessions.length,
+		0,
+	);
+	const totalUploadedSessions = uploadProjects.reduce(
+		(sum, project) => sum + project.uploadedSessions.length,
+		0,
+	);
+	const totalDuplicateSessions = uploadProjects.reduce(
+		(sum, project) => sum + project.duplicateSessions.length,
+		0,
+	);
+	spin.stop(
+		credentials
+			? `${totalNewSessions} new · ${totalUploadedSessions} already uploaded${
+					totalDuplicateSessions > 0
+						? ` · ${totalDuplicateSessions} local duplicate`
+						: ""
+				}`
+			: `Found ${totalLocalSessions} local session(s)`,
+	);
+
+	if (credentials && totalNewSessions === 0 && !flags.forceReplace) {
+		p.log.success("All local sessions are already uploaded.");
+		p.log.info(
+			"To refresh a session that has grown, run `rudel upload <session>`.",
+		);
+		p.outro("Nothing new to upload.");
+		return;
+	}
+
 	const options: Array<{
-		value: ScannedProject;
+		value: InteractiveUploadProject;
 		label: string;
 		hint: string;
 	}> = [];
-	const preSelected: ScannedProject[] = [];
-
+	const preSelected: InteractiveUploadProject[] = [];
+	const projectOrder = new Map<
+		ScannedProject,
+		{ readonly containsCwd: boolean; readonly index: number }
+	>();
+	let projectIndex = 0;
 	for (const group of groups) {
-		for (const proj of group.projects) {
-			options.push({
-				value: proj,
-				label: `[${getAdapterName(proj.source)}] ${proj.displayPath}`,
-				hint: sessionCountHint(proj.sessionCount),
+		for (const project of group.projects) {
+			projectOrder.set(project, {
+				containsCwd: group.containsCwd,
+				index: projectIndex,
 			});
-			if (group.containsCwd) {
-				preSelected.push(proj);
-			}
+			projectIndex++;
+		}
+	}
+	const orderedProjects = orderUploadProjectsNewFirst(
+		uploadProjects,
+		projectOrder,
+	);
+
+	for (const uploadProject of orderedProjects) {
+		const project = uploadProject.project;
+		options.push({
+			value: uploadProject,
+			label: `[${getAdapterName(project.source)}] ${project.displayPath}`,
+			hint: getProjectUploadHint(uploadProject),
+		});
+		if (
+			projectOrder.get(project)?.containsCwd &&
+			getSessionsToUpload(uploadProject, flags.forceReplace).length > 0
+		) {
+			preSelected.push(uploadProject);
 		}
 	}
 
@@ -105,16 +210,40 @@ async function runInteractiveUpload(
 	}
 
 	const totalSessions = selected.reduce(
-		(sum, proj) => sum + proj.sessionCount,
+		(sum, project) =>
+			sum + getSessionsToUpload(project, flags.forceReplace).length,
+		0,
+	);
+	const skippedUploadedSessions = flags.forceReplace
+		? 0
+		: selected.reduce(
+				(sum, project) => sum + project.uploadedSessions.length,
+				0,
+			);
+	const skippedDuplicateSessions = selected.reduce(
+		(sum, project) => sum + project.duplicateSessions.length,
 		0,
 	);
 
+	if (totalSessions === 0) {
+		p.log.info("The selected projects have no new sessions.");
+		p.outro("Nothing new to upload.");
+		return;
+	}
+
 	if (flags.dryRun) {
-		for (const project of selected) {
+		for (const uploadProject of selected) {
+			const project = uploadProject.project;
+			const count = getSessionsToUpload(
+				uploadProject,
+				flags.forceReplace,
+			).length;
+			if (count === 0) continue;
 			p.log.info(
-				`Would upload ${sessionCountHint(project.sessionCount)} from [${getAdapterName(project.source)}] ${project.displayPath}`,
+				`Would upload ${sessionCountHint(count)} from [${getAdapterName(project.source)}] ${project.displayPath}`,
 			);
 		}
+		logSkippedSessions(skippedUploadedSessions, skippedDuplicateSessions);
 		p.outro("Dry run complete — no sessions were uploaded.");
 		return;
 	}
@@ -123,9 +252,13 @@ async function runInteractiveUpload(
 		return new Error("Not authenticated. Run `rudel login` first.");
 	}
 
+	const uploadingProjectCount = selected.filter(
+		(project) => getSessionsToUpload(project, flags.forceReplace).length > 0,
+	).length;
 	p.log.info(
-		`Uploading ${totalSessions} session(s) from ${selected.length} project(s)`,
+		`Uploading ${totalSessions} session(s) from ${uploadingProjectCount} project(s)`,
 	);
+	logSkippedSessions(skippedUploadedSessions, skippedDuplicateSessions);
 
 	const uploadConfig: UploadConfig = {
 		endpoint: flags.endpoint,
@@ -136,19 +269,22 @@ async function runInteractiveUpload(
 
 	// Flatten all sessions with their project context for concurrent upload
 	const work: Array<{
-		session: (typeof selected)[number]["sessions"][number];
+		session: SessionFile;
 		project: ScannedProject;
 		adapter: ReturnType<typeof getAdapter>;
 		gitInfo: Awaited<ReturnType<typeof getGitInfo>>;
 		organizationId: string | undefined;
 	}> = [];
 
-	for (const project of selected) {
+	for (const uploadProject of selected) {
+		const project = uploadProject.project;
 		const adapter = getAdapter(project.source);
 		const gitInfo = await getGitInfo(project.projectPath);
-		const organizationId =
-			flags.org ?? (await getProjectOrgId(project.projectPath));
-		for (const session of project.sessions) {
+		const organizationId = uploadProject.organizationId;
+		for (const session of getSessionsToUpload(
+			uploadProject,
+			flags.forceReplace,
+		)) {
 			work.push({ session, project, adapter, gitInfo, organizationId });
 		}
 	}
@@ -210,6 +346,40 @@ function getAdapterName(source: Source): string {
 
 function sessionCountHint(count: number): string {
 	return `${count} session${count !== 1 ? "s" : ""}`;
+}
+
+function getProjectUploadHint(project: InteractiveUploadProject): string {
+	if (!project.statusKnown) return sessionCountHint(project.newSessions.length);
+	const details = [`${project.newSessions.length} new`];
+	if (project.uploadedSessions.length > 0) {
+		details.push(`${project.uploadedSessions.length} uploaded`);
+	}
+	if (project.duplicateSessions.length > 0) {
+		details.push(`${project.duplicateSessions.length} local duplicate`);
+	}
+	return details.join(" · ");
+}
+
+function getSessionsToUpload(
+	project: InteractiveUploadProject,
+	forceReplace: boolean,
+): readonly SessionFile[] {
+	return forceReplace
+		? [...project.newSessions, ...project.uploadedSessions]
+		: project.newSessions;
+}
+
+function logSkippedSessions(uploaded: number, duplicates: number): void {
+	if (uploaded > 0) {
+		p.log.info(
+			`Skipping ${sessionCountHint(uploaded)} already uploaded to Rudel.`,
+		);
+	}
+	if (duplicates > 0) {
+		p.log.info(
+			`Skipping ${sessionCountHint(duplicates)} duplicated in local discovery.`,
+		);
+	}
 }
 
 async function runSingleUpload(

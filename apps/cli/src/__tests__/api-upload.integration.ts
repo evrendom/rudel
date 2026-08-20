@@ -357,6 +357,33 @@ describe("CLI upload to local API", () => {
 		}
 	});
 
+	test("reports which candidate sessions are already uploaded through API key auth", async () => {
+		const sessionId = `cli_upload_status_${crypto.randomUUID()}`;
+		const missingSessionId = `cli_upload_status_missing_${crypto.randomUUID()}`;
+		const upload = await uploadSession(
+			createDedupeInput(sessionId, "upload-status"),
+			{
+				endpoint: server.rpcUrl,
+				token: bearerToken,
+				allowInsecureEndpoint: false,
+			},
+		);
+		expect(upload.success).toBe(true);
+
+		const apiKey = await createIngestApiKey(server.baseUrl, bearerToken);
+		const client = createApiClient({
+			apiBaseUrl: server.baseUrl,
+			token: apiKey.key,
+			authType: "api-key",
+		});
+		const status = await client.cli.sessionUploadStatus({
+			sessionIds: [sessionId, missingSessionId],
+		});
+
+		expect(status.organizationId).toBe(userId);
+		expect(status.uploadedSessionIds).toEqual([sessionId]);
+	}, 60_000);
+
 	test("short-circuits a sequential duplicate, then ingests appended content", async () => {
 		const sessionId = `cli_dedup_${crypto.randomUUID()}`;
 		const sessionDate = "2026-07-24 13:00:00.000";
