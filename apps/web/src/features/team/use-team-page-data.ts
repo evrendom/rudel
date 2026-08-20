@@ -1,4 +1,10 @@
-import type { DeveloperSummary, DeveloperTeamCard } from "@rudel/api-routes";
+import type {
+	DeveloperSummary,
+	DeveloperTeamCard,
+	DimensionAnalysisDataPoint,
+	UserDailyTrendData,
+} from "@rudel/api-routes";
+import { format } from "date-fns";
 import { useMemo } from "react";
 import {
 	announceFrontendFixturesEnabled,
@@ -14,7 +20,11 @@ import {
 	useFullOrganization,
 } from "@/features/workspace/hooks/useFullOrganization";
 import { useOrganization } from "@/features/workspace/organization/useOrganization";
-import { MAX_ANALYTICS_DAYS } from "@/lib/analytics-date-range";
+import {
+	expandAnalyticsDateRange,
+	MAX_ANALYTICS_DAYS,
+	normalizeAnalyticsDateRange,
+} from "@/lib/analytics-date-range";
 import { authClient } from "@/lib/auth-client";
 import { orpc } from "@/lib/orpc";
 
@@ -50,6 +60,16 @@ export interface TeamPageMemberRow {
 	totalTokens: number;
 	lastActiveDate: string | null;
 	hasActivity: boolean;
+}
+
+export interface TeamPageMemberOverviewRow extends TeamPageMemberRow {
+	activityTrend: readonly number[];
+	modelUsage: readonly TeamPageMemberModelUsage[];
+}
+
+export interface TeamPageMemberModelUsage {
+	model: string;
+	usageCount: number;
 }
 
 function getSessionUserId(
@@ -88,6 +108,10 @@ function buildTeamMemberRows(
 	members: readonly TeamRosterMemberSource[],
 	teamCards: readonly DeveloperTeamCard[] | undefined,
 	developerSummaries: readonly DeveloperSummary[] | undefined,
+	userDailyTrend: readonly UserDailyTrendData[] | undefined,
+	modelUsage: readonly DimensionAnalysisDataPoint[] | undefined,
+	startDate: string,
+	endDate: string,
 ) {
 	const memberByUserId = new Map(
 		members.map((member) => [member.userId, member] as const),
@@ -98,6 +122,33 @@ function buildTeamMemberRows(
 	const summaryByUserId = new Map(
 		(developerSummaries ?? []).map(
 			(summary) => [summary.user_id, summary] as const,
+		),
+	);
+	const observedActivityDates = Array.from(
+		new Set((userDailyTrend ?? []).map((row) => row.date)),
+	).sort((leftDate, rightDate) => leftDate.localeCompare(rightDate));
+	const normalizedActivityRange = normalizeAnalyticsDateRange(
+		startDate,
+		endDate,
+	);
+	const expandedActivityDates = normalizedActivityRange
+		? expandAnalyticsDateRange(
+				normalizedActivityRange.start,
+				normalizedActivityRange.end,
+			).map((date) => format(date, "yyyy-MM-dd"))
+		: [];
+	const activityDates =
+		expandedActivityDates.length > 0
+			? expandedActivityDates
+			: observedActivityDates;
+	const dailyRowsByUserId = new Map<string, UserDailyTrendData[]>();
+	for (const dailyRow of userDailyTrend ?? []) {
+		const existingRows = dailyRowsByUserId.get(dailyRow.user_id) ?? [];
+		dailyRowsByUserId.set(dailyRow.user_id, [...existingRows, dailyRow]);
+	}
+	const modelUsageByUserId = new Map(
+		(modelUsage ?? []).map(
+			(row) => [row.dimension_value, row.split_values ?? {}] as const,
 		),
 	);
 	const memberIds = new Set<string>([
@@ -135,6 +186,50 @@ function buildTeamMemberRows(
 				developerSummary?.last_active_date ??
 				teamCard?.last_active_date ??
 				null;
+			const favoriteModel =
+				teamCard?.favorite_model ?? developerSummary?.favorite_model ?? null;
+			const dailyRows = dailyRowsByUserId.get(userId) ?? [];
+			const sessionsByDate = new Map(
+				dailyRows.map(
+					(dailyRow) => [dailyRow.date, dailyRow.sessions] as const,
+				),
+			);
+			const fallbackModelUsage = new Map<string, number>();
+			for (const dailyRow of dailyRows) {
+				for (const model of new Set(dailyRow.models_used)) {
+					if (model.trim().length === 0) {
+						continue;
+					}
+
+					fallbackModelUsage.set(
+						model,
+						(fallbackModelUsage.get(model) ?? 0) + 1,
+					);
+				}
+			}
+			const measuredModelUsage = Object.entries(
+				modelUsageByUserId.get(userId) ?? {},
+			).filter(
+				([model, usageCount]) =>
+					model.trim().length > 0 && model !== "unknown" && usageCount > 0,
+			);
+			const resolvedModelUsage =
+				measuredModelUsage.length > 0
+					? measuredModelUsage
+					: Array.from(fallbackModelUsage.entries());
+			if (
+				resolvedModelUsage.length === 0 &&
+				favoriteModel &&
+				favoriteModel !== "unknown"
+			) {
+				resolvedModelUsage.push([favoriteModel, 0]);
+			}
+			const modelUsage = resolvedModelUsage
+				.sort(
+					([leftModel, leftUsage], [rightModel, rightUsage]) =>
+						rightUsage - leftUsage || leftModel.localeCompare(rightModel),
+				)
+				.map(([model, usageCount]) => ({ model, usageCount }));
 
 			return {
 				userId,
@@ -146,8 +241,7 @@ function buildTeamMemberRows(
 				imageUrl: member?.imageUrl,
 				archetype: teamCard?.archetype ?? null,
 				cost,
-				favoriteModel:
-					teamCard?.favorite_model ?? developerSummary?.favorite_model ?? null,
+				favoriteModel,
 				inputTokens,
 				outputTokens,
 				totalSessions,
@@ -155,7 +249,11 @@ function buildTeamMemberRows(
 				totalTokens,
 				lastActiveDate,
 				hasActivity: totalSessions > 0 || activeDays > 0 || totalTokens > 0,
-			} satisfies TeamPageMemberRow;
+				activityTrend: activityDates.map(
+					(date) => sessionsByDate.get(date) ?? 0,
+				),
+				modelUsage,
+			} satisfies TeamPageMemberOverviewRow;
 		})
 		.sort(
 			(leftRow, rightRow) =>
@@ -215,6 +313,27 @@ export function useTeamPageData() {
 		}),
 		enabled: !useFixtures,
 	});
+	const usersDailyTrendQuery = useAnalyticsQuery({
+		...orpc.analytics.overview.usersDailyTrend.queryOptions({
+			input: {
+				startDate: dateRangeState.startDate,
+				endDate: dateRangeState.endDate,
+			},
+		}),
+		enabled: !useFixtures,
+	});
+	const modelUsageQuery = useAnalyticsQuery({
+		...orpc.analytics.sessions.dimensionAnalysis.queryOptions({
+			input: {
+				days: requestedDays,
+				dimension: "user_id",
+				limit: 1000,
+				metric: "session_count",
+				splitBy: "model_used",
+			},
+		}),
+		enabled: !useFixtures,
+	});
 	const fixtureMembers = useMemo<FrontendFixtureMember[]>(
 		() =>
 			members.map((member) => ({
@@ -226,15 +345,47 @@ export function useTeamPageData() {
 		[members],
 	);
 	const fixtureData = useMemo(
-		() => (useFixtures ? buildTeamAnalyticsFixtures(fixtureMembers) : null),
-		[fixtureMembers, useFixtures],
+		() =>
+			useFixtures
+				? buildTeamAnalyticsFixtures({
+						endDate: dateRangeState.endDate,
+						members: fixtureMembers,
+						startDate: dateRangeState.startDate,
+					})
+				: null,
+		[
+			dateRangeState.endDate,
+			dateRangeState.startDate,
+			fixtureMembers,
+			useFixtures,
+		],
 	);
 	const teamCards = fixtureData?.teamCards ?? teamCardsQuery.data;
 	const developerSummaries =
 		fixtureData?.developerSummaries ?? developersQuery.data;
+	const userDailyTrend =
+		fixtureData?.usersDailyTrend ?? usersDailyTrendQuery.data;
+	const modelUsage = useFixtures ? undefined : modelUsageQuery.data;
 	const teamMemberRows = useMemo(
-		() => buildTeamMemberRows(members, teamCards, developerSummaries),
-		[members, teamCards, developerSummaries],
+		() =>
+			buildTeamMemberRows(
+				members,
+				teamCards,
+				developerSummaries,
+				userDailyTrend,
+				modelUsage,
+				dateRangeState.startDate,
+				dateRangeState.endDate,
+			),
+		[
+			dateRangeState.endDate,
+			dateRangeState.startDate,
+			members,
+			teamCards,
+			developerSummaries,
+			modelUsage,
+			userDailyTrend,
+		],
 	);
 	const hasRosterData = teamMemberRows.length > 0;
 	const isInitialTeamDataPending =
@@ -280,6 +431,8 @@ export function useTeamPageData() {
 			await Promise.all([
 				teamCardsQuery.refetch(),
 				developersQuery.refetch(),
+				usersDailyTrendQuery.refetch(),
+				modelUsageQuery.refetch(),
 				activeOrganizationId ? invalidateFullOrganization() : null,
 			]);
 		},

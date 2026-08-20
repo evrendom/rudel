@@ -1,9 +1,20 @@
 import { createHash } from "node:crypto";
-import type {
-	HistoricalSkillDetail,
-	HistoricalSkillVersion,
-} from "@rudel/api-routes";
 import { extractHistoricalCodexSkillBodies } from "./historical-codex-skill-parser.js";
+
+export interface LegacyHistoricalSkillVersion {
+	contentSha256: string;
+	content: string;
+	sessionCount: number;
+	firstUsedAt: string;
+	lastUsedAt: string;
+}
+
+export interface LegacyHistoricalSkillDetail {
+	name: string;
+	sessionCount: number;
+	versions: LegacyHistoricalSkillVersion[];
+	unavailableSessionCount: number;
+}
 
 export interface HistoricalSkillSessionRow {
 	content: string;
@@ -22,7 +33,7 @@ interface MutableHistoricalSkillVersion {
 export function buildHistoricalSkillDetail(
 	name: string,
 	rows: readonly HistoricalSkillSessionRow[],
-): HistoricalSkillDetail {
+): LegacyHistoricalSkillDetail {
 	const versionsByHash = new Map<string, MutableHistoricalSkillVersion>();
 	const allSessionIds = new Set<string>();
 	const availableSessionIds = new Set<string>();
@@ -83,7 +94,7 @@ function addVersionUse(
 
 function toHistoricalSkillVersion(
 	version: MutableHistoricalSkillVersion,
-): HistoricalSkillVersion {
+): LegacyHistoricalSkillVersion {
 	return {
 		contentSha256: version.contentSha256,
 		content: version.content,
@@ -94,8 +105,8 @@ function toHistoricalSkillVersion(
 }
 
 function sortHistoricalSkillVersions(
-	versions: readonly HistoricalSkillVersion[],
-): HistoricalSkillVersion[] {
+	versions: readonly LegacyHistoricalSkillVersion[],
+): LegacyHistoricalSkillVersion[] {
 	return [...versions].sort((left, right) => {
 		const lastUsedComparison = right.lastUsedAt.localeCompare(left.lastUsedAt);
 		if (lastUsedComparison !== 0) {

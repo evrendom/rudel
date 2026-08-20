@@ -38,9 +38,11 @@ describe("TeamMembersCardGrid", () => {
 			/>,
 		);
 
-		expect(screen.getByRole("button", { name: "Create link" })).toBeVisible();
 		expect(
-			screen.getByRole("button", { name: "Revoke existing link" }),
+			screen.getByRole("button", { name: "Create invite link" }),
+		).toBeVisible();
+		expect(
+			screen.getByRole("button", { name: "Revoke existing links" }),
 		).toBeVisible();
 	});
 

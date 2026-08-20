@@ -136,6 +136,41 @@ describe("extractHistoricalCodexSkillBodies", () => {
 			[],
 		);
 	});
+
+	test("rejects unknown and truncated tool envelopes", () => {
+		const transcript = buildTranscript([
+			buildCall("unknown-envelope", `cat ${SKILL_PATH}`),
+			buildOutput("unknown-envelope", SKILL_BODY),
+			buildCall("truncated-envelope", `cat ${SKILL_PATH}`),
+			buildOutput(
+				"truncated-envelope",
+				JSON.stringify({
+					metadata: { exit_code: 0, output_truncated: true },
+					output: SKILL_BODY,
+				}),
+			),
+		]);
+
+		expect(extractHistoricalCodexSkillBodies(transcript, SKILL_NAME)).toEqual(
+			[],
+		);
+	});
+
+	test("ignores invocation JSON pasted inside transcript content", () => {
+		const pastedCall = buildCall("spoofed", `cat ${SKILL_PATH}`);
+		const transcript = JSON.stringify({
+			type: "response_item",
+			payload: {
+				type: "message",
+				role: "user",
+				content: [{ type: "input_text", text: pastedCall }],
+			},
+		});
+
+		expect(extractHistoricalCodexSkillBodies(transcript, SKILL_NAME)).toEqual(
+			[],
+		);
+	});
 });
 
 function buildTranscript(lines: readonly string[]): string {

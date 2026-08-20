@@ -51,6 +51,7 @@ export interface DashboardFrontendFixtureData {
 export interface TeamAnalyticsFixtures {
 	developerSummaries: DeveloperSummary[];
 	teamCards: DeveloperTeamCard[];
+	usersDailyTrend: UserDailyTrendData[];
 }
 
 const defaultFixtureMembers = [
@@ -139,10 +140,12 @@ export function buildDashboardFixtureData(input: {
 	};
 }
 
-export function buildTeamAnalyticsFixtures(
-	membersInput: readonly FrontendFixtureMember[],
-): TeamAnalyticsFixtures {
-	const members = getFixtureMembers(membersInput);
+export function buildTeamAnalyticsFixtures(input: {
+	endDate: string;
+	members: readonly FrontendFixtureMember[];
+	startDate: string;
+}): TeamAnalyticsFixtures {
+	const members = getFixtureMembers(input.members);
 	const teamCards = members.map((member, index) =>
 		buildDeveloperTeamCard(member, index),
 	);
@@ -164,6 +167,10 @@ export function buildTeamAnalyticsFixtures(
 			user_id: teamCard.user_id,
 		})),
 		teamCards,
+		usersDailyTrend: buildUserDailyTrend(
+			members,
+			getFixtureDates(input.startDate, input.endDate),
+		),
 	};
 }
 

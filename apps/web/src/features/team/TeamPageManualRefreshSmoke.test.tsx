@@ -92,6 +92,50 @@ vi.mock("@/lib/orpc", () => ({
 					}),
 				},
 			},
+			overview: {
+				usersDailyTrend: {
+					queryOptions: () => ({
+						queryFn: async () => [
+							{
+								avg_success_rate: 1,
+								cost: 18,
+								date: "2026-04-22",
+								distinct_skills: 1,
+								distinct_slash_commands: 0,
+								input_tokens: rawSessionCount * 100,
+								models_used: ["claude-sonnet-4-5"],
+								output_tokens: rawSessionCount * 200,
+								repositories_touched: [],
+								sessions: rawSessionCount,
+								total_commits: 0,
+								total_hours: 1,
+								total_tokens: rawSessionCount * 300,
+								user_id: "user-1",
+							},
+						],
+						queryKey: ["analytics", "overview", "usersDailyTrend"],
+					}),
+				},
+			},
+			sessions: {
+				dimensionAnalysis: {
+					queryOptions: () => ({
+						queryFn: async () => [
+							{
+								dimension_value: "user-1",
+								split_values: {
+									"claude-haiku-3-5": 2,
+									"claude-opus-4-1": 8,
+									"claude-sonnet-4-5": 12,
+									"fable-2": 1,
+									"gpt-5.1-codex": 4,
+								},
+							},
+						],
+						queryKey: ["analytics", "sessions", "dimensionAnalysis"],
+					}),
+				},
+			},
 		},
 	},
 }));
@@ -170,7 +214,7 @@ describe("TeamPage manual refresh smoke", () => {
 		});
 	});
 
-	it("updates the visible team card stats when the user refreshes after new uploads land", async () => {
+	it("updates the visible team table stats when the user refreshes after new uploads land", async () => {
 		const user = userEvent.setup();
 		const queryClient = new QueryClient({
 			defaultOptions: {
@@ -187,17 +231,37 @@ describe("TeamPage manual refresh smoke", () => {
 		});
 
 		expect(await screen.findByText("Ada Lovelace")).toBeInTheDocument();
-		expect(screen.getByTitle("12 sessions")).toBeInTheDocument();
+		expect(screen.getByText("Sonnet 4.5")).toBeInTheDocument();
+		expect(screen.getByText("Opus 4.1")).toBeInTheDocument();
+		expect(screen.getByText("GPT 5.1")).toBeInTheDocument();
+		expect(screen.getByText("+2")).toBeInTheDocument();
+		expect(
+			screen.getByRole("img", {
+				name: "12 sessions across 365 activity periods",
+			}),
+		).toBeInTheDocument();
 
 		rawSessionCount = 63;
-		expect(screen.getByTitle("12 sessions")).toBeInTheDocument();
+		expect(
+			screen.getByRole("img", {
+				name: "12 sessions across 365 activity periods",
+			}),
+		).toBeInTheDocument();
 
 		await user.click(screen.getByRole("button", { name: "Refresh" }));
 
 		await waitFor(() => {
-			expect(screen.getByTitle("63 sessions")).toBeInTheDocument();
+			expect(
+				screen.getByRole("img", {
+					name: "63 sessions across 365 activity periods",
+				}),
+			).toBeInTheDocument();
 		});
-		expect(screen.queryByTitle("12 sessions")).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("img", {
+				name: "12 sessions across 365 activity periods",
+			}),
+		).not.toBeInTheDocument();
 
 		queryClient.clear();
 	});

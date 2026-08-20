@@ -385,12 +385,17 @@ export const SessionAnalyticsSummaryComparisonSchema = z.object({
 	}),
 });
 
+export const HistoricalSkillAgentSchema = z.enum(["claude", "codex"]);
+
 export const HistoricalSkillSummarySchema = z.object({
 	name: z.string(),
 	sessionCount: z.number().int().nonnegative(),
+	claudeSessionCount: z.number().int().nonnegative(),
+	codexSessionCount: z.number().int().nonnegative(),
 });
 
 export const HistoricalSkillVersionSchema = z.object({
+	sourceAgent: HistoricalSkillAgentSchema,
 	contentSha256: z.string().length(64),
 	content: z.string(),
 	sessionCount: z.number().int().positive(),
@@ -401,6 +406,9 @@ export const HistoricalSkillVersionSchema = z.object({
 export const HistoricalSkillDetailSchema = z.object({
 	name: z.string(),
 	sessionCount: z.number().int().nonnegative(),
+	claudeSessionCount: z.number().int().nonnegative(),
+	codexSessionCount: z.number().int().nonnegative(),
+	sourceAgents: z.array(HistoricalSkillAgentSchema),
 	versions: z.array(HistoricalSkillVersionSchema),
 	unavailableSessionCount: z.number().int().nonnegative(),
 });
@@ -802,6 +810,7 @@ export type SessionListInput = z.input<typeof SessionListInputSchema>;
 export type HistoricalSkillSummary = z.infer<
 	typeof HistoricalSkillSummarySchema
 >;
+export type HistoricalSkillAgent = z.infer<typeof HistoricalSkillAgentSchema>;
 export type HistoricalSkillVersion = z.infer<
 	typeof HistoricalSkillVersionSchema
 >;

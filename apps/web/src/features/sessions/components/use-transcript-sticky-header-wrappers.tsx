@@ -72,7 +72,7 @@ export function TranscriptFoldSummaryControl({
 		<button
 			aria-expanded={expanded}
 			aria-label={`${action} earlier model activity: ${metricLabel}`}
-			className="group group/fold pointer-events-auto relative flex h-8 max-w-full min-w-0 select-none items-center gap-2 rounded-md py-1 pr-1.5 pl-1 text-left text-[0.8125rem]/5 text-(--session-overview-muted) outline-none focus-visible:outline-2 focus-visible:outline-(--session-overview-accent)"
+			className="group group/fold pointer-events-auto relative flex h-8 max-w-full min-w-0 select-none items-center gap-1.5 rounded-md py-1 pr-1.5 pl-1 text-left text-[0.6875rem]/[1.0625rem] text-(--session-overview-muted) outline-none focus-visible:outline-2 focus-visible:outline-(--session-overview-accent)"
 			data-transcript-fold-turn-id={turnId}
 			data-transcript-sticky-fold-turn-id={stickyTurnId}
 			data-trace-hover-row
@@ -90,13 +90,13 @@ export function TranscriptFoldSummaryControl({
 				icon={TraceLayersIcon}
 			/>
 			<span
-				className="hidden min-w-0 items-center gap-1 overflow-hidden tabular-nums @md/model-header:flex"
+				className="hidden min-w-0 items-center gap-0.75 tabular-nums @[33rem]/model-header:flex"
 				data-transcript-fold-summary-tags
 			>
 				{metrics.map(({ count, label }) => (
 					<span
 						key={label}
-						className="inline-flex h-6 shrink-0 items-center gap-1 rounded-[0.375rem] bg-white px-2 font-medium text-black/[0.875] shadow-[inset_0_0_0_0.5px_transparent,0_0_0_0.5px_#0000000f,0_1px_1px_-1px_#0000001a,0_1px_2px_0_#0000000d] select-none dark:bg-white/[0.071] dark:text-white/[0.929] dark:shadow-[inset_0_0_0_0.5px_#ffffff12,0_0_0_0.5px_transparent,0_1px_1px_-1px_transparent,0_1px_2px_0_transparent]"
+						className="inline-flex h-5 shrink-0 items-center gap-[0.21875rem] rounded-[0.3125rem] bg-white px-1.75 font-medium text-black/[0.875] shadow-[inset_0_0_0_0.425px_transparent,0_0_0_0.425px_#0000000f,0_0.85px_0.85px_-0.85px_#0000001a,0_0.85px_1.7px_0_#0000000d] select-none dark:bg-white/[0.071] dark:text-white/[0.929] dark:shadow-[inset_0_0_0_0.425px_#ffffff12,0_0_0_0.425px_transparent,0_0.85px_0.85px_-0.85px_transparent,0_0.85px_1.7px_0_transparent]"
 						data-transcript-fold-summary-tag
 					>
 						{count.toLocaleString()} {label}

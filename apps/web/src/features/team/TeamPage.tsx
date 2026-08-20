@@ -9,76 +9,76 @@ import {
 	CardTitle,
 } from "@/app/ui/card";
 import { Skeleton } from "@/app/ui/skeleton";
-import { TeamMembersCardGrid } from "@/features/team/components/TeamMembersCardGrid";
+import { TeamMemberOverviewTable } from "@/features/team/components/TeamMemberOverviewTable";
 import {
 	type TeamPageDiagnostics,
 	useTeamPageData,
 } from "@/features/team/use-team-page-data";
 
-const teamBoardCardSkeletonKeys = [
-	"card-alpha",
-	"card-bravo",
-	"card-charlie",
-	"card-delta",
-	"card-echo",
-	"card-foxtrot",
+const teamTableRowSkeletonKeys = [
+	"row-alpha",
+	"row-bravo",
+	"row-charlie",
+	"row-delta",
+	"row-echo",
+	"row-foxtrot",
 ] as const;
 
-const teamBoardMetricSkeletonKeys = [
-	"sessions",
-	"days",
-	"avg",
-	"last",
-	"cost",
-	"in-out",
+const teamTableHeaderSkeletons = [
+	{ key: "teammate", widthClass: "w-20" },
+	{ key: "models", widthClass: "w-28" },
+	{ key: "activity", widthClass: "w-16" },
+	{ key: "sessions", widthClass: "w-16" },
+	{ key: "tokens", widthClass: "w-20" },
+	{ key: "cost", widthClass: "w-16" },
+	{ key: "active", widthClass: "w-20" },
 ] as const;
 
 function TeamPageSkeleton() {
 	return (
-		<div className="team-lineup-surface-scope">
-			<ul className="grid justify-center gap-[10px] [grid-template-columns:repeat(auto-fit,minmax(233px,233px))]">
-				{teamBoardCardSkeletonKeys.map((cardKey) => (
-					<li key={cardKey} className="list-none">
-						<div className="team-lineup-featured-card relative isolate flex h-[358px] w-[233px] flex-col overflow-hidden rounded-[18px] border border-[#ECECEC] bg-[linear-gradient(180deg,#fbfcfe_0%,#f0f3f7_100%)] px-[14px] pt-[15px] pb-[10px] shadow-[0_0_10.1px_rgba(0,0,0,0.08)]">
-							<div className="flex items-center justify-between">
-								<div className="flex items-center gap-[6px]">
-									<Skeleton className="h-[17px] w-[56px] rounded-full" />
-									<Skeleton className="h-[10px] w-[34px] rounded-full" />
-								</div>
-								<Skeleton className="h-[12px] w-[52px] rounded-full" />
-							</div>
-
-							<div className="mt-[12px] h-[158px] w-full rounded-[14px] border border-black/8 bg-white/86 p-[10px]">
-								<div className="relative h-full w-full overflow-hidden rounded-[10px] bg-muted/50">
-									<Skeleton className="h-full w-full rounded-[10px]" />
-									<Skeleton className="absolute right-[10px] bottom-[10px] h-[22px] w-[88px] rounded-full" />
-								</div>
-							</div>
-
-							<div className="mt-[16px] px-[3px] text-center">
-								<div className="flex justify-center">
-									<Skeleton className="h-[19px] w-[124px] rounded-full" />
-								</div>
-								<div className="mt-[8px] flex justify-center">
-									<Skeleton className="h-[16px] w-[132px] rounded-full" />
-								</div>
-							</div>
-
-							<div className="mt-auto grid grid-cols-3 gap-[6px]">
-								{teamBoardMetricSkeletonKeys.map((metricKey) => (
-									<div
-										key={`${cardKey}-${metricKey}`}
-										className="rounded-[10px] border border-black/8 bg-white/74 px-[8px] py-[6px] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]"
-									>
-										<Skeleton className="h-[11px] w-[52px] rounded-full" />
-										<Skeleton className="mt-[4px] h-[8px] w-[32px] rounded-full" />
-									</div>
-								))}
+		<div className="-mx-4 -my-2 overflow-hidden lg:-mx-6">
+			<div className="min-w-272 px-16 py-2">
+				<div className="grid h-10 grid-cols-[24fr_21fr_16fr_9fr_10fr_9fr_11fr] items-center border-b border-black/10 dark:border-white/10">
+					{teamTableHeaderSkeletons.map((skeleton, index) => (
+						<div key={skeleton.key} className={index === 0 ? "pr-3" : "px-3"}>
+							<Skeleton className={`h-3 rounded-sm ${skeleton.widthClass}`} />
+						</div>
+					))}
+				</div>
+				{teamTableRowSkeletonKeys.map((rowKey) => (
+					<div
+						key={rowKey}
+						className="grid h-16 grid-cols-[24fr_21fr_16fr_9fr_10fr_9fr_11fr] items-center border-b border-black/5 dark:border-white/5"
+					>
+						<div className="flex items-center gap-3 pr-3">
+							<Skeleton className="size-10 shrink-0 rounded-full" />
+							<div className="grid gap-1.5">
+								<Skeleton className="h-3.5 w-28 rounded-sm" />
+								<Skeleton className="h-3 w-16 rounded-sm" />
 							</div>
 						</div>
-					</li>
+						<div className="flex gap-1.5 px-3">
+							<Skeleton className="h-6 w-20 rounded-md" />
+							<Skeleton className="h-6 w-16 rounded-md" />
+						</div>
+						<div className="px-3">
+							<Skeleton className="h-7 w-32 rounded-sm" />
+						</div>
+						<div className="flex justify-end px-3">
+							<Skeleton className="h-3.5 w-14 rounded-sm" />
+						</div>
+						<div className="flex justify-end px-3">
+							<Skeleton className="h-3.5 w-12 rounded-sm" />
+						</div>
+						<div className="flex justify-end px-3">
+							<Skeleton className="h-3.5 w-12 rounded-sm" />
+						</div>
+						<div className="flex justify-end pl-3">
+							<Skeleton className="h-3.5 w-20 rounded-sm" />
+						</div>
+					</div>
 				))}
-			</ul>
+			</div>
 		</div>
 	);
 }
@@ -88,11 +88,11 @@ function getErrorMessage(error: unknown) {
 		return error.message;
 	}
 
-	return "We couldn't load the team cards for this workspace.";
+	return "We couldn't load the team roster for this workspace.";
 }
 
 const PRODUCTION_ERROR_MESSAGE =
-	"We couldn't load the team cards for this workspace. Try again, or contact support if the problem continues.";
+	"We couldn't load the team roster for this workspace. Try again, or contact support if the problem continues.";
 
 function getErrorRequestId(error: unknown) {
 	if (
@@ -252,7 +252,7 @@ function TeamPageEmpty() {
 					No team members available
 				</h2>
 				<p className="mt-2 text-sm text-muted-foreground">
-					Add teammates to this workspace to populate the team cards.
+					Add teammates to this workspace to populate the team roster.
 				</p>
 			</CardContent>
 		</Card>
@@ -267,7 +267,7 @@ function TeamPageRefreshButton({
 	onRefresh: () => void;
 }) {
 	return (
-		<div className="mb-4 flex justify-end">
+		<div className="flex justify-end">
 			<Button
 				size="sm"
 				variant="outline"
@@ -287,7 +287,6 @@ function TeamPageRefreshButton({
 export function TeamPage() {
 	const {
 		canInviteTeamMembers,
-		currentUserId,
 		diagnostics,
 		error,
 		isError,
@@ -314,13 +313,21 @@ export function TeamPage() {
 	}
 
 	let content = (
-		<TeamMembersCardGrid
+		<TeamMemberOverviewTable
 			canInviteTeamMembers={canInviteTeamMembers}
-			currentUserId={currentUserId}
 			organizationId={diagnostics.organizationId}
 			rows={teamMemberRows}
 		/>
 	);
+	/*
+	 * Legacy agent-card overview retained for rollback:
+	 * <TeamMembersCardGrid
+	 *   canInviteTeamMembers={canInviteTeamMembers}
+	 *   currentUserId={currentUserId}
+	 *   organizationId={diagnostics.organizationId}
+	 *   rows={teamMemberRows}
+	 * />
+	 */
 
 	if (isPending) {
 		content = <TeamPageSkeleton />;
@@ -341,7 +348,7 @@ export function TeamPage() {
 	}
 
 	return (
-		<div className="px-4 lg:px-6">
+		<div className="flex flex-col gap-6 px-4 lg:px-6">
 			<TeamPageRefreshButton
 				isRefreshing={isRefreshing}
 				onRefresh={() => {

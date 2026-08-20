@@ -62,6 +62,13 @@ Session details use one transcript renderer: `detailOverview` supplies ledger su
 | `USAGE_EXTRACTION_QUEUE_PER_USER_MAX_BYTES` | No | Maximum active-plus-queued extraction bytes for one authenticated user (default: 128 MiB). |
 | `USAGE_EXTRACTION_QUEUE_PER_USER_MAX_JOBS` | No | Maximum active-plus-queued extraction jobs for one authenticated user (default: 5). |
 | `USAGE_EXTRACTION_QUEUE_TIMEOUT_MS` | No | Extraction worker timeout in milliseconds (default: 30,000). |
+| `SKILL_EXTRACTION_ENABLED` | No | Ingest-time persistent skill extraction kill switch (default: `true`). The shared extraction worker is also bypassed when both usage and skill extraction are disabled. |
+| `SKILL_ANALYTICS_CUTOVER_MODE` | No | Persistent skill-read routing: `off`, `canary`, or `all`. Missing and invalid values fail closed to the temporary legacy reader. |
+| `SKILL_ANALYTICS_CANARY_ORG_IDS` | No | Comma-separated organization IDs routed to persistent skill reads in `canary` mode. An empty list keeps the cutover off. |
+| `SKILL_BACKFILL_MAX_SESSIONS` | No | Hard raw-session census bound for the skill backfill (default: 10,000). |
+| `SKILL_BACKFILL_MAX_SESSION_BYTES` | No | Maximum raw transcript bytes processed per skill-backfill session (default: 512 MiB). |
+| `SKILL_BACKFILL_BATCH_MAX_ROWS` | No | Maximum raw sessions returned in one skill-backfill batch (default: 64). |
+| `SKILL_BACKFILL_BATCH_MAX_BYTES` | No | Target raw transcript bytes per skill-backfill batch (default: 128 MiB). |
 | `LANGUAGE_SIGNAL_RECONCILE_INTERVAL_MS` | No | Delay between per-process language-signal reconciliation passes in milliseconds (default: 60,000). |
 | `LANGUAGE_SIGNAL_RECONCILE_BATCH_SIZE` | No | Maximum stale or missing sessions scanned per language-signal reconciliation batch (default: 25). |
 | `RATE_LIMIT_INGEST_REQUESTS_MAX` | No | Positive integer per-user ingest request cap per API process (default: 15,000) |

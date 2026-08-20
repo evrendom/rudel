@@ -50,7 +50,7 @@ export function HistoricalSkillDetailSheet({
 						{skillName ?? "Skill details"}
 					</SheetTitle>
 					<SheetDescription className="text-base sm:text-sm">
-						Historical content recovered from Codex sessions.
+						Historical content recovered from Claude and Codex sessions.
 					</SheetDescription>
 				</SheetHeader>
 				<div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:px-7">
@@ -79,7 +79,7 @@ export function HistoricalSkillDetailContent({
 	isPending: boolean;
 	onRetry: () => void;
 }) {
-	const [selectedVersionHash, setSelectedVersionHash] = useState<string | null>(
+	const [selectedVersionKey, setSelectedVersionKey] = useState<string | null>(
 		null,
 	);
 
@@ -109,13 +109,24 @@ export function HistoricalSkillDetailContent({
 
 	const selectedVersion =
 		detail.versions.find(
-			(version) => version.contentSha256 === selectedVersionHash,
+			(version) => getVersionKey(version) === selectedVersionKey,
 		) ?? detail.versions[0];
 
 	return (
 		<div className="flex min-w-0 flex-col gap-6">
 			<div className="flex flex-col gap-1 text-base text-[color:var(--dashboardy-muted)] sm:text-sm">
 				<p>{formatSessionCount(detail.sessionCount)}</p>
+				<p>
+					{detail.claudeSessionCount > 0
+						? `${detail.claudeSessionCount} Claude`
+						: null}
+					{detail.claudeSessionCount > 0 && detail.codexSessionCount > 0
+						? " · "
+						: null}
+					{detail.codexSessionCount > 0
+						? `${detail.codexSessionCount} Codex`
+						: null}
+				</p>
 				<p>
 					{detail.versions.length}{" "}
 					{detail.versions.length === 1
@@ -140,8 +151,8 @@ export function HistoricalSkillDetailContent({
 								Version
 							</label>
 							<Select
-								value={selectedVersion.contentSha256}
-								onValueChange={setSelectedVersionHash}
+								value={getVersionKey(selectedVersion)}
+								onValueChange={setSelectedVersionKey}
 							>
 								<SelectTrigger
 									id="historical-skill-version"
@@ -152,8 +163,8 @@ export function HistoricalSkillDetailContent({
 								<SelectContent align="start">
 									{detail.versions.map((version, index) => (
 										<SelectItem
-											key={version.contentSha256}
-											value={version.contentSha256}
+											key={getVersionKey(version)}
+											value={getVersionKey(version)}
 										>
 											{formatVersionLabel(
 												version,
@@ -169,6 +180,7 @@ export function HistoricalSkillDetailContent({
 
 					<div className="flex min-w-0 flex-col gap-4">
 						<div className="flex flex-wrap gap-x-4 gap-y-1 border-b border-[color:var(--dashboardy-border)] pb-4 text-base text-[color:var(--dashboardy-muted)] sm:text-sm">
+							<span>{formatAgentLabel(selectedVersion.sourceAgent)}</span>
 							<span>{formatSessionCount(selectedVersion.sessionCount)}</span>
 							<span>
 								First used {formatFullDateLabel(selectedVersion.firstUsedAt)}
@@ -189,9 +201,8 @@ export function HistoricalSkillDetailContent({
 						No complete content was recovered
 					</h3>
 					<p className="mx-auto mt-1 max-w-md text-base leading-7 text-[color:var(--dashboardy-muted)] sm:text-sm sm:leading-6">
-						The skill remains in this list because Codex recorded its use, but
-						none of the historical reads proved that the full SKILL.md was
-						returned.
+						The skill remains in this list because a session recorded its use,
+						but no complete historical SKILL.md body was available.
 					</p>
 				</div>
 			)}
@@ -240,9 +251,19 @@ function formatVersionLabel(
 	versionCount: number,
 ): string {
 	const ordinal = versionCount - index;
-	return `Version ${ordinal} · ${formatSessionCount(version.sessionCount)} · Last used ${formatFullDateLabel(version.lastUsedAt)}`;
+	return `Version ${ordinal} · ${formatAgentLabel(version.sourceAgent)} · ${formatSessionCount(version.sessionCount)} · Last used ${formatFullDateLabel(version.lastUsedAt)}`;
 }
 
 function formatSessionCount(sessionCount: number): string {
 	return `Used in ${sessionCount} ${sessionCount === 1 ? "session" : "sessions"}`;
+}
+
+function formatAgentLabel(
+	agent: HistoricalSkillVersion["sourceAgent"],
+): string {
+	return agent === "claude" ? "Claude" : "Codex";
+}
+
+function getVersionKey(version: HistoricalSkillVersion): string {
+	return `${version.sourceAgent}:${version.contentSha256}`;
 }

@@ -1,10 +1,9 @@
-import { ArrowUpRightIcon, LinkIcon } from "lucide-react";
+import { ArrowUpRightIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { toast } from "sonner";
 import { appRoutes } from "@/app/routes";
-import { Button, buttonVariants } from "@/app/ui/button";
+import { buttonVariants } from "@/app/ui/button";
+import { TeamInviteLinkSurface } from "@/features/team/components/TeamInviteLinkSurface";
 import type { TeamPageMemberRow } from "@/features/team/use-team-page-data";
 import { resolveWrappedArchetypeCardThemeByClassifierKey } from "@/features/wrapped/team-card/archetypes";
 import { WrappedTeamCardArtboardFrame } from "@/features/wrapped/team-card/artboard-frame";
@@ -14,12 +13,9 @@ import {
 	type WrappedTeamMemberCardStatItem,
 } from "@/features/wrapped/team-card/card";
 import { UNKNOWN_GUEST_CARD_PRESET } from "@/features/wrapped/wrapped-guest-card-presets";
-import { copyTextToClipboardWithResult } from "@/lib/clipboard";
-import { client } from "@/lib/orpc";
 import "@/features/wrapped/wrapped.css";
 
 const TEAM_CARD_UNCLASSIFIED_ARCHETYPE_LABEL = "Unclassified";
-const TEAM_LINK_COPY_RESET_MS = 1800;
 
 const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
 	currency: "USD",
@@ -229,168 +225,10 @@ function TeamCardShapePlaceholder({
 					<p className="max-w-[19ch] text-center text-sm font-medium text-pretty text-muted-foreground">
 						Add more members to your team with this link
 					</p>
-					<TeamLinkCopySurface organizationId={organizationId} />
+					<TeamInviteLinkSurface organizationId={organizationId} />
 				</div>
 			</article>
 		</WrappedTeamCardArtboardFrame>
-	);
-}
-
-function TeamLinkCopySurface({ organizationId }: { organizationId: string }) {
-	const [isInviteLinkPending, setIsInviteLinkPending] = useState(false);
-	const [teamInviteLink, setTeamInviteLink] = useState<string | null>(null);
-	const [copied, setCopied] = useState(false);
-	const resetTimeoutRef = useRef<number | null>(null);
-
-	useEffect(() => {
-		return () => {
-			if (resetTimeoutRef.current !== null) {
-				window.clearTimeout(resetTimeoutRef.current);
-			}
-		};
-	}, []);
-
-	async function handleCopyTeamLink() {
-		if (!teamInviteLink) {
-			return;
-		}
-
-		const result = await copyTextToClipboardWithResult(teamInviteLink, {
-			preferSelectionCopy: true,
-			allowPromptFallback: true,
-			promptMessage: "Copy team link: Cmd/Ctrl+C, Enter",
-		});
-
-		if (result !== "copied") {
-			return;
-		}
-
-		if (resetTimeoutRef.current !== null) {
-			window.clearTimeout(resetTimeoutRef.current);
-		}
-
-		setCopied(true);
-		resetTimeoutRef.current = window.setTimeout(() => {
-			setCopied(false);
-			resetTimeoutRef.current = null;
-		}, TEAM_LINK_COPY_RESET_MS);
-	}
-
-	async function handleCreateTeamInviteLink() {
-		setIsInviteLinkPending(true);
-		try {
-			const link = await client.teamInviteLink.create({ organizationId });
-			setTeamInviteLink(link.invite_url);
-			toast.success("Invite link created");
-		} catch {
-			toast.error("Failed to create invite link");
-		} finally {
-			setIsInviteLinkPending(false);
-		}
-	}
-
-	async function handleRevokeTeamInviteLink() {
-		setIsInviteLinkPending(true);
-		try {
-			await client.teamInviteLink.revoke({ organizationId });
-			setTeamInviteLink(null);
-			toast.success("Invite links revoked");
-		} catch {
-			toast.error("Failed to revoke invite links");
-		} finally {
-			setIsInviteLinkPending(false);
-		}
-	}
-
-	if (!teamInviteLink) {
-		return (
-			<div className="flex w-full flex-col items-center gap-2">
-				<Button
-					className="relative"
-					disabled={isInviteLinkPending}
-					onClick={() => void handleCreateTeamInviteLink()}
-					size="sm"
-					type="button"
-					variant="outline"
-				>
-					<span
-						aria-hidden="true"
-						className="pointer-fine:hidden absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2"
-					/>
-					Create link
-				</Button>
-				<Button
-					className="relative"
-					disabled={isInviteLinkPending}
-					onClick={() => void handleRevokeTeamInviteLink()}
-					size="sm"
-					type="button"
-					variant="link"
-				>
-					<span
-						aria-hidden="true"
-						className="pointer-fine:hidden absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2"
-					/>
-					Revoke existing link
-				</Button>
-			</div>
-		);
-	}
-
-	return (
-		<div className="flex w-full flex-col gap-2">
-			<div className="grid h-11 w-full min-w-0 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-1 rounded-full border border-border/60 bg-background p-1">
-				<LinkIcon
-					aria-hidden="true"
-					className="mx-auto size-4 shrink-0 text-muted-foreground"
-				/>
-				<div
-					className="min-w-0 truncate [font-family:var(--font-mono)] text-[0.82rem] font-medium text-[#22201f]"
-					title={teamInviteLink}
-				>
-					{teamInviteLink}
-				</div>
-				<button
-					aria-label={copied ? "Copied team link" : "Copy team link"}
-					className="flex h-full min-w-18 items-center justify-center rounded-full bg-[#22201f] px-4 [font-family:var(--font-sans)] text-[0.86rem] font-bold text-[#fffaf5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#22201f]/30 disabled:cursor-not-allowed disabled:bg-muted-foreground/40 disabled:text-background"
-					disabled={isInviteLinkPending}
-					onClick={() => void handleCopyTeamLink()}
-					type="button"
-				>
-					{copied ? "Copied" : "Copy"}
-				</button>
-			</div>
-			<div className="flex justify-center gap-1">
-				<Button
-					className="relative"
-					disabled={isInviteLinkPending}
-					onClick={() => void handleCreateTeamInviteLink()}
-					size="sm"
-					type="button"
-					variant="ghost"
-				>
-					<span
-						aria-hidden="true"
-						className="pointer-fine:hidden absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2"
-					/>
-					Replace
-				</Button>
-				<Button
-					className="relative"
-					disabled={isInviteLinkPending}
-					onClick={() => void handleRevokeTeamInviteLink()}
-					size="sm"
-					type="button"
-					variant="ghost"
-				>
-					<span
-						aria-hidden="true"
-						className="pointer-fine:hidden absolute top-1/2 left-1/2 size-[max(100%,3rem)] -translate-1/2"
-					/>
-					Revoke
-				</Button>
-			</div>
-		</div>
 	);
 }
 

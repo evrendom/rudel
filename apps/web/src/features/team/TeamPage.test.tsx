@@ -8,9 +8,9 @@ const { mockRefetch, mockUseTeamPageData } = vi.hoisted(() => ({
 	mockUseTeamPageData: vi.fn(),
 }));
 
-vi.mock("@/features/team/components/TeamMembersCardGrid", () => ({
-	TeamMembersCardGrid: ({ rows }: { rows: readonly unknown[] }) => (
-		<div>Team card grid: {rows.length}</div>
+vi.mock("@/features/team/components/TeamMemberOverviewTable", () => ({
+	TeamMemberOverviewTable: ({ rows }: { rows: readonly unknown[] }) => (
+		<div>Team member table: {rows.length}</div>
 	),
 }));
 
@@ -24,6 +24,7 @@ describe("TeamPage", () => {
 		mockRefetch.mockResolvedValue(undefined);
 		mockUseTeamPageData.mockReset();
 		mockUseTeamPageData.mockReturnValue({
+			canInviteTeamMembers: false,
 			diagnostics: {
 				days: 365,
 				endDate: "2026-04-22",
@@ -42,6 +43,7 @@ describe("TeamPage", () => {
 			teamMemberRows: [
 				{
 					activeDays: 4,
+					activityTrend: [1, 2, 3],
 					cost: 12,
 					displayName: "Ada",
 					email: "ada@example.com",
@@ -50,6 +52,7 @@ describe("TeamPage", () => {
 					imageUrl: null,
 					inputTokens: 120,
 					lastActiveDate: "2026-04-22",
+					modelUsage: [{ model: "o3", usageCount: 12 }],
 					outputTokens: 240,
 					role: "Member",
 					totalSessions: 12,
@@ -69,7 +72,7 @@ describe("TeamPage", () => {
 
 		render(<TeamPage />);
 
-		expect(screen.getByText("Team card grid: 1")).toBeInTheDocument();
+		expect(screen.getByText("Team member table: 1")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "Refresh" }));
 
 		expect(mockRefetch).toHaveBeenCalledTimes(1);
@@ -82,6 +85,7 @@ describe("TeamPage", () => {
 			data: { requestId: "01f6142a-097f-4635-9fbf-f09d2fcbbff8" },
 		});
 		mockUseTeamPageData.mockReturnValue({
+			canInviteTeamMembers: false,
 			diagnostics: {
 				days: 365,
 				endDate: "2026-04-22",
@@ -104,7 +108,7 @@ describe("TeamPage", () => {
 
 		expect(
 			screen.getByText(
-				"We couldn't load the team cards for this workspace. Try again, or contact support if the problem continues.",
+				"We couldn't load the team roster for this workspace. Try again, or contact support if the problem continues.",
 			),
 		).toBeInTheDocument();
 		expect(

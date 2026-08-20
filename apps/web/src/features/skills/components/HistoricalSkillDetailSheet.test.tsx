@@ -7,9 +7,13 @@ import { HistoricalSkillDetailContent } from "@/features/skills/components/Histo
 const detail: HistoricalSkillDetail = {
 	name: "testing-bun",
 	sessionCount: 5,
+	claudeSessionCount: 3,
+	codexSessionCount: 2,
+	sourceAgents: ["claude", "codex"],
 	unavailableSessionCount: 1,
 	versions: [
 		{
+			sourceAgent: "claude",
 			contentSha256: "a".repeat(64),
 			content: "# New version\n\n- Uses Bun\n",
 			sessionCount: 3,
@@ -17,6 +21,7 @@ const detail: HistoricalSkillDetail = {
 			lastUsedAt: "2026-03-01T00:00:00Z",
 		},
 		{
+			sourceAgent: "codex",
 			contentSha256: "b".repeat(64),
 			content: "# Old version\n\nEarlier guidance.\n",
 			sessionCount: 2,
@@ -59,7 +64,9 @@ describe("HistoricalSkillDetailContent", () => {
 		);
 
 		await user.click(screen.getByRole("combobox", { name: "Version" }));
-		await user.click(screen.getByText(/Version 1 · Used in 2 sessions/i));
+		await user.click(
+			screen.getByText(/Version 1 · Codex · Used in 2 sessions/i),
+		);
 
 		expect(
 			screen.getByRole("heading", { name: "Old version" }),
@@ -98,6 +105,9 @@ describe("HistoricalSkillDetailContent", () => {
 				detail={{
 					name: "testing-bun",
 					sessionCount: 2,
+					claudeSessionCount: 0,
+					codexSessionCount: 2,
+					sourceAgents: ["codex"],
 					unavailableSessionCount: 2,
 					versions: [],
 				}}

@@ -7,6 +7,7 @@ import {
 } from "@rudel/usage-events";
 import { readPositiveSafeIntegerEnv } from "../lib/env.js";
 import type {
+	SessionFactsExtractionResult,
 	UsageExtractionTelemetry,
 	UsageExtractionWorkerResponse,
 } from "./usage-extraction.types.js";
@@ -36,8 +37,10 @@ export interface UsageExtractionQueueMetrics {
 
 export interface UsageExtractionRequest {
 	readonly bytes: number;
+	readonly extractSkills?: boolean;
 	readonly input: UsageExtractionInput;
 	readonly signal: AbortSignal | undefined;
+	readonly skillSessionDate?: string;
 	readonly userId: string;
 }
 
@@ -51,7 +54,10 @@ interface PendingUsageExtraction extends UsageExtractionRequest {
 	readonly abortListener: () => void;
 	readonly reject: (reason: Error) => void;
 	readonly requestId: number;
-	readonly resolve: (result: UsageExtractionResult) => void;
+	readonly resolve: (
+		usage: UsageExtractionResult,
+		skills: SessionFactsExtractionResult["skills"],
+	) => void;
 	timeout: ReturnType<typeof setTimeout>;
 }
 
@@ -141,6 +147,22 @@ export class UsageExtractionQueue {
 	constructor(private readonly config: UsageExtractionQueueConfig) {}
 
 	extract(request: UsageExtractionRequest): Promise<UsageExtractionResult> {
+		return this.enqueue(request, (usage) => usage);
+	}
+
+	extractSessionFacts(
+		request: UsageExtractionRequest,
+	): Promise<SessionFactsExtractionResult> {
+		return this.enqueue(request, (usage, skills) => ({ skills, usage }));
+	}
+
+	private enqueue<TResult>(
+		request: UsageExtractionRequest,
+		mapResult: (
+			usage: UsageExtractionResult,
+			skills: SessionFactsExtractionResult["skills"],
+		) => TResult,
+	): Promise<TResult> {
 		if (this.closed) {
 			return Promise.reject(new UsageExtractionQueueClosedError());
 		}
@@ -167,7 +189,7 @@ export class UsageExtractionQueue {
 				abortListener,
 				reject,
 				requestId,
-				resolve,
+				resolve: (usage, skills) => resolve(mapResult(usage, skills)),
 				timeout,
 			});
 			this.totalQueuedBytes += request.bytes;
@@ -244,8 +266,10 @@ export class UsageExtractionQueue {
 		this.lastStartedUserId = request.userId;
 		try {
 			this.getWorker().postMessage({
+				extractSkills: request.extractSkills,
 				input: request.input,
 				requestId: request.requestId,
+				skillSessionDate: request.skillSessionDate,
 			});
 		} catch (error) {
 			this.stopWorker();
@@ -324,7 +348,7 @@ export class UsageExtractionQueue {
 			);
 		} else {
 			this.recordTelemetry(response.telemetry, response.result);
-			request.resolve(response.result);
+			request.resolve(response.result, response.skills);
 		}
 		this.dispatchNext();
 	}
@@ -445,6 +469,12 @@ export function extractUsageEventsOffThread(
 	request: UsageExtractionRequest,
 ): Promise<UsageExtractionResult> {
 	return usageExtractionQueue.extract(request);
+}
+
+export function extractSessionFactsOffThread(
+	request: UsageExtractionRequest,
+): Promise<SessionFactsExtractionResult> {
+	return usageExtractionQueue.extractSessionFacts(request);
 }
 
 export function getUsageExtractionQueueMetrics(): UsageExtractionQueueMetrics {

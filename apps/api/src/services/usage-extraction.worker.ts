@@ -1,4 +1,5 @@
 import { extractUsageEvents } from "@rudel/usage-events";
+import { extractSessionSkills } from "./skill-extraction.js";
 import type {
 	UsageExtractionWorkerRequest,
 	UsageExtractionWorkerResponse,
@@ -18,9 +19,18 @@ self.addEventListener(
 		const startedAt = performance.now();
 		try {
 			const result = extractUsageEvents(event.data.input);
+			const skills = event.data.extractSkills
+				? extractSessionSkills({
+						content: event.data.input.content,
+						sessionDate:
+							event.data.skillSessionDate ?? "1970-01-01T00:00:00.000Z",
+						source: event.data.input.source,
+					})
+				: null;
 			self.postMessage({
 				requestId: event.data.requestId,
 				result,
+				skills,
 				status: "success",
 				telemetry: {
 					contentBytes: getContentBytes(event.data.input),

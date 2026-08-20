@@ -49,7 +49,7 @@ export function SkillsPageView({
 							id="historical-skills-heading"
 							className="truncate text-base font-medium text-[color:var(--dashboardy-heading)]"
 						>
-							Historical Codex skills
+							Historical skills
 						</h2>
 					</div>
 				</div>
@@ -118,7 +118,7 @@ function SkillsListState({
 			<SkillsStateMessage
 				icon={<BookOpenIcon aria-hidden="true" />}
 				title="Skills couldn’t be loaded"
-				description="The historical Codex sessions are still available. Try loading this view again."
+				description="Your historical sessions are still available. Try loading this view again."
 				action={
 					<Button type="button" size="sm" variant="outline" onClick={onRetry}>
 						Try again
@@ -132,8 +132,8 @@ function SkillsListState({
 		return (
 			<SkillsStateMessage
 				icon={<BookOpenIcon aria-hidden="true" />}
-				title="No Codex skills yet"
-				description="Skills will appear here when existing Codex sessions include a recorded skill read."
+				title="No skills yet"
+				description="Skills will appear here when Claude or Codex sessions include a recorded skill use."
 			/>
 		);
 	}
@@ -178,7 +178,7 @@ function SkillsTable({
 
 				{filteredSkills.length > 0 ? (
 					<ul
-						aria-label="Historical Codex skills"
+						aria-label="Historical skills"
 						className="flex-1 list-none divide-y divide-black/5 dark:divide-white/8"
 					>
 						{filteredSkills.map((skill) => (
@@ -197,9 +197,23 @@ function SkillsTable({
 										</p>
 									</div>
 									<div className="flex min-w-0 items-center border-r border-black/6 bg-[color:var(--dashboardy-subsurface)] px-4 group-hover:bg-black/3 group-focus-visible:bg-black/3 dark:border-white/8 dark:group-hover:bg-white/4 dark:group-focus-visible:bg-white/4">
-										<p className="min-w-0 truncate whitespace-nowrap font-mono text-base tabular-nums text-[color:var(--dashboardy-muted)] sm:text-sm">
-											{formatSessionCount(skill.sessionCount)}
-										</p>
+										<div className="flex min-w-0 flex-wrap items-center gap-1.5">
+											<span className="font-mono text-base tabular-nums text-[color:var(--dashboardy-muted)] sm:text-sm">
+												{formatSessionCount(skill.sessionCount)}
+											</span>
+											{skill.claudeSessionCount > 0 ? (
+												<AgentCountBadge
+													agent="Claude"
+													count={skill.claudeSessionCount}
+												/>
+											) : null}
+											{skill.codexSessionCount > 0 ? (
+												<AgentCountBadge
+													agent="Codex"
+													count={skill.codexSessionCount}
+												/>
+											) : null}
+										</div>
 									</div>
 									<div className="bg-[color:var(--dashboardy-surface-opaque)] group-hover:bg-black/3 group-focus-visible:bg-black/3 dark:group-hover:bg-white/4 dark:group-focus-visible:bg-white/4" />
 								</button>
@@ -317,4 +331,18 @@ function formatSessionCount(sessionCount: number): string {
 	return `Used in ${sessionCount.toLocaleString()} ${
 		sessionCount === 1 ? "session" : "sessions"
 	}`;
+}
+
+function AgentCountBadge({
+	agent,
+	count,
+}: {
+	agent: "Claude" | "Codex";
+	count: number;
+}) {
+	return (
+		<span className="rounded-full border border-[color:var(--dashboardy-border)] px-1.5 py-0.5 font-mono text-[11px] leading-none text-[color:var(--dashboardy-muted)]">
+			{agent} {count.toLocaleString()}
+		</span>
+	);
 }

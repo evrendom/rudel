@@ -5,6 +5,8 @@ import { sqlClient } from "../db.js";
 
 const SESSION_ANALYTICS_TABLE = "rudel.session_analytics";
 const SESSION_LANGUAGE_SIGNALS_TABLE = "rudel.session_language_signals";
+const SKILL_RECEIPTS_TABLE = "rudel.skill_receipts";
+const SKILL_USES_TABLE = "rudel.skill_uses";
 const USAGE_EVENTS_TABLE = "rudel.usage_events";
 const OWNERSHIP_OPERATION_LOCK_ID = 941_821_301;
 const DELETE_BATCH_SIZE = 10;
@@ -156,7 +158,9 @@ async function getSessionRowGroups(
 	const cutoffColumn =
 		table === SESSION_LANGUAGE_SIGNALS_TABLE
 			? "raw_ingested_at"
-			: "ingested_at";
+			: table === SKILL_USES_TABLE || table === SKILL_RECEIPTS_TABLE
+				? "extracted_at"
+				: "ingested_at";
 	return getClickhouse().query<SessionRowGroup>({
 		clickhouse_settings: CLEANUP_QUERY_SETTINGS,
 		query: `
@@ -213,6 +217,8 @@ function getCleanupTableNames(): string[] {
 		...getAllAdapters().map((adapter) => adapter.rawTableName),
 		SESSION_ANALYTICS_TABLE,
 		SESSION_LANGUAGE_SIGNALS_TABLE,
+		SKILL_RECEIPTS_TABLE,
+		SKILL_USES_TABLE,
 		USAGE_EVENTS_TABLE,
 	];
 }

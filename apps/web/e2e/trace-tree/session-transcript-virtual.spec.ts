@@ -837,6 +837,12 @@ test("semantic folds expand in place and survive keyed prepends", async ({
 	await expect(foldTreeItem).toHaveAttribute("data-trace-tree-item-depth", "1");
 	const summaryTags = fold.locator("[data-transcript-fold-summary-tag]");
 	await expect(summaryTags).toHaveCount(7);
+	await expect(fold.locator("[data-transcript-fold-summary-tags]")).toHaveCSS(
+		"overflow-y",
+		"visible",
+	);
+	await expect(summaryTags.first()).toHaveCSS("font-size", "11px");
+	await expect(summaryTags.first()).toHaveCSS("height", "20px");
 	for (const label of [
 		"Reasoning",
 		"Messages",
@@ -889,6 +895,29 @@ test("semantic folds expand in place and survive keyed prepends", async ({
 	await expect(scroller).toHaveAttribute(
 		"data-transcript-true-blank-frames",
 		"0",
+	);
+});
+
+test("semantic fold tags fit at a split-pane width", async ({ page }) => {
+	await page.setViewportSize({ width: 570, height: 800 });
+	const scroller = await openVirtualFixture(page, "folds=1&turns=8");
+	const fold = scroller.locator("[data-transcript-fold-turn-id]").first();
+	const modelHeader = fold.locator(
+		"xpath=ancestor::*[@data-transcript-model-header-source='row'][1]",
+	);
+	const summaryTags = fold.locator("[data-transcript-fold-summary-tags]");
+	const lastTag = fold.locator("[data-transcript-fold-summary-tag]").last();
+
+	await expect(summaryTags).toBeVisible();
+	await expect(lastTag).toBeVisible();
+	const [modelHeaderBox, lastTagBox] = await Promise.all([
+		modelHeader.boundingBox(),
+		lastTag.boundingBox(),
+	]);
+	expect(modelHeaderBox).not.toBeNull();
+	expect(lastTagBox).not.toBeNull();
+	expect((lastTagBox?.x ?? 0) + (lastTagBox?.width ?? 0)).toBeLessThanOrEqual(
+		(modelHeaderBox?.x ?? 0) + (modelHeaderBox?.width ?? 0),
 	);
 });
 

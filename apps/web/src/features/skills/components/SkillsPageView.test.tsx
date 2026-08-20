@@ -4,11 +4,23 @@ import { describe, expect, it, vi } from "vitest";
 import { SkillsPageView } from "@/features/skills/components/SkillsPageView";
 
 const skills = [
-	{ name: "testing-bun", sessionCount: 12 },
-	{ name: "Design", sessionCount: 3 },
+	{
+		name: "testing-bun",
+		sessionCount: 12,
+		claudeSessionCount: 7,
+		codexSessionCount: 5,
+	},
+	{
+		name: "Design",
+		sessionCount: 3,
+		claudeSessionCount: 3,
+		codexSessionCount: 0,
+	},
 	{
 		name: "a-very-long-skill-name-that-needs-to-wrap-without-breaking-the-row-layout",
 		sessionCount: 1,
+		claudeSessionCount: 0,
+		codexSessionCount: 1,
 	},
 ] as const;
 
@@ -29,6 +41,8 @@ describe("SkillsPageView", () => {
 
 		expect(screen.getByText("testing-bun")).toBeInTheDocument();
 		expect(screen.getByText("Used in 12 sessions")).toBeInTheDocument();
+		expect(screen.getByText("Claude 7")).toBeInTheDocument();
+		expect(screen.getByText("Codex 5")).toBeInTheDocument();
 		expect(
 			screen.getByText(
 				"a-very-long-skill-name-that-needs-to-wrap-without-breaking-the-row-layout",
@@ -118,6 +132,6 @@ describe("SkillsPageView", () => {
 				onSelectSkill={vi.fn()}
 			/>,
 		);
-		expect(screen.getByText("No Codex skills yet")).toBeInTheDocument();
+		expect(screen.getByText("No skills yet")).toBeInTheDocument();
 	});
 });
