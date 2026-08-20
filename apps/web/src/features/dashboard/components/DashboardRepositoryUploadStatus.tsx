@@ -68,9 +68,9 @@ function RepositoryUploadStatusSkeleton() {
 							<Skeleton className="h-3.5 w-28 max-w-full rounded" />
 							<Skeleton className="h-3 w-6 shrink-0 rounded" />
 						</div>
-						<div className="flex w-20 shrink-0 flex-col items-end gap-1">
+						<div className="flex w-32 shrink-0 items-center justify-end gap-2">
 							<Skeleton className="h-3 w-12 rounded" />
-							<Skeleton className="h-3 w-14 rounded" />
+							<Skeleton className="h-3 w-12 rounded" />
 						</div>
 					</div>
 				</div>
@@ -111,18 +111,18 @@ export function DashboardRepositoryUploadStatus({
 				</p>
 			</header>
 
-			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
+			<div className="min-h-0 flex-1 overflow-hidden">
 				{isPending ? (
 					<RepositoryUploadStatusSkeleton />
 				) : repositoryRows.length > 0 ? (
-					<ul className="grid list-none divide-y divide-[color:var(--dashboardy-border)]">
+					<ul className="flex h-full min-h-0 list-none flex-col divide-y divide-[color:var(--dashboardy-border)]">
 						{repositoryRows.map((row) => {
 							const isAutomatic = row.automatedSessions > 0;
 
 							return (
 								<li
 									key={row.key}
-									className="flex min-h-11 items-center justify-between gap-3 px-4 py-1.5"
+									className="flex h-10 min-h-0 shrink items-center justify-between gap-3 overflow-hidden px-4"
 								>
 									<div className="flex min-w-0 flex-1 items-baseline gap-1.5">
 										<p
@@ -141,12 +141,21 @@ export function DashboardRepositoryUploadStatus({
 											</span>
 										</p>
 									</div>
-									<div className="flex w-20 shrink-0 flex-col items-end gap-0.5">
+									<div className="flex w-32 shrink-0 items-center justify-end gap-2 overflow-hidden">
+										<p className="min-w-0 flex-1 truncate text-right text-[0.75rem]/4 tracking-[-0.01em] tabular-nums text-[color:var(--dashboardy-muted)]">
+											<span className="sr-only">Last upload </span>
+											<time
+												dateTime={row.lastSessionAt}
+												title={formatExactDateTime(row.lastSessionAt)}
+											>
+												{formatRelativeTime(row.lastSessionAt)}
+											</time>
+										</p>
 										<p
 											className={
 												isAutomatic
-													? "flex items-center justify-end gap-1.5 text-[0.6875rem]/4 font-semibold tracking-[0.04em] text-[color:var(--dashboardy-success-foreground)]"
-													: "flex items-center justify-end gap-1.5 text-[0.6875rem]/4 font-semibold tracking-[0.04em] text-[color:var(--dashboardy-warning-foreground)]"
+													? "flex w-16 shrink-0 items-center justify-end gap-1.5 text-[0.6875rem]/4 font-semibold tracking-[0.04em] text-[color:var(--dashboardy-success-foreground)]"
+													: "flex w-16 shrink-0 items-center justify-end gap-1.5 text-[0.6875rem]/4 font-semibold tracking-[0.04em] text-[color:var(--dashboardy-warning-foreground)]"
 											}
 										>
 											<span
@@ -164,22 +173,13 @@ export function DashboardRepositoryUploadStatus({
 												{isAutomatic ? "AUTO" : "MANUAL"}
 											</span>
 										</p>
-										<p className="max-w-full truncate text-right text-[0.75rem]/4 tracking-[-0.01em] tabular-nums text-[color:var(--dashboardy-muted)]">
-											<span className="sr-only">Last upload </span>
-											<time
-												dateTime={row.lastSessionAt}
-												title={formatExactDateTime(row.lastSessionAt)}
-											>
-												{formatRelativeTime(row.lastSessionAt)}
-											</time>
-										</p>
 									</div>
 								</li>
 							);
 						})}
 					</ul>
 				) : (
-					<div className="flex min-h-72 items-center justify-center px-4">
+					<div className="flex h-full min-h-0 items-center justify-center px-4">
 						<div className="flex max-w-xs flex-col gap-1 text-center">
 							<p className="text-[0.8125rem]/5 font-[500] tracking-[-0.01em] text-[color:var(--dashboardy-heading)]">
 								No repositories yet
