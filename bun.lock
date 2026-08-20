@@ -27,6 +27,7 @@
         "@rudel/agent-adapters": "workspace:*",
         "@rudel/api-routes": "workspace:*",
         "@rudel/ch-schema": "workspace:*",
+        "@rudel/language-signals": "workspace:*",
         "@rudel/secret-filter": "workspace:*",
         "@rudel/sql-schema": "workspace:*",
         "@rudel/usage-events": "workspace:*",
@@ -91,6 +92,7 @@
         "@orpc/contract": "latest",
         "@orpc/tanstack-query": "latest",
         "@rudel/api-routes": "workspace:*",
+        "@rudel/language-signals": "workspace:*",
         "@tabler/icons-react": "^3.40.0",
         "@tanstack/react-query": "^5.80.0",
         "@tanstack/react-table": "^8.21.3",
@@ -183,6 +185,15 @@
       },
       "devDependencies": {
         "@obsessiondb/chcli": "0.1.1-beta.4",
+        "@rudel/typescript-config": "workspace:*",
+        "bun-types": "latest",
+        "typescript": "5.9.2",
+      },
+    },
+    "packages/language-signals": {
+      "name": "@rudel/language-signals",
+      "version": "0.0.0",
+      "devDependencies": {
         "@rudel/typescript-config": "workspace:*",
         "bun-types": "latest",
         "typescript": "5.9.2",
@@ -845,6 +856,8 @@
     "@rudel/api-routes": ["@rudel/api-routes@workspace:packages/api-routes"],
 
     "@rudel/ch-schema": ["@rudel/ch-schema@workspace:packages/ch-schema"],
+
+    "@rudel/language-signals": ["@rudel/language-signals@workspace:packages/language-signals"],
 
     "@rudel/secret-filter": ["@rudel/secret-filter@workspace:packages/secret-filter"],
 

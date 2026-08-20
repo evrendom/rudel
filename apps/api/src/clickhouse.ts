@@ -8,6 +8,7 @@ const ALLOWED_CLICKHOUSE_TABLES = new Set([
 	"rudel.claude_sessions",
 	"rudel.codex_sessions",
 	"rudel.session_analytics",
+	"rudel.session_language_signals",
 	"rudel.usage_events",
 	"rudel.wrapped_user_archetype_snapshots_v1",
 ]);
@@ -23,7 +24,11 @@ export interface ClickHouseExecutor {
 	close(): Promise<void>;
 	execute(statement: ClickHouseStatement): Promise<void>;
 	query<T>(statement: ClickHouseStatement): Promise<T[]>;
-	insert(params: { table: string; values: object[] }): Promise<void>;
+	insert(params: {
+		asyncInsert?: boolean;
+		table: string;
+		values: object[];
+	}): Promise<void>;
 }
 
 interface LatestRawSessionContentFilters {
@@ -79,8 +84,9 @@ export function buildLatestRawSessionContentSql(
     organization_id,
     user_id,
     session_id,
-    argMax(content, ingested_at) AS content,
-    argMax(subagents, ingested_at) AS subagents
+	argMax(content, ingested_at) AS content,
+	argMax(subagents, ingested_at) AS subagents,
+	formatDateTime(max(ingested_at), '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') AS revision
   FROM (
     SELECT
       'claude_code' AS source,
@@ -160,8 +166,12 @@ export function createClickHouseExecutor(config: {
 			// because ClickHouse Cloud's @clickhouse/client insert() silently drops data.
 			// Single-row transcript inserts hit the parallel JSON parser's ~115 MB cliff.
 			const rows = params.values.map((r) => JSON.stringify(r)).join("\n");
+			const insertSettings =
+				params.asyncInsert === false
+					? "async_insert=0, input_format_parallel_parsing=0"
+					: "async_insert=1, wait_for_async_insert=1, input_format_parallel_parsing=0";
 			await client.command({
-				query: `INSERT INTO ${table} SETTINGS async_insert=1, wait_for_async_insert=1, input_format_parallel_parsing=0 FORMAT JSONEachRow ${rows}`,
+				query: `INSERT INTO ${table} SETTINGS ${insertSettings} FORMAT JSONEachRow ${rows}`,
 			});
 		},
 	};

@@ -10,6 +10,7 @@ import {
 	handleAvatarGetRequest,
 	handleAvatarUploadRequest,
 } from "./handlers/avatar-http.js";
+import { handleSessionDetailStatsRequest } from "./handlers/session-detail-stats-http.js";
 import {
 	readBetterAuthSecret,
 	readBooleanEnv,
@@ -17,6 +18,7 @@ import {
 	readNonNegativeSafeIntegerEnv,
 	readPositiveSafeIntegerEnv,
 } from "./lib/env.js";
+import { maybeCompressSessionDetailRpcResponse } from "./lib/http-compression.js";
 import { shutdownApiProductAnalytics } from "./lib/product-analytics.js";
 import { resolveWrappedShareLookupSource } from "./lib/wrapped-share-lookup-source.js";
 import { setupLogging } from "./logging.js";
@@ -27,6 +29,8 @@ import {
 	getIngestFilterQueueMetrics,
 	shutdownIngestFilterQueue,
 } from "./services/ingest-filter.service.js";
+import { startSessionLanguageSignalReconciliationWorker } from "./services/session-language-signal-reconciliation.service.js";
+import { shutdownSessionLanguageSignalScanner } from "./services/session-language-signal-scanner.service.js";
 import { shutdownUsageExtractionQueue } from "./services/usage-extraction.service.js";
 import {
 	getPublicWrappedShareForPageMetadata,
@@ -47,6 +51,7 @@ const port = process.env.PORT ?? "4010";
 const IS_PRODUCTION =
 	process.env.NODE_ENV === "production" ||
 	process.env.FLY_APP_NAME !== undefined;
+const IS_TEST = process.env.NODE_ENV === "test";
 const DEFAULT_DEV_API_ORIGIN = `http://localhost:${port}`;
 const DEFAULT_DEV_ORIGIN = "http://localhost:4011";
 const DEFAULT_DEV_ORIGINS = [
@@ -357,6 +362,9 @@ const clickHousePurgeWorker = readBooleanEnv(
 )
 	? startClickHousePurgeWorker({ resend })
 	: undefined;
+const sessionLanguageSignalReconciliationWorker = IS_TEST
+	? undefined
+	: startSessionLanguageSignalReconciliationWorker();
 
 function resolveAuthAppURL(input: {
 	defaultDevApiOrigin: string;
@@ -409,9 +417,11 @@ async function shutdown(signal?: string) {
 
 	shutdownIngestFilterQueue();
 	shutdownUsageExtractionQueue();
+	shutdownSessionLanguageSignalScanner();
 	await Promise.all([
 		shutdownApiProductAnalytics(),
 		clickHousePurgeWorker?.stop(),
+		sessionLanguageSignalReconciliationWorker?.stop(),
 	]);
 	if (signal) {
 		server.stop(true);
@@ -489,6 +499,15 @@ async function handleRequest(
 		});
 	}
 
+	if (url.pathname === "/api/dev/session-detail-stats") {
+		return handleSessionDetailStatsRequest({
+			cors,
+			enabled: isLoopbackOrigin(preferredFrontendOrigin),
+			getSession: (req) => auth.api.getSession({ headers: req.headers }),
+			request,
+		});
+	}
+
 	const { matched, response } = await rpcHandler.handle(request, {
 		prefix: "/rpc",
 		context: await getContext(request, requestId, wrappedShareLookupSource),
@@ -506,7 +525,11 @@ async function handleRequest(
 		for (const [key, value] of Object.entries(cors)) {
 			response.headers.set(key, value);
 		}
-		return response;
+		return maybeCompressSessionDetailRpcResponse({
+			pathname: url.pathname,
+			requestHeaders: request.headers,
+			response,
+		});
 	}
 
 	// Static file serving (production: frontend assets)

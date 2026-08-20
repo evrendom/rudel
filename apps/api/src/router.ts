@@ -1,10 +1,11 @@
 import { getLogger } from "@logtape/logtape";
-import { ORPCError } from "@orpc/server";
+import { ORPCError, type Router } from "@orpc/server";
 import {
 	getAdapter,
 	getMissingTranscriptTimestampMessage,
 } from "@rudel/agent-adapters";
 import {
+	type contract,
 	INGEST_AGGREGATE_CONTENT_MAX_BYTES,
 	type IngestSessionInput,
 	PRODUCT_ANALYTICS_EVENTS,
@@ -46,6 +47,7 @@ import {
 	hashProjectPath,
 } from "./lib/product-analytics.js";
 import {
+	type AppContext,
 	authMiddleware,
 	ingestAuthMiddleware,
 	os,
@@ -73,6 +75,7 @@ import {
 	hasOrgUploadsInLastDays,
 } from "./services/org-session.service.js";
 import { hasRawSessionRow } from "./services/raw-session.service.js";
+import { persistSessionLanguageSignalsBestEffort } from "./services/session-language-signal-persistence.service.js";
 import {
 	claimSessionIngestOwnership,
 	recordSessionIngestContent,
@@ -493,6 +496,15 @@ const ingestSessionHandler = os.ingestSession
 			new Date(timestamps.sessionDate),
 			ingestedAt,
 		);
+		void persistSessionLanguageSignalsBestEffort({
+			content: filteredInput.content,
+			organizationId: orgId,
+			rawIngestedAt: ingestedAt,
+			sessionDate: timestamps.sessionDate,
+			sessionId: input.sessionId,
+			source: filteredInput.source,
+			userId: context.user.id,
+		});
 
 		if (!readBooleanEnv("USAGE_EVENT_EXTRACTION_ENABLED", true)) {
 			logger.warn(
@@ -879,7 +891,7 @@ const deleteOrganization = os.deleteOrganization
 		}
 	});
 
-export const router = os.router({
+export const router: Router<typeof contract, AppContext> = os.router({
 	health,
 	me,
 	profile: profileRouter,

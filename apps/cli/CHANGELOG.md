@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.0](https://github.com/evrendom/rudel/compare/rudel@0.2.3...rudel@0.3.0) (2026-08-13)
+
+
+### Features
+
+* **usage:** add request-level usage events ([#433](https://github.com/evrendom/rudel/issues/433)) ([f9013b0](https://github.com/evrendom/rudel/commit/f9013b0f3a12429cab246bf22759fe6e0509397b))
+
+
+### Bug Fixes
+
+* **analytics:** rebuild session identity and retention ([#416](https://github.com/evrendom/rudel/issues/416)) ([4ab3775](https://github.com/evrendom/rudel/commit/4ab37755775db89decc90e8a7aeb446e799dd604))
+* **cli:** repair hooks, endpoints, and dry runs ([#446](https://github.com/evrendom/rudel/issues/446)) ([59a35ca](https://github.com/evrendom/rudel/commit/59a35cab9d7e43d909a45d95962427b33fc5e3f4))
+* **ingest:** protect uploads and retain failures ([#432](https://github.com/evrendom/rudel/issues/432)) ([ac1f9ac](https://github.com/evrendom/rudel/commit/ac1f9acbb24448919631e37b6d730e4cb1d4fe9b))
+* move dashboard analytics server-side ([#444](https://github.com/evrendom/rudel/issues/444)) ([a1cd0e1](https://github.com/evrendom/rudel/commit/a1cd0e1db411efb5da8ce20d5b5ed97c61107ce5))
+
 ## [0.2.3](https://github.com/evrendom/rudel/compare/rudel@0.2.2...rudel@0.2.3) (2026-07-31)
 
 

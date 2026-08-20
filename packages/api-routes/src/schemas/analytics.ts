@@ -346,6 +346,12 @@ export const SessionAnalyticsSchema = z.object({
 	model_used: z.string(),
 	used_plan_mode: z.boolean(),
 	source: SourceSchema.optional(),
+	member_swears: z.number().int().nonnegative().default(0),
+	member_apologies: z.number().int().nonnegative().default(0),
+	member_positive: z.number().int().nonnegative().default(0),
+	model_swears: z.number().int().nonnegative().default(0),
+	model_apologies: z.number().int().nonnegative().default(0),
+	model_positive: z.number().int().nonnegative().default(0),
 });
 
 export const SessionAnalyticsSummarySchema = z.object({
@@ -365,6 +371,30 @@ export const SessionAnalyticsSummaryComparisonSchema = z.object({
 		avg_session_duration_min: z.number(),
 		avg_response_time_sec: z.number(),
 	}),
+});
+
+export const HistoricalSkillSummarySchema = z.object({
+	name: z.string(),
+	sessionCount: z.number().int().nonnegative(),
+});
+
+export const HistoricalSkillVersionSchema = z.object({
+	contentSha256: z.string().length(64),
+	content: z.string(),
+	sessionCount: z.number().int().positive(),
+	firstUsedAt: z.string(),
+	lastUsedAt: z.string(),
+});
+
+export const HistoricalSkillDetailSchema = z.object({
+	name: z.string(),
+	sessionCount: z.number().int().nonnegative(),
+	versions: z.array(HistoricalSkillVersionSchema),
+	unavailableSessionCount: z.number().int().nonnegative(),
+});
+
+export const HistoricalSkillDetailInputSchema = z.object({
+	name: z.string().min(1).max(MAX_ID_FILTER_LENGTH),
 });
 
 export const SessionListInputSchema = DaysInputSchema.extend({
@@ -758,7 +788,29 @@ export type ProjectInvestment = z.infer<typeof ProjectInvestmentSchema>;
 export type ProjectDetailData = z.infer<typeof ProjectDetailDataSchema>;
 export type ProjectContributor = z.infer<typeof ProjectContributorSchema>;
 export type ProjectTrendDataPoint = z.infer<typeof ProjectTrendDataPointSchema>;
-export type SessionAnalytics = z.infer<typeof SessionAnalyticsSchema>;
+type ParsedSessionAnalytics = z.infer<typeof SessionAnalyticsSchema>;
+type SessionLanguageSignalCountKey = `${string}_${
+	| "swears"
+	| "apologies"
+	| "positive"}`;
+
+// Older clients construct SessionAnalytics fixtures without persisted count
+// fields. The response schema still defaults every known field to zero, while
+// this patterned index keeps reads strongly numeric for newer clients.
+export type SessionAnalytics = Omit<
+	ParsedSessionAnalytics,
+	SessionLanguageSignalCountKey
+> & {
+	readonly [key: SessionLanguageSignalCountKey]: number;
+};
+export type SessionListInput = z.input<typeof SessionListInputSchema>;
+export type HistoricalSkillSummary = z.infer<
+	typeof HistoricalSkillSummarySchema
+>;
+export type HistoricalSkillVersion = z.infer<
+	typeof HistoricalSkillVersionSchema
+>;
+export type HistoricalSkillDetail = z.infer<typeof HistoricalSkillDetailSchema>;
 export type SessionDetail = z.infer<typeof SessionDetailSchema>;
 export type DimensionAnalysisDataPoint = z.infer<
 	typeof DimensionAnalysisDataPointSchema

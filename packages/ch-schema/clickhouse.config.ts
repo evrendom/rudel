@@ -6,6 +6,7 @@ import { pull } from "@chkit/plugin-pull";
 import { resolveClickHouseUsername } from "./src/clickhouse-connection.js";
 
 const clickhouseUrl = process.env.CLICKHOUSE_URL ?? "http://localhost:8123";
+const isSchemaGeneration = process.argv.includes("generate");
 
 export default defineConfig({
 	schema: "./src/db/schema/**/*.ts",
@@ -14,7 +15,9 @@ export default defineConfig({
 	metaDir: "./chx/meta",
 	plugins: [
 		pull(),
-		obsessiondb(),
+		// Snapshots describe the environment-independent source schema. Keep Cloud
+		// settings there; the DB-facing commands still adapt them for local ClickHouse.
+		...(isSchemaGeneration ? [] : [obsessiondb()]),
 		codegen({ emitZod: true, emitIngest: true }),
 		backfill({
 			defaults: {

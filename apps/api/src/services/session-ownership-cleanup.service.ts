@@ -4,6 +4,7 @@ import { getClickhouse, getSafeClickHouseTable } from "../clickhouse.js";
 import { sqlClient } from "../db.js";
 
 const SESSION_ANALYTICS_TABLE = "rudel.session_analytics";
+const SESSION_LANGUAGE_SIGNALS_TABLE = "rudel.session_language_signals";
 const USAGE_EVENTS_TABLE = "rudel.usage_events";
 const OWNERSHIP_OPERATION_LOCK_ID = 941_821_301;
 const DELETE_BATCH_SIZE = 10;
@@ -152,6 +153,10 @@ async function getSessionRowGroups(
 	table: string,
 	cutoff: Date,
 ): Promise<SessionRowGroup[]> {
+	const cutoffColumn =
+		table === SESSION_LANGUAGE_SIGNALS_TABLE
+			? "raw_ingested_at"
+			: "ingested_at";
 	return getClickhouse().query<SessionRowGroup>({
 		clickhouse_settings: CLEANUP_QUERY_SETTINGS,
 		query: `
@@ -161,7 +166,7 @@ async function getSessionRowGroups(
 				user_id,
 				count() AS row_count
 			FROM ${getSafeClickHouseTable(table)}
-			WHERE ingested_at <= parseDateTime64BestEffort({cutoff:String})
+			WHERE ${cutoffColumn} <= parseDateTime64BestEffort({cutoff:String})
 			GROUP BY organization_id, session_id, user_id
 		`,
 		query_params: { cutoff: cutoff.toISOString() },
@@ -207,6 +212,7 @@ function getCleanupTableNames(): string[] {
 	return [
 		...getAllAdapters().map((adapter) => adapter.rawTableName),
 		SESSION_ANALYTICS_TABLE,
+		SESSION_LANGUAGE_SIGNALS_TABLE,
 		USAGE_EVENTS_TABLE,
 	];
 }
