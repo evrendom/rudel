@@ -41,6 +41,10 @@ export async function setupLogging(): Promise<void> {
 
 	await configure({
 		contextLocalStorage: new AsyncLocalStorage(),
+		// Bun's hot server keeps LogTape's process-global configuration alive
+		// between module reloads. Reset first so disposable file sinks are closed
+		// instead of leaking one descriptor per edit.
+		reset: true,
 		sinks,
 		loggers: [
 			{

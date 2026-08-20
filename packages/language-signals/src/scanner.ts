@@ -1,5 +1,9 @@
 import { LANGUAGE_SIGNAL_RULES } from "./rules.js";
-import type { LanguageSignalCategory, LanguageSignalMatch } from "./types.js";
+import type {
+	LanguageSignalCategory,
+	LanguageSignalMatch,
+	ModelLanguageSignalMatch,
+} from "./types.js";
 
 interface CompiledSurface {
 	readonly category: LanguageSignalCategory;
@@ -47,6 +51,11 @@ const LANGUAGE_SIGNAL_PATTERN = new RegExp(
 	"giu",
 );
 
+const ADJACENT_POSITIVE_NEGATION_PATTERN =
+	/(?:do\s+not|don['’]?t|does\s+not|doesn['’]?t|did\s+not|didn['’]?t|not)\s+$/iu;
+const SYSTEM_INSTRUCTION_BLOCK_PATTERN =
+	/<system_instruction>[\s\S]*?<\/system_instruction>/giu;
+
 export function scanLanguageSignals(
 	text: string,
 ): ReadonlyArray<LanguageSignalMatch> {
@@ -55,13 +64,7 @@ export function scanLanguageSignals(
 	for (const match of text.matchAll(LANGUAGE_SIGNAL_PATTERN)) {
 		const compiledSurface = findCompiledSurface(match);
 		if (compiledSurface !== undefined) {
-			matches.push({
-				category: compiledSurface.category,
-				ruleId: compiledSurface.ruleId,
-				matchedText: match[0],
-				start: match.index,
-				end: match.index + match[0].length,
-			});
+			matches.push(buildLanguageSignalMatch(text, match, compiledSurface));
 		}
 
 		if (matches.length >= MAX_LANGUAGE_SIGNAL_MATCHES) {
@@ -70,6 +73,77 @@ export function scanLanguageSignals(
 	}
 
 	return matches;
+}
+
+export function scanMemberLanguageSignals(
+	text: string,
+): ReadonlyArray<LanguageSignalMatch> {
+	const matches: LanguageSignalMatch[] = [];
+	let cursor = 0;
+	for (const block of text.matchAll(SYSTEM_INSTRUCTION_BLOCK_PATTERN)) {
+		appendSegmentMatches(matches, text.slice(cursor, block.index), cursor);
+		cursor = block.index + block[0].length;
+		if (matches.length >= MAX_LANGUAGE_SIGNAL_MATCHES) {
+			return matches.slice(0, MAX_LANGUAGE_SIGNAL_MATCHES);
+		}
+	}
+	appendSegmentMatches(matches, text.slice(cursor), cursor);
+	return matches.slice(0, MAX_LANGUAGE_SIGNAL_MATCHES);
+}
+
+export function stripSystemInstructionBlocks(text: string) {
+	return text.replace(SYSTEM_INSTRUCTION_BLOCK_PATTERN, "");
+}
+
+function appendSegmentMatches(
+	matches: LanguageSignalMatch[],
+	segment: string,
+	offset: number,
+) {
+	for (const match of scanLanguageSignals(segment)) {
+		matches.push({
+			...match,
+			end: match.end + offset,
+			start: match.start + offset,
+		});
+		if (matches.length >= MAX_LANGUAGE_SIGNAL_MATCHES) {
+			return;
+		}
+	}
+}
+
+function buildLanguageSignalMatch(
+	text: string,
+	match: RegExpExecArray,
+	compiledSurface: CompiledSurface,
+): LanguageSignalMatch {
+	const negation =
+		compiledSurface.category === "positive"
+			? text
+					.slice(0, match.index)
+					.match(ADJACENT_POSITIVE_NEGATION_PATTERN)?.[0]
+			: undefined;
+	const start = match.index - (negation?.length ?? 0);
+	const end = match.index + match[0].length;
+
+	return {
+		category: negation === undefined ? compiledSurface.category : "negative",
+		ruleId:
+			negation === undefined
+				? compiledSurface.ruleId
+				: "negative.negated-positive",
+		matchedText: text.slice(start, end),
+		start,
+		end,
+	};
+}
+
+export function scanModelLanguageSignals(
+	text: string,
+): ReadonlyArray<ModelLanguageSignalMatch> {
+	return scanLanguageSignals(text).filter(
+		(match): match is ModelLanguageSignalMatch => match.category !== "positive",
+	);
 }
 
 function findCompiledSurface(

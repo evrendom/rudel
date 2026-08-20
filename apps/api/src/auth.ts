@@ -77,6 +77,7 @@ function toTrackedOrganizationRole(
 
 export interface AuthConfig {
 	appURL: string;
+	cookiePrefix?: string;
 	frontendURL: string;
 	secret: string;
 	resend?: ResendConfig;
@@ -114,6 +115,9 @@ export function createAuth(db: object, config: AuthConfig) {
 	}
 
 	return betterAuth({
+		advanced: config.cookiePrefix
+			? { cookiePrefix: config.cookiePrefix }
+			: undefined,
 		baseURL: config.appURL,
 		secret: config.secret,
 		database: drizzleAdapter(db as Parameters<typeof drizzleAdapter>[0], {

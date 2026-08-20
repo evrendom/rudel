@@ -1,8 +1,10 @@
-import type {
-	DimensionAnalysisInput,
-	SessionAnalytics,
-	SessionAnalyticsSummary as SessionAnalyticsSummaryBase,
-	SessionDetail,
+import {
+	type DimensionAnalysisInput,
+	resolveRepoIdentity,
+	type SessionAnalytics,
+	type SessionAnalyticsSummary as SessionAnalyticsSummaryBase,
+	type SessionDetail,
+	type Source,
 } from "@rudel/api-routes";
 import {
 	addOptionalStringEqFilter,
@@ -14,6 +16,7 @@ import {
 import { getUsageAnalyticsQueryContext } from "./usage-event-analytics.service.js";
 
 export interface SessionAnalyticsRaw {
+	source: Source;
 	session_id: string;
 	user_id: string;
 	session_date: string;
@@ -56,9 +59,58 @@ export interface SessionAnalyticsRaw {
 	error_count: number;
 	model_used: string;
 	used_plan_mode: number;
+
+	// Persisted language-signal counts
+	member_swears: number;
+	member_apologies: number;
+	member_positive: number;
+	model_swears: number;
+	model_apologies: number;
+	model_positive: number;
 }
 
 export type SessionAnalyticsSummary = SessionAnalyticsSummaryBase;
+
+export function mapSessionAnalyticsRow(
+	row: SessionAnalyticsRaw,
+): SessionAnalytics {
+	const repositoryIdentity = resolveRepoIdentity({
+		gitRemote: row.git_remote || null,
+		packageName: row.package_name || null,
+		projectPath: row.project_path,
+	});
+
+	return {
+		source: row.source,
+		session_id: row.session_id,
+		user_id: row.user_id,
+		session_date: row.session_date,
+		project_path: row.project_path,
+		repository: repositoryIdentity.repoLabel,
+		worktree: repositoryIdentity.worktree,
+		git_remote: row.git_remote || undefined,
+		git_branch: row.git_branch || null,
+		duration_min: row.actual_duration_min,
+		total_tokens: row.total_tokens,
+		input_tokens: row.input_tokens,
+		output_tokens: row.output_tokens,
+		estimated_cost: row.estimated_cost,
+		success_score: row.success_score,
+		avg_period_sec: row.avg_period_sec,
+		subagent_types: row.subagent_types,
+		skills: row.skills,
+		slash_commands: row.slash_commands,
+		has_commit: row.has_commit > 0,
+		model_used: row.model_used,
+		used_plan_mode: row.used_plan_mode > 0,
+		member_swears: row.member_swears,
+		member_apologies: row.member_apologies,
+		member_positive: row.member_positive,
+		model_swears: row.model_swears,
+		model_apologies: row.model_apologies,
+		model_positive: row.model_positive,
+	};
+}
 
 /**
  * Get session analytics from the materialized view
@@ -112,11 +164,18 @@ export async function getSessionAnalytics(
 	const dateFilter = hasAbsoluteRange
 		? buildInclusiveDateRangeFilter("startDate", "endDate", "sa.session_date")
 		: buildDateFilter("days", "sa.session_date");
+	const signalDateFilter = hasAbsoluteRange
+		? buildInclusiveDateRangeFilter(
+				"startDate",
+				"endDate",
+				"signal_rows.session_date",
+			)
+		: buildDateFilter("days", "signal_rows.session_date");
 	const filters: string[] = [];
 	addOptionalStringEqFilter(
 		filters,
 		query_params,
-		"user_id",
+		"sa.user_id",
 		"userId",
 		user_id,
 	);
@@ -133,7 +192,13 @@ export async function getSessionAnalytics(
 		);
 		query_params.repository = repository;
 	}
-	addOptionalStringEqFilter(filters, query_params, "source", "source", source);
+	addOptionalStringEqFilter(
+		filters,
+		query_params,
+		"sa.source",
+		"source",
+		source,
+	);
 
 	const sortColumn =
 		sort_by === "duration" ? "actual_duration_min" : "sa.session_date";
@@ -145,10 +210,29 @@ export async function getSessionAnalytics(
 	const estimatedCostSql = "sa.estimated_cost";
 
 	const query = `
-	WITH ${usage.cteDefinitions}
+	WITH ${usage.cteDefinitions},
+	language_signal_counts AS (
+		SELECT
+			organization_id,
+			session_date,
+			session_id,
+			user_id,
+			source,
+			argMax(member_swears, scanned_at) AS member_swears,
+			argMax(member_apologies, scanned_at) AS member_apologies,
+			argMax(member_positive, scanned_at) AS member_positive,
+			argMax(model_swears, scanned_at) AS model_swears,
+			argMax(model_apologies, scanned_at) AS model_apologies,
+			argMax(model_positive, scanned_at) AS model_positive
+		FROM rudel.session_language_signals AS signal_rows
+		WHERE signal_rows.organization_id = {orgId:String}
+			AND ${signalDateFilter}
+		GROUP BY organization_id, session_date, session_id, user_id, source
+	)
     SELECT
-      session_id,
-      user_id,
+      sa.source AS source,
+	  sa.session_id AS session_id,
+	  sa.user_id AS user_id,
       formatDateTime(sa.session_date, '%Y-%m-%dT%H:%i:%SZ') as session_date,
       project_path,
       sa.organization_id AS organization_id,
@@ -174,8 +258,20 @@ export async function getSessionAnalytics(
       success_score,
       error_count,
       model_used,
-      used_plan_mode
+      used_plan_mode,
+	  signals.member_swears AS member_swears,
+	  signals.member_apologies AS member_apologies,
+	  signals.member_positive AS member_positive,
+	  signals.model_swears AS model_swears,
+	  signals.model_apologies AS model_apologies,
+	  signals.model_positive AS model_positive
     FROM ${usage.sessionsRelation} AS sa
+	LEFT ANY JOIN language_signal_counts AS signals
+		ON signals.organization_id = sa.organization_id
+		AND signals.session_date = sa.session_date
+		AND signals.session_id = sa.session_id
+		AND signals.user_id = sa.user_id
+		AND signals.source = sa.source
     WHERE ${dateFilter}
       AND sa.organization_id = {orgId:String}
       ${filters.length > 0 ? `AND ${filters.join("\n      AND ")}` : ""}
@@ -185,34 +281,11 @@ export async function getSessionAnalytics(
   `;
 
 	const raw = await queryClickhouse<SessionAnalyticsRaw>({
+		clickhouse_settings: { join_use_nulls: 0 },
 		query,
 		query_params,
 	});
-
-	return raw.map(
-		(row): SessionAnalytics => ({
-			session_id: row.session_id,
-			user_id: row.user_id,
-			session_date: row.session_date,
-			project_path: row.project_path,
-			repository:
-				row.git_remote || row.package_name || row.project_path || null,
-			git_remote: row.git_remote || undefined,
-			duration_min: row.actual_duration_min,
-			total_tokens: row.total_tokens,
-			input_tokens: row.input_tokens,
-			output_tokens: row.output_tokens,
-			estimated_cost: row.estimated_cost,
-			success_score: row.success_score,
-			avg_period_sec: row.avg_period_sec,
-			subagent_types: row.subagent_types,
-			skills: row.skills,
-			slash_commands: row.slash_commands,
-			has_commit: row.has_commit > 0,
-			model_used: row.model_used,
-			used_plan_mode: row.used_plan_mode > 0,
-		}),
-	);
+	return raw.map(mapSessionAnalyticsRow);
 }
 
 /**

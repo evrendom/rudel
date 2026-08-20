@@ -20,6 +20,7 @@ import type {
 export type TraceToolResult = {
 	content: ToolResultContent["content"];
 	isError: boolean;
+	subagentId?: string;
 };
 
 export type TraceSkillContent = {
@@ -66,10 +67,12 @@ export type TraceSystemType =
 export type TraceItem =
 	| { kind: "user"; id: string; timestamp: string; content: UserContent }
 	| {
+			agentName?: string;
 			kind: "agent";
 			id: string;
 			timestamp: string;
 			executionMode: ConversationExecutionMode;
+			modelSetting?: string;
 			events: TraceEvent[];
 	  }
 	| {
@@ -86,6 +89,15 @@ function isToolResult(value: unknown): value is ToolResultContent {
 		typeof value === "object" &&
 		value !== null &&
 		(value as { type?: unknown }).type === "tool_result"
+	);
+}
+
+function isDelegationToolName(toolName: string) {
+	const normalizedName = toolName.split(/\.|__/u).at(-1)?.toLowerCase();
+	return (
+		normalizedName === "agent" ||
+		normalizedName === "task" ||
+		normalizedName === "spawn_agent"
 	);
 }
 
@@ -128,8 +140,15 @@ function textFromUserTextBlocks(content: UserContent): string | undefined {
 	return textFromBlocks(textBlocks);
 }
 
-function toTraceResult(result: ToolResultContent): TraceToolResult {
-	return { content: result.content, isError: result.is_error === true };
+function toTraceResult(
+	result: ToolResultContent,
+	subagentId: string | undefined,
+): TraceToolResult {
+	return {
+		content: result.content,
+		isError: result.is_error === true,
+		...(subagentId ? { subagentId } : {}),
+	};
 }
 
 export function toolResultText(content: ToolResultContent["content"]): string {
@@ -243,20 +262,24 @@ export function buildConversationTrace(
 	let agentEvents: TraceEvent[] = [];
 	let agentTimestamp: string | undefined;
 	let agentId: string | undefined;
+	let agentName: string | undefined;
 	let agentExecutionMode: ConversationExecutionMode = "unknown";
+	let agentModelSetting: string | undefined;
 	// tool_use_id -> event awaiting its result, for the open section.
 	const pendingToolEvents = new Map<
 		string,
 		Extract<TraceEvent, { kind: "tool" }>
 	>();
 
-	function flushAgentSection() {
+	function flushAgentSection(clearPendingToolEvents = true) {
 		if (agentEvents.length > 0 && agentId && agentTimestamp) {
 			items.push({
+				...(agentName ? { agentName } : {}),
 				kind: "agent",
 				id: agentId,
 				timestamp: agentTimestamp,
 				executionMode: agentExecutionMode,
+				...(agentModelSetting ? { modelSetting: agentModelSetting } : {}),
 				events: agentEvents,
 			});
 		}
@@ -264,8 +287,12 @@ export function buildConversationTrace(
 		agentEvents = [];
 		agentTimestamp = undefined;
 		agentId = undefined;
+		agentName = undefined;
 		agentExecutionMode = "unknown";
-		pendingToolEvents.clear();
+		agentModelSetting = undefined;
+		if (clearPendingToolEvents) {
+			pendingToolEvents.clear();
+		}
 	}
 
 	conversations.forEach((entry, index) => {
@@ -297,12 +324,20 @@ export function buildConversationTrace(
 		}
 
 		if (entry.type === "assistant") {
+			if (agentId !== undefined && agentName !== entry.agentName) {
+				flushAgentSection(false);
+			}
 			if (agentId === undefined) {
 				agentId = entry.uuid;
+				agentName = entry.agentName;
 				agentTimestamp = entry.timestamp;
 				agentExecutionMode = entry.executionMode;
+				agentModelSetting = entry.modelSetting;
 			} else if (agentExecutionMode === "unknown") {
 				agentExecutionMode = entry.executionMode;
+			}
+			if (agentModelSetting === undefined) {
+				agentModelSetting = entry.modelSetting;
 			}
 
 			entry.message.content.forEach((block, blockIndex) => {
@@ -348,12 +383,19 @@ export function buildConversationTrace(
 
 		// entry.type === "user"
 		if (isToolResultCarrier(entry.message.content)) {
+			if (agentId !== undefined && agentName !== entry.agentName) {
+				flushAgentSection(false);
+			}
+			const subagentId = entry.toolUseResult?.agentId;
 			collectToolResults(entry.message.content).forEach(
 				(result, resultIndex) => {
 					const pending = pendingToolEvents.get(result.tool_use_id);
 
 					if (pending) {
-						pending.result = toTraceResult(result);
+						pending.result = toTraceResult(
+							result,
+							isDelegationToolName(pending.toolName) ? subagentId : undefined,
+						);
 						pendingToolEvents.delete(result.tool_use_id);
 						return;
 					}
@@ -364,13 +406,14 @@ export function buildConversationTrace(
 						kind: "orphan-result",
 						id: `${entry.uuid}-${resultIndex}`,
 						timestamp: entry.timestamp,
-						result: toTraceResult(result),
+						result: toTraceResult(result, undefined),
 					});
 				},
 			);
 
 			if (agentId === undefined) {
 				agentId = entry.uuid;
+				agentName = entry.agentName;
 				agentTimestamp = entry.timestamp;
 			}
 

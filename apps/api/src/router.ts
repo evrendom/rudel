@@ -74,6 +74,7 @@ import {
 	hasOrgUploadsInLastDays,
 } from "./services/org-session.service.js";
 import { hasRawSessionRow } from "./services/raw-session.service.js";
+import { persistSessionLanguageSignalsBestEffort } from "./services/session-language-signal-persistence.service.js";
 import {
 	claimSessionIngestOwnership,
 	recordSessionIngestContent,
@@ -470,6 +471,15 @@ const ingestSessionHandler = os.ingestSession
 			new Date(timestamps.sessionDate),
 			ingestedAt,
 		);
+		void persistSessionLanguageSignalsBestEffort({
+			content: filteredInput.content,
+			organizationId: orgId,
+			rawIngestedAt: ingestedAt,
+			sessionDate: timestamps.sessionDate,
+			sessionId: input.sessionId,
+			source: filteredInput.source,
+			userId: context.user.id,
+		});
 
 		if (!readBooleanEnv("USAGE_EVENT_EXTRACTION_ENABLED", true)) {
 			logger.warn(

@@ -196,7 +196,7 @@ export async function getDeveloperList(
         SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
         round(SUM(actual_duration_min), 2) as total_duration_min,
         round(AVG(actual_duration_min), 2) as avg_session_duration_min,
-        toString(max(session_date)) as last_active_date,
+		formatDateTime(max(session_date), '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') as last_active_date,
         round(AVG(success_score), 2) as success_rate,
 		${buildUsageCostSubtotalSql("estimated_cost", 4)} as total_cost
       FROM ${usage.sessionsRelation}
@@ -270,7 +270,7 @@ export async function getDeveloperTeamCards(
       SUM(ifNull(output_tokens, 0)) as total_output_tokens,
       SUM(ifNull(input_tokens, 0) + ifNull(output_tokens, 0)) as total_tokens,
 	  ${buildUsageCostSubtotalSql("estimated_cost", 4)} as cost,
-      toString(max(session_date)) as last_active_date
+	  formatDateTime(max(session_date), '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') as last_active_date
     FROM ${usage.sessionsRelation}
     WHERE ${buildDateFilter("days")}
       AND organization_id = {orgId:String}
@@ -418,7 +418,7 @@ export async function getDeveloperDetails(
         SUM(ifNull(output_tokens, 0)) as output_tokens_sum,
         round(SUM(actual_duration_min), 2) as total_duration_min,
         round(AVG(actual_duration_min), 2) as avg_session_duration_min,
-        toString(max(session_date)) as last_active_date,
+		formatDateTime(max(session_date), '%Y-%m-%dT%H:%i:%S.%fZ', 'UTC') as last_active_date,
         round(AVG(success_score), 2) as success_rate,
         COUNT(DISTINCT project_path) as distinct_projects,
         SUM(error_count) as error_count,

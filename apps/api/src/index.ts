@@ -4,6 +4,7 @@ import { ORPCError, onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import type { Session as AuthSession } from "./auth.js";
 import { createAuth } from "./auth.js";
+import { resolveAuthCookiePrefix } from "./auth-cookie-prefix.js";
 import { db, sqlClient } from "./db.js";
 import { getResendConfigWarnings } from "./email.js";
 import {
@@ -29,6 +30,8 @@ import {
 	getIngestFilterQueueMetrics,
 	shutdownIngestFilterQueue,
 } from "./services/ingest-filter.service.js";
+import { startSessionLanguageSignalReconciliationWorker } from "./services/session-language-signal-reconciliation.service.js";
+import { shutdownSessionLanguageSignalScanner } from "./services/session-language-signal-scanner.service.js";
 import { shutdownUsageExtractionQueue } from "./services/usage-extraction.service.js";
 import {
 	getPublicWrappedShareForPageMetadata,
@@ -49,6 +52,7 @@ const port = process.env.PORT ?? "4010";
 const IS_PRODUCTION =
 	process.env.NODE_ENV === "production" ||
 	process.env.FLY_APP_NAME !== undefined;
+const IS_TEST = process.env.NODE_ENV === "test";
 const DEFAULT_DEV_API_ORIGIN = `http://localhost:${port}`;
 const DEFAULT_DEV_ORIGIN = "http://localhost:4011";
 const DEFAULT_DEV_ORIGINS = [
@@ -131,6 +135,7 @@ if (cliDeviceVerification.warning) {
 
 const auth = createAuth(db, {
 	appURL,
+	cookiePrefix: resolveAuthCookiePrefix(preferredFrontendOrigin),
 	frontendURL: preferredFrontendOrigin,
 	secret: betterAuthSecret,
 	resend,
@@ -355,10 +360,13 @@ const server = Bun.serve({
 });
 const clickHousePurgeWorker = readBooleanEnv(
 	"CLICKHOUSE_PURGE_WORKER_ENABLED",
-	true,
+	IS_PRODUCTION,
 )
 	? startClickHousePurgeWorker({ resend })
 	: undefined;
+const sessionLanguageSignalReconciliationWorker = IS_TEST
+	? undefined
+	: startSessionLanguageSignalReconciliationWorker();
 
 function resolveAuthAppURL(input: {
 	defaultDevApiOrigin: string;
@@ -411,9 +419,11 @@ async function shutdown(signal?: string) {
 
 	shutdownIngestFilterQueue();
 	shutdownUsageExtractionQueue();
+	shutdownSessionLanguageSignalScanner();
 	await Promise.all([
 		shutdownApiProductAnalytics(),
 		clickHousePurgeWorker?.stop(),
+		sessionLanguageSignalReconciliationWorker?.stop(),
 	]);
 	if (signal) {
 		server.stop(true);

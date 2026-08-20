@@ -12,6 +12,29 @@ export interface LanguageSignalMatch {
 	readonly end: number;
 }
 
+export type ModelLanguageSignalCategory = Exclude<
+	LanguageSignalCategory,
+	"positive"
+>;
+
+export interface ModelLanguageSignalMatch extends LanguageSignalMatch {
+	readonly category: ModelLanguageSignalCategory;
+}
+
+export interface LanguageSignalSummaryInput {
+	readonly memberText: readonly string[];
+	readonly modelText: readonly string[];
+}
+
+export interface LanguageSignalCounts {
+	readonly member_swears: number;
+	readonly member_apologies: number;
+	readonly member_positive: number;
+	readonly model_swears: number;
+	readonly model_apologies: number;
+	readonly model_positive: number;
+}
+
 export type DisplayTextPart =
 	| { readonly type: "text"; readonly content: string }
 	| { readonly type: "strong"; readonly content: string }

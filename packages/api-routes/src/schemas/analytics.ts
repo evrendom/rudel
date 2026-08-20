@@ -341,6 +341,7 @@ export const SessionAnalyticsSchema = z.object({
 	repository: z.string().nullable(),
 	worktree: z.string().nullable().optional(),
 	git_remote: z.string().optional(),
+	git_branch: z.string().nullable().optional(),
 	duration_min: z.number(),
 	total_tokens: z.number(),
 	input_tokens: z.number(),
@@ -357,6 +358,12 @@ export const SessionAnalyticsSchema = z.object({
 	model_used: z.string(),
 	used_plan_mode: z.boolean(),
 	source: SourceSchema.optional(),
+	member_swears: z.number().int().nonnegative().default(0),
+	member_apologies: z.number().int().nonnegative().default(0),
+	member_positive: z.number().int().nonnegative().default(0),
+	model_swears: z.number().int().nonnegative().default(0),
+	model_apologies: z.number().int().nonnegative().default(0),
+	model_positive: z.number().int().nonnegative().default(0),
 });
 
 export const SessionAnalyticsSummarySchema = z.object({
@@ -791,6 +798,7 @@ export type ProjectDetailData = z.infer<typeof ProjectDetailDataSchema>;
 export type ProjectContributor = z.infer<typeof ProjectContributorSchema>;
 export type ProjectTrendDataPoint = z.infer<typeof ProjectTrendDataPointSchema>;
 export type SessionAnalytics = z.infer<typeof SessionAnalyticsSchema>;
+export type SessionListInput = z.input<typeof SessionListInputSchema>;
 export type HistoricalSkillSummary = z.infer<
 	typeof HistoricalSkillSummarySchema
 >;

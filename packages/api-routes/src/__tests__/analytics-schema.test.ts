@@ -11,6 +11,7 @@ import {
 	RecurringErrorsInputSchema,
 	ROIDashboardSchema,
 	ROIMetricsSchema,
+	SessionAnalyticsSchema,
 	SessionDetailInputSchema,
 	SessionListInputSchema,
 	UserTokenUsageDataSchema,
@@ -50,6 +51,45 @@ describe("analytics input schemas", () => {
 		expect(SessionListInputSchema.safeParse({ limit: 1001 }).success).toBe(
 			false,
 		);
+	});
+
+	test("session rows default missing persisted language counts to zero", () => {
+		const parsed = SessionAnalyticsSchema.parse({
+			avg_period_sec: 0,
+			duration_min: 0,
+			has_commit: false,
+			input_tokens: 0,
+			model_used: "",
+			output_tokens: 0,
+			project_path: "",
+			repository: null,
+			session_date: "2026-08-19T00:00:00Z",
+			session_id: "session-1",
+			skills: [],
+			slash_commands: [],
+			subagent_types: [],
+			success_score: 0,
+			total_tokens: 0,
+			used_plan_mode: false,
+			user_id: "user-1",
+		});
+
+		expect(parsed).toMatchObject({
+			member_apologies: 0,
+			member_positive: 0,
+			member_swears: 0,
+			model_apologies: 0,
+			model_positive: 0,
+			model_swears: 0,
+		});
+	});
+
+	test("session list input does not retain view-state enrichment ids", () => {
+		const parsed = SessionListInputSchema.parse({
+			signalSessionIds: ["session-1"],
+		});
+
+		expect(parsed).not.toHaveProperty("signalSessionIds");
 	});
 
 	test("limit capped at 1000 on dimension analysis", () => {

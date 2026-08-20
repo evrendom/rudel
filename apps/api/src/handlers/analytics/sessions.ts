@@ -9,6 +9,7 @@ import {
 } from "../../services/session-analytics.service.js";
 import {
 	getSessionDetailOverview,
+	getSessionDetailSpine,
 	getSessionDetailSubagent,
 	getSessionDetailTurn,
 	getSessionDetailWindow,
@@ -165,6 +166,33 @@ const detailWindow = os.analytics.sessions.detailWindow
 		}
 	});
 
+const detailSpine = os.analytics.sessions.detailSpine
+	.use(orgMiddleware)
+	.handler(async ({ input, context, errors }) => {
+		const ownerId = requireSessionDetailOwnerAccess(
+			await getSessionOwner(context.organizationId, input.sessionId),
+			{
+				isOrgAdmin: context.isOrgAdmin,
+				requesterUserId: context.user.id,
+			},
+		);
+
+		try {
+			const result = await getSessionDetailSpine({
+				organizationId: context.organizationId,
+				ownerId,
+				revision: input.revision,
+				sessionId: input.sessionId,
+			});
+			if (!result) {
+				throw new ORPCError("NOT_FOUND");
+			}
+			return result;
+		} catch (error) {
+			return throwSessionDetailRevisionError(error, errors);
+		}
+	});
+
 const detailTurn = os.analytics.sessions.detailTurn
 	.use(orgMiddleware)
 	.handler(async ({ input, context, errors }) => {
@@ -223,6 +251,7 @@ const detailSubagent = os.analytics.sessions.detailSubagent
 
 export const sessionsRouter = os.analytics.sessions.router({
 	detailOverview,
+	detailSpine,
 	detailSubagent,
 	detailTurn,
 	detailWindow,

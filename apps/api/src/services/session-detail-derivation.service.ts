@@ -11,15 +11,18 @@ import {
 	parseConversations,
 	parseSlashCommand,
 	resolveRepoIdentity,
+	SESSION_DETAIL_ACTIVITY_DETAIL_CODE_POINT_LIMIT,
 	SESSION_DETAIL_ACTIVITY_POINT_LIMIT,
 	SESSION_DETAIL_CONTEXT_ERROR_LIMIT,
 	SESSION_DETAIL_CONTEXT_FILE_LIMIT,
 	SESSION_DETAIL_PREVIEW_CODE_POINT_LIMIT,
+	SESSION_DETAIL_SIGNAL_OCCURRENCE_LIMIT,
 	SESSION_DETAIL_WINDOW_INITIAL_TURNS,
 	SESSION_DETAIL_WINDOW_MAX_RAW_BYTES,
 	SESSION_DETAIL_WINDOW_MAX_TURN_BYTES,
 	SESSION_DETAIL_WINDOW_PAGE_TURNS,
 	type SessionDetailOverview,
+	type SessionDetailSpine,
 	type SessionDetailSubagent,
 	type SessionDetailTurn,
 	type SessionDetailTurnBody,
@@ -35,6 +38,11 @@ import {
 	type TokenUsageEvent,
 	type TraceItem,
 } from "@rudel/api-routes";
+import {
+	SCAN_VERSION,
+	scanMemberLanguageSignals,
+	scanModelLanguageSignalSegments,
+} from "@rudel/language-signals";
 
 export const SESSION_DETAIL_OVERVIEW_MAX_BYTES = 250 * 1024;
 const SESSION_DETAIL_OVERVIEW_TARGET_BYTES = 248 * 1024;
@@ -66,6 +74,7 @@ export interface SessionDetailRawSnapshot {
 }
 
 type TurnSummary = SessionDetailOverview["turnPage"]["items"][number];
+type SessionDetailActivityTotals = SessionDetailOverview["activityTotals"];
 type TurnFileEvent = NonNullable<TurnSummary["fileEvents"]>[number];
 type TurnSubagentEvent = NonNullable<TurnSummary["subagentEvents"]>[number];
 type SessionDetailContext = SessionDetailOverview["context"];
@@ -76,6 +85,7 @@ export interface SessionDetailDerivation {
 	overviewBase: Omit<SessionDetailOverview, "turnPage">;
 	rawSubagents: Readonly<Record<string, string>>;
 	revision: string;
+	spine: SessionDetailSpine["turns"];
 	turnBodies: ReadonlyMap<string, SessionDetailTurn>;
 	turnSummaries: readonly TurnSummary[];
 }
@@ -153,6 +163,21 @@ export function truncateSessionDetailPreview(value: string) {
 		.trimEnd()}...`;
 }
 
+function truncateSessionDetailActivityDetail(value: string | undefined) {
+	const normalized = value?.trim();
+	if (!normalized) {
+		return undefined;
+	}
+	const codePoints = Array.from(normalized);
+	if (codePoints.length <= SESSION_DETAIL_ACTIVITY_DETAIL_CODE_POINT_LIMIT) {
+		return normalized;
+	}
+	return `${codePoints
+		.slice(0, SESSION_DETAIL_ACTIVITY_DETAIL_CODE_POINT_LIMIT - 3)
+		.join("")
+		.trimEnd()}...`;
+}
+
 function countToolCalls(items: readonly TraceItem[]) {
 	return items.reduce(
 		(total, item) =>
@@ -160,6 +185,13 @@ function countToolCalls(items: readonly TraceItem[]) {
 			(item.kind === "agent"
 				? item.events.filter((event) => event.kind === "tool").length
 				: 0),
+		0,
+	);
+}
+
+function countResponseEvents(items: readonly TraceItem[]) {
+	return items.reduce(
+		(total, item) => total + (item.kind === "agent" ? item.events.length : 1),
 		0,
 	);
 }
@@ -268,9 +300,12 @@ function collectTurnActivityEvents(turn: SessionTurn) {
 			}
 
 			if (isSubagentLaunchTool(event.toolName)) {
+				const subagentId = event.result?.subagentId;
 				subagentEvents.push({
 					at: event.timestamp,
 					count: 1,
+					eventId: event.id,
+					...(subagentId ? { subagentId } : {}),
 				});
 			}
 		}
@@ -330,11 +365,15 @@ function bucketSessionDetailSubagentEvents(
 ): TurnSubagentEvent[] {
 	return bucketByIndex(subagentEvents, limit).flatMap((bucket) => {
 		const first = bucket[0];
+		const eventIds = new Set(bucket.map((event) => event.eventId));
+		const subagentIds = new Set(bucket.map((event) => event.subagentId));
 		return first
 			? [
 					{
 						...first,
 						count: bucket.reduce((total, event) => total + event.count, 0),
+						eventId: eventIds.size === 1 ? first.eventId : undefined,
+						subagentId: subagentIds.size === 1 ? first.subagentId : undefined,
 					},
 				]
 			: [];
@@ -349,7 +388,23 @@ function createActivitySummary(
 ) {
 	const usageCalls = bucketSessionDetailUsageCalls(metrics.usageEvents, limit);
 	const errorEvents = bucketByIndex(metrics.errorEvents, limit).flatMap(
-		(bucket) => (bucket[0] ? [{ at: bucket[0].at }] : []),
+		(bucket) => {
+			const first = bucket[0];
+			if (!first) {
+				return [];
+			}
+			const contents = [
+				...new Set(
+					bucket.flatMap((event) =>
+						event.content === undefined ? [] : [event.content],
+					),
+				),
+			];
+			const content = truncateSessionDetailActivityDetail(
+				contents.join("\n\n"),
+			);
+			return [{ at: first.at, ...(content ? { content } : {}) }];
+		},
 	);
 	const skillEvents = bucketByIndex(metrics.skillEvents, limit).flatMap(
 		(bucket) => (bucket[0] ? [{ ...bucket[0] }] : []),
@@ -384,6 +439,22 @@ function createTurnSummary(
 ): TurnSummary {
 	const timing = getSessionTurnTiming(turn);
 	const { fileEvents, subagentEvents } = collectTurnActivityEvents(turn);
+	const allSignalOccurrences = scanMemberLanguageSignals(
+		getSessionTurnMemberText(turn),
+	).flatMap((signal) =>
+		signal.category === "swear"
+			? []
+			: [{ category: signal.category, matchedText: signal.matchedText }],
+	);
+	const signalOccurrences = allSignalOccurrences.slice(
+		0,
+		SESSION_DETAIL_SIGNAL_OCCURRENCE_LIMIT,
+	);
+	const signalOccurrencesOmittedCount =
+		allSignalOccurrences.length - signalOccurrences.length;
+	const modelSignalCount = scanModelLanguageSignalSegments(
+		getTurnModelMessageSegments(turn),
+	).filter((signal) => signal.category !== "swear").length;
 	return {
 		...createActivitySummary(
 			metrics,
@@ -399,9 +470,18 @@ function createTurnSummary(
 		hasBody: turn.userItems.length + turn.responseItems.length > 0,
 		index,
 		inputTokens: metrics.inputTokens ?? null,
+		modelSignalCount,
 		outputTokens: metrics.outputTokens ?? null,
 		responsePreview: truncateSessionDetailPreview(getSessionTurnPreview(turn)),
+		signalCount: signalOccurrences.length,
+		signalOccurrences,
+		signalOccurrencesOmittedCount,
+		signalOccurrencesTruncated: signalOccurrencesOmittedCount > 0,
 		skills: [...metrics.skills],
+		skillCount:
+			metrics.skillEvents.length > 0
+				? metrics.skillEvents.length
+				: metrics.skills.length,
 		slashCommands: getTurnSlashCommands(turn),
 		startedAt: timing.startTimestamp ?? null,
 		toolCallCount: countToolCalls(turn.responseItems),
@@ -409,6 +489,55 @@ function createTurnSummary(
 		userCharacterCount: getSessionTurnMemberCharacterCount(turn),
 		userPreview: truncateSessionDetailPreview(getSessionTurnMemberText(turn)),
 	};
+}
+
+function getTurnModelMessageSegments(turn: SessionTurn): string[] {
+	return turn.responseItems.flatMap((item) =>
+		item.kind === "agent"
+			? item.events.flatMap((event) =>
+					event.kind === "message" ? [event.text] : [],
+				)
+			: [],
+	);
+}
+
+function buildSessionDetailActivityTotals(
+	turnSummaries: readonly TurnSummary[],
+): SessionDetailActivityTotals {
+	const totals: SessionDetailActivityTotals = {
+		edit: 0,
+		error: 0,
+		read: 0,
+		signal: 0,
+		signalScanVersion: SCAN_VERSION,
+		skill: 0,
+		subagent: 0,
+		write: 0,
+	};
+
+	for (const summary of turnSummaries) {
+		totals.error += summary.errorCount;
+		totals.signal += summary.signalCount;
+		totals.skill += summary.skillCount;
+		for (const event of summary.fileEvents ?? []) {
+			switch (event.operation) {
+				case "created":
+					totals.write += event.count;
+					break;
+				case "edited":
+					totals.edit += event.count;
+					break;
+				case "read":
+					totals.read += event.count;
+					break;
+			}
+		}
+		for (const event of summary.subagentEvents ?? []) {
+			totals.subagent += event.count;
+		}
+	}
+
+	return totals;
 }
 
 function getSessionCostEntries(
@@ -632,12 +761,18 @@ export function deriveSessionDetail(
 			] as const;
 		}),
 	);
+	const spine: SessionDetailSpine["turns"] = turns.map((turn) => ({
+		eventCount: countResponseEvents(turn.responseItems),
+		responseBytes: serializedBytes(turn.responseItems),
+		turnId: getSessionTurnId(turn),
+	}));
 	const repository = resolveRepoIdentity({
 		gitRemote: snapshot.gitRemote || null,
 		packageName: snapshot.packageName || null,
 		projectPath: snapshot.projectPath,
 	}).repoLabel;
 	const overviewBase: Omit<SessionDetailOverview, "turnPage"> = {
+		activityTotals: buildSessionDetailActivityTotals(turnSummaries),
 		context: collectSessionDetailContext(trace, turnMetrics),
 		revision: snapshot.revision,
 		session: {
@@ -675,7 +810,9 @@ export function deriveSessionDetail(
 			return {
 				estimatedCost: metrics.estimatedCost ?? null,
 				hasTranscript: content.length > 0,
+				inputTokens: metrics.inputTokens ?? null,
 				model: model ?? null,
+				outputTokens: metrics.outputTokens ?? null,
 				subagentId,
 				totalTokens:
 					metrics.inputTokens === undefined &&
@@ -687,6 +824,7 @@ export function deriveSessionDetail(
 	};
 	const derivedBytes = serializedBytes({
 		overviewBase,
+		spine,
 		turnBodies: [...turnBodies.values()],
 		turnSummaries,
 	});
@@ -705,9 +843,16 @@ export function deriveSessionDetail(
 		overviewBase,
 		rawSubagents: snapshot.subagents,
 		revision: snapshot.revision,
+		spine,
 		turnBodies,
 		turnSummaries,
 	};
+}
+
+export function getSessionDetailSpine(
+	derivation: SessionDetailDerivation,
+): SessionDetailSpine {
+	return { revision: derivation.revision, turns: derivation.spine };
 }
 
 export function encodeSessionDetailTurnCursor(cursor: TurnCursor) {
