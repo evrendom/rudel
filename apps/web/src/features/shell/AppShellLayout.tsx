@@ -221,12 +221,14 @@ function ShellLayout({
 
 	const shellWindowContent = (
 		<>
-			<SiteHeader
-				setNewseshListPortalHost={setNewseshListHeaderPortal}
-				setPortalHost={setShellHeaderPortal}
-				showSidebarTrigger={isLeftSidebarVariant}
-				showWorkspaceMenu={isFloatingDockVariant}
-			/>
+			{isDashboardWorkspaceRoute ? null : (
+				<SiteHeader
+					setNewseshListPortalHost={setNewseshListHeaderPortal}
+					setPortalHost={setShellHeaderPortal}
+					showSidebarTrigger={isLeftSidebarVariant}
+					showWorkspaceMenu={isFloatingDockVariant}
+				/>
+			)}
 			<div
 				className={cn(
 					"flex min-h-0 flex-1 flex-col overscroll-none",

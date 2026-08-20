@@ -62,13 +62,16 @@ function RepositoryUploadStatusSkeleton() {
 	return (
 		<div className="grid divide-y divide-[color:var(--dashboardy-border)]">
 			{REPOSITORY_UPLOAD_SKELETON_KEYS.map((key) => (
-				<div key={key} className="px-5 py-3 sm:px-6">
-					<div className="flex min-h-5 items-center justify-between gap-3">
-						<div className="flex min-w-0 items-center gap-2">
-							<Skeleton className="h-4 w-28 max-w-full rounded" />
-							<Skeleton className="h-4 w-7 shrink-0 rounded" />
+				<div key={key} className="px-4 py-2.5">
+					<div className="flex min-h-8 items-center justify-between gap-3">
+						<div className="flex min-w-0 flex-1 items-center gap-1.5">
+							<Skeleton className="h-3.5 w-28 max-w-full rounded" />
+							<Skeleton className="h-3 w-6 shrink-0 rounded" />
 						</div>
-						<Skeleton className="h-4 w-28 max-w-full rounded" />
+						<div className="flex w-20 shrink-0 flex-col items-end gap-1">
+							<Skeleton className="h-3 w-12 rounded" />
+							<Skeleton className="h-3 w-14 rounded" />
+						</div>
 					</div>
 				</div>
 			))}
@@ -91,17 +94,17 @@ export function DashboardRepositoryUploadStatus({
 
 	return (
 		<aside className="@container/repository-uploads flex min-h-[32rem] min-w-0 flex-col overflow-hidden border-t border-[color:var(--dashboardy-border)] bg-[color:var(--dashboardy-surface-opaque)] @5xl/dashboard-page:h-full @5xl/dashboard-page:min-h-0 @5xl/dashboard-page:border-l @5xl/dashboard-page:border-t-0">
-			<header className="flex shrink-0 items-center justify-between gap-4 border-b border-[color:var(--dashboardy-border)] px-5 py-3.5 sm:px-6">
-				<h2 className="min-w-0 truncate text-base font-semibold tracking-[-0.015em] text-[color:var(--dashboardy-heading)]">
+			<header className="flex shrink-0 items-center justify-between gap-4 border-b border-[color:var(--dashboardy-border)] px-4 py-2.5">
+				<h2 className="min-w-0 truncate text-[0.8125rem] font-[500] tracking-[-0.01em] text-[color:var(--dashboardy-heading)] [font-family:var(--app-font-heading)]">
 					Repo uploads
 				</h2>
-				<p className="flex shrink-0 items-center gap-2 text-base text-[color:var(--dashboardy-muted)] @sm/repository-uploads:text-sm">
-					<span className="font-mono font-semibold tabular-nums text-[color:var(--dashboardy-heading)]">
+				<p className="flex shrink-0 items-center gap-1.5 text-[0.75rem]/4 font-[450] tracking-[-0.01em] text-[color:var(--dashboardy-muted)]">
+					<span className="font-mono font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
 						{isPending ? "—" : formatNumber(automaticCount)}
 					</span>{" "}
 					auto
 					<span aria-hidden="true">·</span>
-					<span className="font-mono font-semibold tabular-nums text-[color:var(--dashboardy-heading)]">
+					<span className="font-mono font-medium tabular-nums text-[color:var(--dashboardy-heading)]">
 						{isPending ? "—" : formatNumber(sessionDataOnlyCount)}
 					</span>{" "}
 					manual
@@ -119,16 +122,16 @@ export function DashboardRepositoryUploadStatus({
 							return (
 								<li
 									key={row.key}
-									className="flex min-h-12 items-center justify-between gap-3 px-5 py-2.5 sm:px-6"
+									className="flex min-h-11 items-center justify-between gap-3 px-4 py-1.5"
 								>
-									<div className="flex min-w-0 items-baseline gap-2">
+									<div className="flex min-w-0 flex-1 items-baseline gap-1.5">
 										<p
-											className="min-w-0 truncate text-base font-medium text-[color:var(--dashboardy-heading)] @sm/repository-uploads:text-sm"
+											className="min-w-0 flex-1 truncate text-[0.8125rem]/5 font-[450] tracking-[-0.01em] text-[color:var(--dashboardy-heading)]"
 											title={row.label}
 										>
 											{row.label}
 										</p>
-										<p className="shrink-0 font-mono text-base font-semibold tabular-nums text-[color:var(--dashboardy-muted)] @sm/repository-uploads:text-sm">
+										<p className="shrink-0 font-mono text-[0.75rem]/4 font-medium tabular-nums text-[color:var(--dashboardy-muted)]">
 											<span aria-hidden="true">
 												{formatNumber(row.sessions)}
 											</span>
@@ -138,26 +141,31 @@ export function DashboardRepositoryUploadStatus({
 											</span>
 										</p>
 									</div>
-									<div className="flex shrink-0 items-center gap-1.5">
-										<span
-											className={
-												isAutomatic
-													? "size-1.5 shrink-0 rounded-full bg-[color:var(--dashboardy-success-foreground)]"
-													: "size-1.5 shrink-0 rounded-full bg-[color:var(--dashboardy-warning-foreground)]"
-											}
-											aria-hidden="true"
-										/>
+									<div className="flex w-20 shrink-0 flex-col items-end gap-0.5">
 										<p
 											className={
 												isAutomatic
-													? "whitespace-nowrap text-base font-medium text-[color:var(--dashboardy-success-foreground)] @sm/repository-uploads:text-sm"
-													: "whitespace-nowrap text-base font-medium text-[color:var(--dashboardy-warning-foreground)] @sm/repository-uploads:text-sm"
+													? "flex items-center justify-end gap-1.5 text-[0.6875rem]/4 font-semibold tracking-[0.04em] text-[color:var(--dashboardy-success-foreground)]"
+													: "flex items-center justify-end gap-1.5 text-[0.6875rem]/4 font-semibold tracking-[0.04em] text-[color:var(--dashboardy-warning-foreground)]"
 											}
 										>
+											<span
+												className={
+													isAutomatic
+														? "size-1.5 shrink-0 rounded-full bg-[color:var(--dashboardy-success-foreground)]"
+														: "size-1.5 shrink-0 rounded-full bg-[color:var(--dashboardy-warning-foreground)]"
+												}
+												aria-hidden="true"
+											/>
 											<span className="sr-only">
-												{isAutomatic ? "Automatic" : "Manual"} upload. Last
-												upload{" "}
+												{isAutomatic ? "Automatic" : "Manual"} upload
 											</span>
+											<span aria-hidden="true">
+												{isAutomatic ? "AUTO" : "MANUAL"}
+											</span>
+										</p>
+										<p className="max-w-full truncate text-right text-[0.75rem]/4 tracking-[-0.01em] tabular-nums text-[color:var(--dashboardy-muted)]">
+											<span className="sr-only">Last upload </span>
 											<time
 												dateTime={row.lastSessionAt}
 												title={formatExactDateTime(row.lastSessionAt)}
@@ -171,12 +179,12 @@ export function DashboardRepositoryUploadStatus({
 						})}
 					</ul>
 				) : (
-					<div className="flex min-h-72 items-center justify-center px-5 sm:px-6">
+					<div className="flex min-h-72 items-center justify-center px-4">
 						<div className="flex max-w-xs flex-col gap-1 text-center">
-							<p className="text-base font-medium text-[color:var(--dashboardy-heading)] sm:text-sm">
+							<p className="text-[0.8125rem]/5 font-[500] tracking-[-0.01em] text-[color:var(--dashboardy-heading)]">
 								No repositories yet
 							</p>
-							<p className="text-base/6 text-pretty text-[color:var(--dashboardy-muted)] sm:text-sm/5">
+							<p className="text-[0.75rem]/4 tracking-[-0.01em] text-pretty text-[color:var(--dashboardy-muted)]">
 								Repositories appear here after their first session upload.
 							</p>
 						</div>

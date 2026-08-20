@@ -49,11 +49,31 @@ describe("DashboardRepositoryUploadStatus", () => {
 		expect(within(repositoryList).getAllByRole("listitem")).toHaveLength(1);
 		expect(within(repositoryList).getByText("rudel-v2")).toBeVisible();
 		expect(within(repositoryList).getByText("5 sessions")).toBeInTheDocument();
+		expect(within(repositoryList).getByText("AUTO")).toBeVisible();
 		expect(
 			within(repositoryList).queryByText(/podgorica/),
 		).not.toBeInTheDocument();
 		expect(
 			within(repositoryList).queryByText(/lansing/),
 		).not.toBeInTheDocument();
+	});
+
+	it("right-aligns manual status while preserving a long repository label", () => {
+		const repository = "@rudel/a-very-long-repository-name-for-truncation";
+
+		render(
+			<DashboardRepositoryUploadStatus
+				isPending={false}
+				projects={[
+					createProject({
+						project_path: "/Users/evren/projects/local-checkout",
+						repository,
+					}),
+				]}
+			/>,
+		);
+
+		expect(screen.getByText("MANUAL")).toBeVisible();
+		expect(screen.getByTitle(repository)).toHaveClass("truncate");
 	});
 });
