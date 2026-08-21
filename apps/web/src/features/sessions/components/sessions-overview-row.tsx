@@ -171,7 +171,7 @@ export function SessionsOverviewRow({
 					className="w-full whitespace-nowrap text-right text-xs font-normal tracking-normal text-[#787774] tabular-nums [font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe_UI_Variable_Display','Segoe_UI',Helvetica,Arial,sans-serif] dark:text-white/65"
 					title={clockDateTimeLabel}
 				>
-					{clockTimeLabel}
+					{clock.date}
 				</time>
 			</div>
 			<div className={cn(cellClassName, "justify-center px-2")}>
