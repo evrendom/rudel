@@ -1,12 +1,12 @@
 import type { SessionAnalytics } from "@rudel/api-routes";
 import { useCallback, useMemo, useState } from "react";
-import { calculateCost } from "@/lib/format";
 import {
 	buildSessionOverviewFilterOptions,
 	buildSessionOverviewRangeBounds,
 	compareSessionLabels,
 	compareSessions,
 	getInitialSortDirection,
+	getSessionOverviewCost,
 	matchesSessionOverviewFilters,
 	matchesSessionOverviewRangeFilters,
 	SESSION_OVERVIEW_COLUMNS,
@@ -148,17 +148,10 @@ export function useSessionsOverviewTableState({
 	);
 	const maximumSessionCost = useMemo(
 		() =>
-			filteredSessions.reduce(
-				(maximum, session) =>
-					Math.max(
-						maximum,
-						calculateCost(session.input_tokens, session.output_tokens, {
-							at: session.session_date,
-							model: session.model_used,
-						}),
-					),
-				0,
-			),
+			filteredSessions.reduce((maximum, session) => {
+				const sessionCost = getSessionOverviewCost(session);
+				return sessionCost === null ? maximum : Math.max(maximum, sessionCost);
+			}, 0),
 		[filteredSessions],
 	);
 	const remainingLoadedSessionCount = Math.max(

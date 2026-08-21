@@ -59,6 +59,7 @@ const baseSession: SessionAnalytics = {
 	subagent_count: 0,
 	subagent_types: [],
 	success_score: 80,
+	total_interactions: 6,
 	total_tokens: 1_100,
 	used_plan_mode: false,
 	user_id: "user-1",
@@ -115,7 +116,7 @@ describe("NewseshSessionList sorting", () => {
 		});
 
 		await user.click(screen.getByRole("button", { name: "Display options" }));
-		await user.click(screen.getByRole("button", { name: "Cost" }));
+		await user.click(screen.getByRole("button", { name: "API Cost" }));
 
 		expect(scrollContainerRef.current.scrollTop).toBe(0);
 		expect(

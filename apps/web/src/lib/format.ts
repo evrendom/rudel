@@ -109,6 +109,16 @@ export function formatCurrency(value: number | null | undefined) {
 	return currencyFormatter.format(value);
 }
 
+export function formatApiCost(value: number | null | undefined) {
+	if (value === null || value === undefined || !Number.isFinite(value)) {
+		return currencyFormatter.format(0);
+	}
+
+	return Math.abs(value) >= 10
+		? wholeCurrencyFormatter.format(value)
+		: currencyFormatter.format(value);
+}
+
 export function formatCompactCurrency(value: number | null | undefined) {
 	if (value === null || value === undefined || !Number.isFinite(value)) {
 		return currencyFormatter.format(0);

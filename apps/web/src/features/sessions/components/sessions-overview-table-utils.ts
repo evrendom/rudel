@@ -18,10 +18,10 @@ export const SESSION_OVERVIEW_COLUMNS = [
 	{ align: "right", key: "duration", label: "Length" },
 	{ align: "right", key: "input", label: "Input" },
 	{ align: "right", key: "output", label: "Output" },
-	{ align: "right", key: "cost", label: "Cost" },
+	{ align: "right", key: "cost", label: "API Cost" },
 	{ align: "right", key: "errors", label: "Errors" },
 	{ align: "right", key: "skills", label: "Skills" },
-	{ align: "right", key: "subagents", label: "Subagents" },
+	{ align: "right", key: "subagents", label: "Subagent types" },
 ] as const;
 
 export type SessionOverviewColumnKey =
@@ -74,6 +74,20 @@ export type SessionSortState = {
 	key: SessionOverviewColumnKey;
 	direction: SortDirection;
 };
+
+export function getSessionOverviewCost(
+	session: SessionAnalytics,
+): number | null {
+	if (session.estimated_cost !== undefined) {
+		return session.estimated_cost;
+	}
+
+	return calculateCost(session.input_tokens, session.output_tokens, {
+		at: session.session_date,
+		model: session.model_used,
+	});
+}
+
 export function buildSessionOverviewFilterOptions(
 	sessions: readonly SessionAnalytics[],
 	filterKey: SessionOverviewFilterKey,
@@ -131,6 +145,9 @@ export function matchesSessionOverviewRangeFilters(
 	return SESSION_OVERVIEW_RANGE_FILTER_KEYS.every((filterKey) => {
 		const range = rangeFilterValues[filterKey];
 		const value = getSessionOverviewRangeValue(session, filterKey);
+		if (value === null) {
+			return range.minimum === null && range.maximum === null;
+		}
 
 		return (
 			(range.minimum === null || value >= range.minimum) &&
@@ -184,15 +201,9 @@ export function compareSessions(
 		case "output":
 			return leftSession.output_tokens - rightSession.output_tokens;
 		case "cost":
-			return (
-				calculateCost(leftSession.input_tokens, leftSession.output_tokens, {
-					at: leftSession.session_date,
-					model: leftSession.model_used,
-				}) -
-				calculateCost(rightSession.input_tokens, rightSession.output_tokens, {
-					at: rightSession.session_date,
-					model: rightSession.model_used,
-				})
+			return compareNullableNumbers(
+				getSessionOverviewCost(leftSession),
+				getSessionOverviewCost(rightSession),
 			);
 		case "errors":
 			return (
@@ -334,13 +345,21 @@ function buildSessionOverviewRangeBound(
 
 	let minimum = Number.POSITIVE_INFINITY;
 	let maximum = Number.NEGATIVE_INFINITY;
+	let hasKnownValue = false;
 
 	for (const session of sessions) {
 		const value = getSessionOverviewRangeValue(session, filterKey);
+		if (value === null) {
+			continue;
+		}
+		hasKnownValue = true;
 		minimum = Math.min(minimum, value);
 		maximum = Math.max(maximum, value);
 	}
 	const step = getSessionOverviewRangeStep(filterKey);
+	if (!hasKnownValue) {
+		return { maximum: 0, minimum: 0, step };
+	}
 
 	return {
 		minimum: normalizeRangeBoundary(minimum, step, "minimum"),
@@ -359,10 +378,7 @@ function getSessionOverviewRangeValue(
 		case "output":
 			return session.output_tokens;
 		case "cost":
-			return calculateCost(session.input_tokens, session.output_tokens, {
-				at: session.session_date,
-				model: session.model_used,
-			});
+			return getSessionOverviewCost(session);
 		case "subagents":
 			return resolveSessionSubagentCount(
 				session.subagent_count,
@@ -399,6 +415,20 @@ function normalizeRangeBoundary(
 	const precision = Math.max(0, Math.ceil(-Math.log10(step)));
 
 	return Number(normalizedValue.toFixed(precision));
+}
+
+function compareNullableNumbers(
+	leftValue: number | null,
+	rightValue: number | null,
+) {
+	if (leftValue === null) {
+		return rightValue === null ? 0 : -1;
+	}
+	if (rightValue === null) {
+		return 1;
+	}
+
+	return leftValue - rightValue;
 }
 
 export function compareSessionLabels(leftValue: string, rightValue: string) {

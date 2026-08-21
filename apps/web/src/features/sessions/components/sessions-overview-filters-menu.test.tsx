@@ -113,19 +113,23 @@ describe("SessionsOverviewFiltersMenu linear variant", () => {
 		});
 	});
 
-	it("exposes a working Subagents range setting", async () => {
+	it("exposes a working Subagent types range setting", async () => {
 		const user = userEvent.setup();
 		const onRangeFilterChange = vi.fn();
 		renderLinearFilters({ onRangeFilterChange });
 
 		await user.click(screen.getByRole("button", { name: "Filter sessions" }));
 		await user.hover(
-			screen.getByRole("button", { name: "Configure Subagents filter" }),
+			screen.getByRole("button", {
+				name: "Configure Subagent types filter",
+			}),
 		);
 
-		const dialog = screen.getByRole("dialog", { name: "Subagents filter" });
+		const dialog = screen.getByRole("dialog", {
+			name: "Subagent types filter",
+		});
 		const minimum = within(dialog).getByRole("slider", {
-			name: "Minimum Subagents",
+			name: "Minimum Subagent types",
 		});
 		fireEvent.change(minimum, { target: { value: "2" } });
 

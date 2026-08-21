@@ -101,6 +101,7 @@ describe("session list date range", () => {
 			"toDate(signal_rows.session_date) <= toDate({endDate:String})",
 		);
 		expect(lastQuery().clickhouse_settings?.join_use_nulls).toBe(0);
+		expect(query).toContain("sa.cost_is_complete AS cost_is_complete");
 	});
 
 	test("preserves the production ClickHouse table allowlist in the module mock", () => {

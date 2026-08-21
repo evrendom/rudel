@@ -1,9 +1,10 @@
-import type {
-	DimensionAnalysisInput,
-	SessionAnalytics,
-	SessionAnalyticsSummary as SessionAnalyticsSummaryBase,
-	SessionDetail,
-	Source,
+import {
+	type DimensionAnalysisInput,
+	resolveRepoIdentity,
+	type SessionAnalytics,
+	type SessionAnalyticsSummary as SessionAnalyticsSummaryBase,
+	type SessionDetail,
+	type Source,
 } from "@rudel/api-routes";
 import {
 	addOptionalStringEqFilter,
@@ -41,6 +42,7 @@ export interface SessionAnalyticsRaw {
 	input_tokens: number;
 	output_tokens: number;
 	estimated_cost: number | null;
+	cost_is_complete: number;
 
 	// Git activity
 	git_sha: string;
@@ -75,6 +77,49 @@ export interface SessionAnalyticsSummary extends SessionAnalyticsSummaryBase {
 	median_response_time_sec: number;
 	quick_response_rate: number;
 	long_pause_rate: number;
+}
+
+export function mapSessionAnalyticsRow(
+	row: SessionAnalyticsRaw,
+): SessionAnalytics {
+	const repositoryIdentity = resolveRepoIdentity({
+		gitRemote: row.git_remote || null,
+		packageName: row.package_name || null,
+		projectPath: row.project_path,
+	});
+
+	return {
+		source: row.source,
+		session_id: row.session_id,
+		user_id: row.user_id,
+		session_date: row.session_date,
+		project_path: row.project_path,
+		repository: repositoryIdentity.repoLabel,
+		worktree: repositoryIdentity.worktree,
+		git_remote: row.git_remote || undefined,
+		git_branch: row.git_branch || null,
+		duration_min: row.actual_duration_min,
+		total_tokens: row.total_tokens,
+		input_tokens: row.input_tokens,
+		output_tokens: row.output_tokens,
+		estimated_cost: row.cost_is_complete > 0 ? row.estimated_cost : null,
+		success_score: row.success_score,
+		total_interactions: row.total_interactions,
+		avg_period_sec: row.avg_period_sec,
+		subagent_types: row.subagent_types,
+		skills: row.skills,
+		slash_commands: row.slash_commands,
+		has_commit: row.has_commit > 0,
+		error_count: row.error_count,
+		model_used: row.model_used,
+		used_plan_mode: row.used_plan_mode > 0,
+		member_swears: row.member_swears,
+		member_apologies: row.member_apologies,
+		member_positive: row.member_positive,
+		model_swears: row.model_swears,
+		model_apologies: row.model_apologies,
+		model_positive: row.model_positive,
+	};
 }
 
 /**
@@ -219,6 +264,7 @@ export async function getSessionAnalytics(
       input_tokens,
       output_tokens,
 	  ${estimatedCostSql} AS estimated_cost,
+	  sa.cost_is_complete AS cost_is_complete,
       git_sha,
       git_branch,
       has_commit,
@@ -256,38 +302,7 @@ export async function getSessionAnalytics(
 		query_params,
 	});
 
-	return raw.map(
-		(row): SessionAnalytics => ({
-			source: row.source,
-			session_id: row.session_id,
-			user_id: row.user_id,
-			session_date: row.session_date,
-			project_path: row.project_path,
-			repository:
-				row.git_remote || row.package_name || row.project_path || null,
-			git_remote: row.git_remote || undefined,
-			duration_min: row.actual_duration_min,
-			total_tokens: row.total_tokens,
-			input_tokens: row.input_tokens,
-			output_tokens: row.output_tokens,
-			estimated_cost: row.estimated_cost,
-			success_score: row.success_score,
-			total_interactions: row.total_interactions,
-			avg_period_sec: row.avg_period_sec,
-			subagent_types: row.subagent_types,
-			skills: row.skills,
-			slash_commands: row.slash_commands,
-			has_commit: row.has_commit > 0,
-			model_used: row.model_used,
-			used_plan_mode: row.used_plan_mode > 0,
-			member_swears: row.member_swears,
-			member_apologies: row.member_apologies,
-			member_positive: row.member_positive,
-			model_swears: row.model_swears,
-			model_apologies: row.model_apologies,
-			model_positive: row.model_positive,
-		}),
-	);
+	return raw.map(mapSessionAnalyticsRow);
 }
 
 /**

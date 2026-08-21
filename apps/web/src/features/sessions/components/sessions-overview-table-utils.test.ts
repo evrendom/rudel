@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
 	buildSessionOverviewFilterOptions,
 	buildSessionOverviewRangeBounds,
+	compareSessions,
+	getSessionOverviewCost,
 	matchesSessionOverviewFilters,
 	matchesSessionOverviewRangeFilters,
 	SESSION_OVERVIEW_NO_SKILLS_FILTER_VALUE,
@@ -28,6 +30,7 @@ const baseSession: SessionAnalytics = {
 	subagent_types: [],
 	subagent_count: 2,
 	success_score: 80,
+	total_interactions: 6,
 	total_tokens: 10_000,
 	used_plan_mode: false,
 	user_id: "user-1",
@@ -176,6 +179,40 @@ describe("sessions overview filters", () => {
 			matchesSessionOverviewRangeFilters(
 				otherSession,
 				createRangeFilters({ errors: { maximum: null, minimum: 1 } }),
+			),
+		).toBe(false);
+	});
+
+	it("uses one unknown-aware cost value for sorting and range filtering", () => {
+		const pricedSession: SessionAnalytics = {
+			...baseSession,
+			estimated_cost: 5,
+		};
+		const incompleteCostSession: SessionAnalytics = {
+			...otherSession,
+			estimated_cost: null,
+		};
+
+		expect(getSessionOverviewCost(pricedSession)).toBe(5);
+		expect(getSessionOverviewCost(incompleteCostSession)).toBeNull();
+		expect(
+			compareSessions(incompleteCostSession, pricedSession, "cost", {}),
+		).toBeLessThan(0);
+		expect(
+			buildSessionOverviewRangeBounds([pricedSession, incompleteCostSession])
+				.cost,
+		).toMatchObject({ maximum: 5, minimum: 5 });
+
+		const activeCostRange = createRangeFilters({
+			cost: { maximum: null, minimum: 0 },
+		});
+		expect(
+			matchesSessionOverviewRangeFilters(pricedSession, activeCostRange),
+		).toBe(true);
+		expect(
+			matchesSessionOverviewRangeFilters(
+				incompleteCostSession,
+				activeCostRange,
 			),
 		).toBe(false);
 	});

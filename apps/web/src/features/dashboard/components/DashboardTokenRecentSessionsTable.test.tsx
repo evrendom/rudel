@@ -21,6 +21,7 @@ const session: SessionAnalytics = {
 	input_tokens: 6_000,
 	output_tokens: 4_000,
 	success_score: 80,
+	total_interactions: 6,
 	avg_period_sec: 45,
 	subagent_types: [],
 	skills: [],

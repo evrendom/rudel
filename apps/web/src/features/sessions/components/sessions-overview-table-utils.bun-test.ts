@@ -13,14 +13,15 @@ const session: SessionAnalytics = {
 	input_tokens: 6_000,
 	model_used: "gpt-5.6",
 	output_tokens: 4_000,
-	project_path: "/Users/evrendombak/conductor/workspaces/rudel-v2/osaka",
-	repository: "/Users/evrendombak/conductor/workspaces/rudel-v2/osaka",
+	project_path: "/opt/conductor/workspaces/rudel-v2/osaka",
+	repository: "/opt/conductor/workspaces/rudel-v2/osaka",
 	session_date: "2026-08-19T12:00:00Z",
 	session_id: "session-1",
 	skills: [],
 	slash_commands: [],
 	subagent_types: [],
 	success_score: 80,
+	total_interactions: 6,
 	total_tokens: 10_000,
 	used_plan_mode: false,
 	user_id: "user-1",
@@ -42,12 +43,12 @@ describe("getRepositoryLabel", () => {
 		expect(
 			getRepositoryLabel({
 				...session,
-				git_remote: "github.com/evrendom/rudel",
-				project_path: "/Users/evrendombak/coding-projects/rudel",
-				repository: "github.com/evrendom/rudel",
+				git_remote: "github.com/example/rudel",
+				project_path: "/opt/coding-projects/rudel",
+				repository: "github.com/example/rudel",
 				worktree: null,
 			}),
-		).toBe("evrendom/rudel");
+		).toBe("example/rudel");
 	});
 });
 

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { SessionAnalyticsSchema } from "@rudel/api-routes";
 import {
 	mapSessionAnalyticsRow,
 	type SessionAnalyticsRaw,
@@ -8,8 +9,9 @@ import { summarizeSessionLanguageSignals } from "../services/session-language-si
 const rawSession: SessionAnalyticsRaw = {
 	actual_duration_min: 12,
 	avg_period_sec: 45,
-	error_count: 0,
-	estimated_cost: null,
+	cost_is_complete: 1,
+	error_count: 3,
+	estimated_cost: 1.25,
 	git_branch: "main",
 	git_remote: "",
 	git_sha: "abc123",
@@ -29,7 +31,7 @@ const rawSession: SessionAnalyticsRaw = {
 	organization_id: "org-1",
 	output_tokens: 4_000,
 	package_name: "",
-	project_path: "/Users/evrendombak/conductor/workspaces/rudel-v2/osaka",
+	project_path: "/opt/conductor/workspaces/rudel-v2/osaka",
 	quick_responses: 2,
 	session_date: "2026-08-19T12:00:00Z",
 	session_id: "session-1",
@@ -38,6 +40,7 @@ const rawSession: SessionAnalyticsRaw = {
 	slash_commands: [],
 	subagent_types: [],
 	success_score: 80,
+	total_interactions: 6,
 	total_tokens: 10_000,
 	used_plan_mode: 0,
 	user_id: "user-1",
@@ -50,6 +53,27 @@ describe("mapSessionAnalyticsRow", () => {
 			repository: "rudel-v2",
 			worktree: "osaka",
 		});
+	});
+
+	test("preserves list metrics through contract parsing", () => {
+		const parsed = SessionAnalyticsSchema.parse(
+			mapSessionAnalyticsRow(rawSession),
+		);
+
+		expect(parsed).toMatchObject({
+			error_count: 3,
+			git_branch: "main",
+			total_interactions: 6,
+		});
+	});
+
+	test("returns an unknown cost when server pricing is incomplete", () => {
+		expect(
+			mapSessionAnalyticsRow({
+				...rawSession,
+				cost_is_complete: 0,
+			}).estimated_cost,
+		).toBeNull();
 	});
 });
 

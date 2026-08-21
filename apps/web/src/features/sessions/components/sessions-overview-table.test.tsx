@@ -37,6 +37,7 @@ const session: SessionAnalytics = {
 	subagent_types: [],
 	subagent_count: 2,
 	success_score: 80,
+	total_interactions: 6,
 	total_tokens: 10_000,
 	used_plan_mode: false,
 	user_id: "user-1",
@@ -86,10 +87,10 @@ describe("SessionsOverviewTable", () => {
 			"Length",
 			"Input",
 			"Output",
-			"Cost",
+			"API Cost",
 			"Errors",
 			"Skills",
-			"Subagents",
+			"Subagent types",
 		]) {
 			expect(
 				screen.getAllByRole("button", {
@@ -138,11 +139,49 @@ describe("SessionsOverviewTable", () => {
 		).not.toBeInTheDocument();
 		expect(within(sessionsList).getByText("6K")).toBeVisible();
 		expect(within(sessionsList).getByText("4K")).toBeVisible();
+		expect(within(sessionsList).getByText("$0.08")).toBeVisible();
 		expect(
 			within(sessionsList).getByRole("progressbar", {
 				name: "6,000 input tokens relative to the largest session",
 			}),
 		).toBeInTheDocument();
+	});
+
+	it("keeps incomplete costs unknown and falls back to subagent type counts", () => {
+		const incompleteCostSession: SessionAnalytics = {
+			...session,
+			estimated_cost: null,
+			session_id: "session-incomplete-cost",
+			subagent_count: undefined,
+			subagent_types: ["Explore", "Plan"],
+		};
+
+		render(
+			<SessionsOverviewTable
+				activeSessionId={null}
+				canOpenSession={() => true}
+				getSessionHref={undefined}
+				getSessionLinkState={undefined}
+				isLoading={false}
+				onSessionClick={vi.fn()}
+				scrollContainerRef={undefined}
+				sessionCountLabel={1}
+				sessions={[incompleteCostSession]}
+				sessionDetailDisabledNote={undefined}
+				totalSessionCount={1}
+			/>,
+		);
+
+		const sessionsList = screen.getByRole("list", { name: "Recent sessions" });
+		expect(
+			within(sessionsList).getByTitle("API cost unavailable"),
+		).toHaveTextContent("—");
+		expect(
+			within(sessionsList).queryByRole("progressbar", { name: /API cost/ }),
+		).not.toBeInTheDocument();
+		expect(
+			within(sessionsList).getByTitle("2 subagent types used"),
+		).toHaveTextContent("2");
 	});
 
 	it("scrolls every column together without frozen cells", () => {
@@ -227,7 +266,7 @@ describe("SessionsOverviewTable", () => {
 			"Cost",
 			"Errors",
 			"Skills",
-			"Subagents",
+			"Subagent types",
 		]) {
 			expect(
 				screen.getByRole("button", {
@@ -247,14 +286,14 @@ describe("SessionsOverviewTable", () => {
 			}),
 		).toBeInTheDocument();
 		const subagentsSortButton = screen.getByRole("button", {
-			name: "Sort by Subagents, ascending",
+			name: "Sort by Subagent types, ascending",
 		});
 		const skillsCell = within(sessionsList).getByTitle(
 			"testing-bun, typescript-standards, ui",
 		);
 		expect(skillsCell).toHaveTextContent("3");
 		expect(
-			within(sessionsList).getByTitle("2 subagents used"),
+			within(sessionsList).getByTitle("2 subagent types used"),
 		).toHaveTextContent("2");
 		expect(within(sessionsList).getByText("obsessiondb/rudel")).toBeVisible();
 		expect(

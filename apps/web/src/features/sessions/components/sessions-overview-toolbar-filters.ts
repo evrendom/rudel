@@ -100,6 +100,6 @@ export const SESSION_OVERVIEW_TOOLBAR_FILTERS = [
 		icon: HierarchySquare01Icon,
 		key: "subagents",
 		kind: "range",
-		label: "Subagents",
+		label: "Subagent types",
 	},
 ] satisfies readonly SessionOverviewToolbarFilter[];

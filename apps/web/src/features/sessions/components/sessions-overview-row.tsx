@@ -15,12 +15,12 @@ import {
 import {
 	getRepositoryLabel,
 	getSessionBranchLabel,
+	getSessionOverviewCost,
 	SESSION_OVERVIEW_GRID_CLASS_NAME,
 } from "@/features/sessions/components/sessions-overview-table-utils";
 import {
-	calculateCost,
+	formatApiCost,
 	formatCompactNumber,
-	formatCurrency,
 	formatRoundedDuration,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -184,14 +184,7 @@ export function SessionsOverviewRow({
 	const sessionHref = getSessionHref?.(session);
 	const repositoryLabel = getRepositoryLabel(session);
 	const branchLabel = getSessionBranchLabel(session);
-	const sessionCost = calculateCost(
-		session.input_tokens,
-		session.output_tokens,
-		{
-			at: session.session_date,
-			model: session.model_used,
-		},
-	);
+	const sessionCost = getSessionOverviewCost(session);
 	const errorCount = resolveSessionErrorCount(session.error_count);
 	const subagentCount = resolveSessionSubagentCount(
 		session.subagent_count,
@@ -329,13 +322,18 @@ export function SessionsOverviewRow({
 			</div>
 			<div className={cn(cellClassName, "justify-end")}>
 				<div className="flex min-w-0 items-center justify-end gap-1.5">
-					<SessionMetricMagnitude
-						label={`${formatCurrency(sessionCost)} cost relative to the most expensive session`}
-						maximumValue={maximumSessionCost}
-						value={sessionCost}
-					/>
-					<p className="truncate text-base/5 font-[450] text-(--session-overview-muted) tabular-nums sm:text-[0.8125rem]/5">
-						{formatCurrency(sessionCost)}
+					{sessionCost === null ? null : (
+						<SessionMetricMagnitude
+							label={`${formatApiCost(sessionCost)} API cost relative to the most expensive session`}
+							maximumValue={maximumSessionCost}
+							value={sessionCost}
+						/>
+					)}
+					<p
+						className="truncate text-base/5 font-[450] text-(--session-overview-muted) tabular-nums sm:text-[0.8125rem]/5"
+						title={sessionCost === null ? "API cost unavailable" : undefined}
+					>
+						{sessionCost === null ? "—" : formatApiCost(sessionCost)}
 					</p>
 				</div>
 			</div>
@@ -363,7 +361,7 @@ export function SessionsOverviewRow({
 			<div className={cn(cellClassName, "justify-end")}>
 				<p
 					className="truncate text-base/5 font-[450] text-(--session-overview-muted) tabular-nums sm:text-[0.8125rem]/5"
-					title={`${subagentCount.toLocaleString()} ${subagentCount === 1 ? "subagent" : "subagents"} used`}
+					title={`${subagentCount.toLocaleString()} ${subagentCount === 1 ? "subagent type" : "subagent types"} used`}
 				>
 					{subagentCount.toLocaleString()}
 				</p>
