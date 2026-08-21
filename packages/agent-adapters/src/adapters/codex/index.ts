@@ -29,7 +29,8 @@ import {
 	removeHook,
 } from "./config.js";
 
-const SESSIONS_BASE_DIR = join(homedir(), ".codex", "sessions");
+const SESSIONS_BASE_DIR =
+	process.env.RUDEL_CODEX_SESSIONS_DIR ?? join(homedir(), ".codex", "sessions");
 
 // ── Exported utilities ──
 

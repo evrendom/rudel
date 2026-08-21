@@ -4,7 +4,9 @@ import {
 	findActiveRolloutFile,
 	type SessionFile,
 } from "@rudel/agent-adapters";
+import { resolveRepoIdentity } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
+import { isRepositoryAutoUploadAllowed } from "../../../lib/auto-upload-config.js";
 import { loadCredentials } from "../../../lib/credentials.js";
 import { removeFailedUpload } from "../../../lib/failed-uploads.js";
 import { getGitInfo } from "../../../lib/git-info.js";
@@ -50,6 +52,24 @@ async function runTurnComplete(
 
 		const input = parseNotification(notification);
 		if (!input) return;
+		const gitInfo = await getGitInfo(input.cwd);
+		const repository = resolveRepoIdentity({
+			gitRemote: gitInfo.gitRemote ?? null,
+			packageName: gitInfo.packageName ?? null,
+			projectPath: input.cwd,
+		});
+		if (
+			!isRepositoryAutoUploadAllowed(repository.repoKey, codexAdapter.source)
+		) {
+			logger.info(
+				"Skipping session {sessionId}: automatic upload is disabled for {repository}",
+				{
+					repository: repository.repoLabel,
+					sessionId: input.threadId,
+				},
+			);
+			return;
+		}
 
 		const credentials = loadCredentials();
 		if (!credentials) {
@@ -73,7 +93,6 @@ async function runTurnComplete(
 			projectPath: input.cwd,
 		};
 
-		const gitInfo = await getGitInfo(input.cwd);
 		const organizationId = await getProjectOrgId(input.cwd);
 
 		const request = await codexAdapter.buildUploadRequest(sessionFile, {

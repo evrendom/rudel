@@ -46,7 +46,8 @@ function findClaudeDir(): string {
 }
 
 export function getClaudeSettingsPath(): string {
-	return join(findClaudeDir(), "settings.json");
+	const settingsDir = process.env.RUDEL_CLAUDE_SETTINGS_DIR ?? findClaudeDir();
+	return join(settingsDir, "settings.json");
 }
 
 export function readClaudeSettings(): ClaudeSettings {

@@ -1,0 +1,853 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Rudel CLI Lab</title>
+		<style>
+			:root {
+				color-scheme: dark;
+				font-family:
+					Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+					sans-serif;
+				--canvas: #0b0c0c;
+				--panel: #111313;
+				--panel-raised: #171919;
+				--line: #282b2b;
+				--line-strong: #3a3e3d;
+				--text: #f1f1ed;
+				--muted: #969b98;
+				--dim: #656a67;
+				--accent: #a5ee68;
+				--accent-ink: #14200c;
+				--blue: #7ba7ff;
+				--danger: #ff806f;
+				--warning: #f5ba64;
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			body {
+				margin: 0;
+				min-width: 320px;
+				min-height: 100svh;
+				background: var(--canvas);
+				color: var(--text);
+			}
+
+			button,
+			input {
+				font: inherit;
+			}
+
+			button {
+				color: inherit;
+			}
+
+			.shell {
+				display: grid;
+				height: 100svh;
+				grid-template-columns: 310px minmax(0, 1fr);
+				min-height: 100svh;
+				overflow: hidden;
+			}
+
+			.rail {
+				display: flex;
+				height: 100%;
+				min-height: 0;
+				flex-direction: column;
+				border-right: 1px solid var(--line);
+				background: #0e1010;
+			}
+
+			.brand {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 22px 20px 18px;
+				border-bottom: 1px solid var(--line);
+			}
+
+			.brand-lockup {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+			}
+
+			.mark {
+				display: grid;
+				width: 28px;
+				height: 28px;
+				place-items: center;
+				border: 1px solid var(--line-strong);
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 13px;
+				font-weight: 700;
+			}
+
+			.brand-name {
+				font-size: 14px;
+				font-weight: 700;
+				letter-spacing: -0.01em;
+			}
+
+			.brand-subtitle {
+				margin-top: 2px;
+				color: var(--muted);
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 10px;
+				letter-spacing: 0.09em;
+				text-transform: uppercase;
+			}
+
+			.live {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				color: var(--muted);
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 10px;
+				text-transform: uppercase;
+			}
+
+			.live-dot {
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: var(--accent);
+				box-shadow: 0 0 0 3px rgb(165 238 104 / 12%);
+			}
+
+			.rail-tools {
+				padding: 14px 14px 8px;
+			}
+
+			.search {
+				width: 100%;
+				height: 38px;
+				border: 1px solid var(--line);
+				border-radius: 7px;
+				outline: none;
+				background: var(--panel);
+				padding: 0 11px;
+				color: var(--text);
+				font-size: 12px;
+			}
+
+			.search:focus {
+				border-color: var(--accent);
+				box-shadow: 0 0 0 3px rgb(165 238 104 / 10%);
+			}
+
+			.search::placeholder {
+				color: var(--dim);
+			}
+
+			.scenarios {
+				flex: 1;
+				min-height: 0;
+				overflow: auto;
+				padding: 5px 10px 20px;
+			}
+
+			.group-title {
+				margin: 18px 9px 7px;
+				color: var(--dim);
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 10px;
+				font-weight: 600;
+				letter-spacing: 0.12em;
+				text-transform: uppercase;
+			}
+
+			.scenario {
+				display: grid;
+				width: 100%;
+				grid-template-columns: 4px minmax(0, 1fr);
+				gap: 10px;
+				border: 0;
+				border-radius: 7px;
+				background: transparent;
+				padding: 9px;
+				text-align: left;
+				cursor: pointer;
+			}
+
+			.scenario:hover {
+				background: var(--panel);
+			}
+
+			.scenario[aria-selected="true"] {
+				background: var(--panel-raised);
+			}
+
+			.scenario-indicator {
+				width: 3px;
+				height: 100%;
+				min-height: 32px;
+				border-radius: 2px;
+				background: transparent;
+			}
+
+			.scenario[aria-selected="true"] .scenario-indicator {
+				background: var(--accent);
+			}
+
+			.scenario-name-row {
+				display: flex;
+				align-items: baseline;
+				justify-content: space-between;
+				gap: 8px;
+			}
+
+			.scenario-name {
+				font-size: 12px;
+				font-weight: 650;
+			}
+
+			.profile {
+				color: var(--dim);
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 9px;
+				text-transform: uppercase;
+			}
+
+			.scenario[aria-selected="true"] .profile {
+				color: var(--accent);
+			}
+
+			.scenario-description {
+				display: block;
+				margin-top: 3px;
+				color: var(--muted);
+				font-size: 10px;
+				line-height: 1.45;
+			}
+
+			.access {
+				border-top: 1px solid var(--line);
+				padding: 14px 18px 16px;
+				color: var(--muted);
+				font-size: 10px;
+				line-height: 1.5;
+			}
+
+			.access-label {
+				color: var(--dim);
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+			}
+
+			.access-code {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 8px;
+				margin-top: 5px;
+				color: var(--text);
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+			}
+
+			.copy-button {
+				border: 0;
+				background: transparent;
+				color: var(--blue);
+				font-size: 10px;
+				cursor: pointer;
+			}
+
+			.workspace {
+				display: grid;
+				height: 100%;
+				min-width: 0;
+				grid-template-rows: auto minmax(420px, 1fr) 170px;
+				min-height: 0;
+			}
+
+			.toolbar {
+				display: flex;
+				min-height: 66px;
+				align-items: center;
+				justify-content: space-between;
+				gap: 18px;
+				border-bottom: 1px solid var(--line);
+				padding: 12px 18px;
+				background: var(--panel);
+			}
+
+			.context {
+				min-width: 0;
+			}
+
+			.eyebrow {
+				color: var(--dim);
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 9px;
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+			}
+
+			.context-title {
+				margin-top: 3px;
+				overflow: hidden;
+				font-size: 14px;
+				font-weight: 650;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			.controls,
+			.preset-list,
+			.segmented {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+			}
+
+			.controls {
+				flex-wrap: wrap;
+				justify-content: flex-end;
+			}
+
+			.control-label {
+				margin-right: 2px;
+				color: var(--dim);
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 9px;
+				text-transform: uppercase;
+			}
+
+			.control-button {
+				height: 30px;
+				border: 1px solid var(--line);
+				border-radius: 6px;
+				background: transparent;
+				padding: 0 9px;
+				color: var(--muted);
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 10px;
+				cursor: pointer;
+			}
+
+			.control-button:hover {
+				border-color: var(--line-strong);
+				color: var(--text);
+			}
+
+			.control-button[aria-pressed="true"] {
+				border-color: var(--accent);
+				background: var(--accent);
+				color: var(--accent-ink);
+				font-weight: 700;
+			}
+
+			.restart {
+				border-color: var(--line-strong);
+				color: var(--text);
+			}
+
+			.stage {
+				display: grid;
+				min-width: 0;
+				overflow: auto;
+				place-items: center;
+				padding: 24px;
+				background-color: var(--canvas);
+			}
+
+			.terminal-frame {
+				display: grid;
+				width: 690px;
+				height: 430px;
+				min-width: 0;
+				overflow: hidden;
+				border: 1px solid var(--line-strong);
+				border-radius: 10px;
+				background: #050606;
+				box-shadow: 0 22px 60px rgb(0 0 0 / 40%);
+				transition: width 180ms ease, height 180ms ease;
+			}
+
+			.terminal-frame[data-preset="100x30"] {
+				width: 860px;
+				height: 530px;
+			}
+
+			.terminal-frame[data-preset="60x20"] {
+				width: 530px;
+				height: 370px;
+			}
+
+			.terminal-frame[data-preset="full"] {
+				width: 100%;
+				height: 100%;
+				min-height: 430px;
+			}
+
+			.terminal {
+				width: 100%;
+				height: 100%;
+				border: 0;
+				background: #050606;
+			}
+
+			.terminal-unavailable {
+				display: none;
+				align-content: center;
+				justify-items: center;
+				padding: 32px;
+				text-align: center;
+			}
+
+			.terminal-unavailable strong {
+				font-size: 15px;
+			}
+
+			.terminal-unavailable p {
+				max-width: 46ch;
+				color: var(--muted);
+				font-size: 12px;
+				line-height: 1.6;
+			}
+
+			.terminal-unavailable code {
+				color: var(--accent);
+			}
+
+			.log-panel {
+				display: grid;
+				min-height: 0;
+				grid-template-rows: auto minmax(0, 1fr);
+				border-top: 1px solid var(--line);
+				background: #0f1111;
+			}
+
+			.log-header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 10px 16px 8px;
+			}
+
+			.log-title {
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 10px;
+				font-weight: 650;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+			}
+
+			.log-note {
+				color: var(--dim);
+				font-size: 10px;
+			}
+
+			.logs {
+				overflow: auto;
+				padding: 0 16px 12px;
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				font-size: 10px;
+				line-height: 1.75;
+			}
+
+			.log-row {
+				display: grid;
+				grid-template-columns: 70px 40px minmax(180px, 1fr) 38px 70px 60px;
+				gap: 10px;
+				border-top: 1px solid rgb(255 255 255 / 4%);
+				color: var(--muted);
+			}
+
+			.log-row:first-child {
+				border-top: 0;
+			}
+
+			.log-path {
+				overflow: hidden;
+				color: var(--text);
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			.log-status[data-status="ok"] {
+				color: var(--accent);
+			}
+
+			.log-status[data-status="warn"] {
+				color: var(--warning);
+			}
+
+			.log-status[data-status="error"] {
+				color: var(--danger);
+			}
+
+			.empty-log {
+				color: var(--dim);
+			}
+
+			.notice {
+				position: fixed;
+				right: 18px;
+				bottom: 18px;
+				z-index: 10;
+				border: 1px solid var(--line-strong);
+				border-radius: 7px;
+				background: #191c1b;
+				padding: 10px 13px;
+				color: var(--text);
+				font-size: 11px;
+				box-shadow: 0 12px 36px rgb(0 0 0 / 45%);
+				opacity: 0;
+				transform: translateY(8px);
+				pointer-events: none;
+				transition: opacity 140ms ease, transform 140ms ease;
+			}
+
+			.notice[data-visible="true"] {
+				opacity: 1;
+				transform: translateY(0);
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.terminal-frame,
+				.notice {
+					transition: none;
+				}
+			}
+
+			@media (max-width: 900px) {
+				.shell {
+					height: auto;
+					grid-template-columns: 1fr;
+					overflow: visible;
+				}
+
+				.rail {
+					height: 42svh;
+					min-height: auto;
+					max-height: 42svh;
+					border-right: 0;
+					border-bottom: 1px solid var(--line);
+				}
+
+				.access {
+					display: none;
+				}
+
+				.workspace {
+					height: 100svh;
+					min-height: 100svh;
+				}
+
+				.toolbar {
+					align-items: flex-start;
+					flex-direction: column;
+				}
+
+				.controls {
+					justify-content: flex-start;
+				}
+
+				.stage {
+					place-items: start center;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="shell">
+			<aside class="rail">
+				<header class="brand">
+					<div class="brand-lockup">
+						<div class="mark" aria-hidden="true">R</div>
+						<div>
+							<div class="brand-name">Rudel</div>
+							<div class="brand-subtitle">CLI interface lab</div>
+						</div>
+					</div>
+					<div class="live"><span class="live-dot"></span>local</div>
+				</header>
+				<div class="rail-tools">
+					<input
+						id="scenario-search"
+						class="search"
+						type="search"
+						placeholder="Filter scenarios…"
+						aria-label="Filter scenarios"
+					/>
+				</div>
+				<nav id="scenarios" class="scenarios" aria-label="CLI scenarios"></nav>
+				<footer class="access">
+					<div class="access-label">Terminal sign-in</div>
+					<div class="access-code">
+						<span id="basic-username"></span>
+						<button id="copy-credential" class="copy-button" type="button">Copy login</button>
+					</div>
+				</footer>
+			</aside>
+
+			<main class="workspace">
+				<header class="toolbar">
+					<div class="context">
+						<div id="context-eyebrow" class="eyebrow"></div>
+						<div id="context-title" class="context-title"></div>
+					</div>
+					<div class="controls">
+						<span class="control-label">Viewport</span>
+						<div id="presets" class="preset-list">
+							<button class="control-button" type="button" data-preset="60x20">60×20</button>
+							<button class="control-button" type="button" data-preset="80x24" aria-pressed="true">80×24</button>
+							<button class="control-button" type="button" data-preset="100x30">100×30</button>
+							<button class="control-button" type="button" data-preset="full">Full</button>
+						</div>
+						<span class="control-label">Artifact</span>
+						<div id="mode" class="segmented">
+							<button class="control-button" type="button" data-mode="source" aria-pressed="true">Source</button>
+							<button class="control-button" type="button" data-mode="packed">Packed</button>
+						</div>
+						<button id="restart" class="control-button restart" type="button">↻ Restart</button>
+					</div>
+				</header>
+
+				<section class="stage" aria-label="Terminal viewport">
+					<div id="terminal-frame" class="terminal-frame" data-preset="80x24">
+						<iframe id="terminal" class="terminal" title="Rudel CLI terminal"></iframe>
+						<div id="terminal-unavailable" class="terminal-unavailable">
+							<strong>ttyd is not running</strong>
+							<p>Install the real PTY bridge with <code>brew install ttyd</code>, then restart the playground.</p>
+						</div>
+					</div>
+				</section>
+
+				<section class="log-panel" aria-label="Stub request log">
+					<header class="log-header">
+						<div class="log-title">Loopback stub traffic</div>
+						<div class="log-note">method · path · behavior · status · bytes only</div>
+					</header>
+					<div id="logs" class="logs" aria-live="polite"></div>
+				</section>
+			</main>
+		</div>
+		<div id="notice" class="notice" role="status"></div>
+
+		<script>
+			window.__RUDEL_PLAYGROUND__ = __PLAYGROUND_CONFIG__;
+			(() => {
+				const config = window.__RUDEL_PLAYGROUND__;
+				const groups = ["Happy paths", "Errors", "States", "Scale"];
+				const elements = {
+					contextEyebrow: document.querySelector("#context-eyebrow"),
+					contextTitle: document.querySelector("#context-title"),
+					copyCredential: document.querySelector("#copy-credential"),
+					credential: document.querySelector("#basic-username"),
+					frame: document.querySelector("#terminal-frame"),
+					logs: document.querySelector("#logs"),
+					mode: document.querySelector("#mode"),
+					notice: document.querySelector("#notice"),
+					presets: document.querySelector("#presets"),
+					restart: document.querySelector("#restart"),
+					scenarios: document.querySelector("#scenarios"),
+					search: document.querySelector("#scenario-search"),
+					terminal: document.querySelector("#terminal"),
+					unavailable: document.querySelector("#terminal-unavailable"),
+				};
+				let selected = config.scenarios.find((scenario) => scenario.name === "picker-real") || config.scenarios[0];
+				let noticeTimer;
+
+				function api(path, options = {}) {
+					return fetch(path, {
+						...options,
+						headers: {
+							"Content-Type": "application/json",
+							"x-playground-token": config.controlToken,
+							...(options.headers || {}),
+						},
+					});
+				}
+
+				function renderScenarios(filter = "") {
+					const query = filter.trim().toLowerCase();
+					elements.scenarios.replaceChildren();
+					for (const group of groups) {
+						const scenarios = config.scenarios.filter((scenario) => {
+							const matchesGroup = scenario.group === group;
+							const haystack = `${scenario.label} ${scenario.description} ${scenario.name}`.toLowerCase();
+							return matchesGroup && (!query || haystack.includes(query));
+						});
+						if (scenarios.length === 0) continue;
+						const title = document.createElement("div");
+						title.className = "group-title";
+						title.textContent = group;
+						elements.scenarios.append(title);
+						for (const scenario of scenarios) {
+							const button = document.createElement("button");
+							button.type = "button";
+							button.className = "scenario";
+							button.dataset.scenario = scenario.name;
+							button.setAttribute("aria-selected", String(scenario.name === selected.name));
+							button.innerHTML = `
+								<span class="scenario-indicator"></span>
+								<span>
+									<span class="scenario-name-row">
+										<span class="scenario-name"></span>
+										<span class="profile"></span>
+									</span>
+									<span class="scenario-description"></span>
+								</span>`;
+							button.querySelector(".scenario-name").textContent = scenario.label;
+							button.querySelector(".profile").textContent = scenario.profile;
+							button.querySelector(".scenario-description").textContent = scenario.description;
+							button.addEventListener("click", () => selectScenario(scenario));
+							elements.scenarios.append(button);
+						}
+					}
+				}
+
+				function selectScenario(scenario) {
+					selected = scenario;
+					renderScenarios(elements.search.value);
+					renderContext();
+					restartTerminal();
+				}
+
+				function renderContext() {
+					elements.contextEyebrow.textContent = `${selected.profile} / ${selected.stubBehavior}`;
+					elements.contextTitle.textContent = selected.description;
+				}
+
+				function restartTerminal() {
+					if (!config.ttydReady) return;
+					const url = new URL(`http://127.0.0.1:${config.ttydPort}/`);
+					url.searchParams.set("arg", selected.name);
+					url.searchParams.set("run", String(Date.now()));
+					elements.terminal.src = url.toString();
+					showNotice(`Restarted ${selected.label}`);
+				}
+
+				function setPreset(preset) {
+					elements.frame.dataset.preset = preset;
+					for (const button of elements.presets.querySelectorAll("button")) {
+						button.setAttribute("aria-pressed", String(button.dataset.preset === preset));
+					}
+				}
+
+				async function setMode(mode) {
+					const response = await api("/api/mode", {
+						method: "POST",
+						body: JSON.stringify({ mode }),
+					});
+					if (!response.ok) {
+						showNotice("Could not change CLI artifact");
+						return;
+					}
+					renderMode(mode);
+					showNotice(`${mode === "packed" ? "Packed" : "Source"} mode selected`);
+					restartTerminal();
+				}
+
+				function renderMode(mode) {
+					for (const button of elements.mode.querySelectorAll("button")) {
+						button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
+					}
+				}
+
+				function renderLogs(logs) {
+					const recent = logs.slice(-80).reverse();
+					if (recent.length === 0) {
+						elements.logs.innerHTML = '<div class="empty-log">No stub requests yet. Start a scenario in the terminal.</div>';
+						return;
+					}
+					elements.logs.replaceChildren();
+					for (const entry of recent) {
+						const row = document.createElement("div");
+						row.className = "log-row";
+						const statusTone = entry.status < 400 ? "ok" : entry.status < 500 ? "warn" : "error";
+						const values = [
+							new Date(entry.timestamp).toLocaleTimeString([], { hour12: false }),
+							entry.method,
+							entry.path,
+							String(entry.status),
+							entry.scenario,
+							`${entry.bytes} B`,
+						];
+						for (const [index, value] of values.entries()) {
+							const cell = document.createElement("span");
+							cell.textContent = value;
+							if (index === 2) cell.className = "log-path";
+							if (index === 3) {
+								cell.className = "log-status";
+								cell.dataset.status = statusTone;
+							}
+							row.append(cell);
+						}
+						elements.logs.append(row);
+					}
+				}
+
+				async function poll() {
+					try {
+						const [stateResponse, logsResponse] = await Promise.all([
+							api("/api/state"),
+							api("/api/logs"),
+						]);
+						if (stateResponse.ok) {
+							const state = await stateResponse.json();
+							renderMode(state.cliMode);
+							if (state.stubTripwire) showNotice("Stub Host tripwire fired");
+							if (state.ttydStatus === "stopped") showNotice("ttyd stopped unexpectedly");
+						}
+						if (logsResponse.ok) renderLogs((await logsResponse.json()).logs);
+					} catch {
+						showNotice("Control server is unavailable");
+					}
+				}
+
+				function showNotice(message) {
+					clearTimeout(noticeTimer);
+					elements.notice.textContent = message;
+					elements.notice.dataset.visible = "true";
+					noticeTimer = setTimeout(() => {
+						elements.notice.dataset.visible = "false";
+					}, 1800);
+				}
+
+				elements.search.addEventListener("input", () => renderScenarios(elements.search.value));
+				elements.restart.addEventListener("click", restartTerminal);
+				elements.presets.addEventListener("click", (event) => {
+					const button = event.target.closest("button[data-preset]");
+					if (button) setPreset(button.dataset.preset);
+				});
+				elements.mode.addEventListener("click", (event) => {
+					const button = event.target.closest("button[data-mode]");
+					if (button) void setMode(button.dataset.mode);
+				});
+				elements.copyCredential.addEventListener("click", async () => {
+					await navigator.clipboard.writeText(`${config.ttydUsername}:${config.ttydPassword}`);
+					showNotice("Terminal login copied");
+				});
+				document.addEventListener("keydown", (event) => {
+					if (event.key.toLowerCase() === "r" && !event.metaKey && !event.ctrlKey && event.target.tagName !== "INPUT") {
+						event.preventDefault();
+						restartTerminal();
+					}
+				});
+
+				elements.credential.textContent = `${config.ttydUsername} / ••••••••••••`;
+				if (!config.ttydReady) {
+					elements.terminal.style.display = "none";
+					elements.unavailable.style.display = "grid";
+				}
+				renderScenarios();
+				renderContext();
+				renderLogs([]);
+				restartTerminal();
+				void poll();
+				setInterval(poll, 1000);
+			})();
+		</script>
+	</body>
+</html>

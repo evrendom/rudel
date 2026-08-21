@@ -60,6 +60,7 @@ import {
 	checkManualIngestRateLimit,
 	checkOrganizationSessionCountRateLimit,
 } from "./rate-limit.js";
+import { findUploadedSessionIds } from "./services/cli-session-upload-status.service.js";
 import { enqueueClickHousePurge } from "./services/clickhouse-purge.service.js";
 import {
 	filterSessionTextFieldsOffThread,
@@ -270,6 +271,36 @@ async function resolveIngestOrganizationId(
 	});
 }
 
+function readActiveOrganizationId(session: unknown): string | null {
+	if (
+		typeof session !== "object" ||
+		session === null ||
+		!("activeOrganizationId" in session)
+	) {
+		return null;
+	}
+	return typeof session.activeOrganizationId === "string"
+		? session.activeOrganizationId
+		: null;
+}
+
+const cliSessionUploadStatus = os.cli.sessionUploadStatus
+	.use(ingestAuthMiddleware)
+	.handler(async ({ input, context }) => {
+		const activeOrganizationId = readActiveOrganizationId(context.session);
+		const organizationId = await resolveIngestOrganizationId(
+			input.organizationId ?? activeOrganizationId,
+			context.user.id,
+		);
+		const uploadedSessionIds = await findUploadedSessionIds(
+			organizationId,
+			context.user.id,
+			input.sessionIds,
+		);
+
+		return { organizationId, uploadedSessionIds };
+	});
+
 const ingestSessionHandler = os.ingestSession
 	.use(ingestAuthMiddleware)
 	.handler(async ({ input, context, errors, signal }) => {
@@ -368,13 +399,7 @@ const ingestSessionHandler = os.ingestSession
 			});
 		}
 
-		const activeOrgId =
-			context.session &&
-			typeof (context.session as Record<string, unknown>)
-				.activeOrganizationId === "string"
-				? ((context.session as Record<string, unknown>)
-						.activeOrganizationId as string)
-				: null;
+		const activeOrgId = readActiveOrganizationId(context.session);
 
 		if (input.upload_mode === "manual" || input.upload_mode === "retry") {
 			checkManualIngestRateLimit(context.user.id, input.sessionId);
@@ -938,6 +963,7 @@ export const router: Router<typeof contract, AppContext> = os.router({
 		authStatus: cliAuthStatus,
 		revokeToken: revokeCliToken,
 		setupStatus: cliSetupStatus,
+		sessionUploadStatus: cliSessionUploadStatus,
 	},
 	chatwoot: chatwootRouter,
 	listMyOrganizations,
