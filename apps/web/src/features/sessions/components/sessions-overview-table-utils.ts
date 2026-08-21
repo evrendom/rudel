@@ -7,13 +7,14 @@ import { getSessionTimestamp } from "@/features/sessions/session-ordering";
 import { calculateCost, formatUsername } from "@/lib/format";
 
 export const SESSION_OVERVIEW_GRID_CLASS_NAME =
-	"grid-cols-[64px_40px_264px_180px_112px_112px_112px_112px_112px_88px_88px_104px]";
-export const SESSION_OVERVIEW_MIN_WIDTH_CLASS_NAME = "min-w-[1388px]";
+	"grid-cols-[64px_40px_264px_180px_112px_184px_112px_112px_112px_112px_88px_88px_104px]";
+export const SESSION_OVERVIEW_MIN_WIDTH_CLASS_NAME = "min-w-[1572px]";
 export const SESSION_OVERVIEW_COLUMNS = [
 	{ align: "left", key: "time", label: "Time" },
 	{ align: "left", key: "repository", label: "Repository" },
 	{ align: "left", key: "user", label: "Member" },
 	{ align: "left", key: "model", label: "Model" },
+	{ align: "left", key: "signals", label: "Signals" },
 	{ align: "right", key: "duration", label: "Length" },
 	{ align: "right", key: "input", label: "Input" },
 	{ align: "right", key: "output", label: "Output" },
@@ -160,6 +161,11 @@ export function compareSessions(
 				leftSession.model_used,
 				rightSession.model_used,
 			);
+		case "signals":
+			return (
+				getSessionLanguageSignalCount(leftSession) -
+				getSessionLanguageSignalCount(rightSession)
+			);
 		case "skills":
 			return leftSession.skills.length - rightSession.skills.length;
 		case "subagents":
@@ -208,6 +214,7 @@ export function getInitialSortDirection(
 ): SortDirection {
 	switch (sortKey) {
 		case "skills":
+		case "signals":
 		case "subagents":
 		case "input":
 		case "output":
@@ -219,6 +226,17 @@ export function getInitialSortDirection(
 		default:
 			return "asc";
 	}
+}
+
+function getSessionLanguageSignalCount(session: SessionAnalytics) {
+	return (
+		session.member_swears +
+		session.member_apologies +
+		session.member_positive +
+		session.model_swears +
+		session.model_apologies +
+		session.model_positive
+	);
 }
 
 export function getRepositoryLabel(session: SessionAnalytics) {

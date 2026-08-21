@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { SessionAnalytics } from "@rudel/api-routes";
-import { getRepositoryLabel } from "./sessions-overview-table-utils";
+import {
+	compareSessions,
+	getRepositoryLabel,
+} from "./sessions-overview-table-utils";
 
 const session: SessionAnalytics = {
 	avg_period_sec: 45,
@@ -45,5 +48,24 @@ describe("getRepositoryLabel", () => {
 				worktree: null,
 			}),
 		).toBe("evrendom/rudel");
+	});
+});
+
+describe("compareSessions", () => {
+	test("sorts signal columns by total persisted language signals", () => {
+		const louderSession: SessionAnalytics = {
+			...session,
+			member_swears: 2,
+			model_positive: 1,
+		};
+		const quieterSession: SessionAnalytics = {
+			...session,
+			member_apologies: 1,
+			session_id: "session-2",
+		};
+
+		expect(compareSessions(louderSession, quieterSession, "signals", {})).toBe(
+			2,
+		);
 	});
 });

@@ -40,12 +40,12 @@ const session: SessionAnalytics = {
 	total_tokens: 10_000,
 	used_plan_mode: false,
 	user_id: "user-1",
-	member_swears: 0,
+	member_swears: 2,
 	member_apologies: 0,
 	member_positive: 0,
 	model_swears: 0,
 	model_apologies: 0,
-	model_positive: 0,
+	model_positive: 1,
 };
 
 const otherSession: SessionAnalytics = {
@@ -82,6 +82,7 @@ describe("SessionsOverviewTable", () => {
 			"Repository",
 			"Member",
 			"Model",
+			"Signals",
 			"Length",
 			"Input",
 			"Output",
@@ -113,6 +114,13 @@ describe("SessionsOverviewTable", () => {
 		expect(sessionDate.getAttribute("title")).toMatch(
 			/^May 4, \d{2}:\d{2} (AM|PM)$/,
 		);
+		const modelGlyph = sessionsList.querySelector(
+			"[data-session-model-mark-glyph] svg",
+		);
+		assert(modelGlyph);
+		expect(modelGlyph).toHaveClass("text-[#CC7D5E]");
+		expect(within(sessionsList).getByText("you swore +1")).toBeVisible();
+		expect(within(sessionsList).getByText("model praised")).toBeVisible();
 		expect(within(sessionsList).getByText("12m")).toBeVisible();
 		expect(within(sessionsList).getByText("pr2-usage-events")).toBeVisible();
 		expect(

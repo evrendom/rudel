@@ -1,11 +1,13 @@
-import type { SessionAnalytics } from "@rudel/api-routes";
-
 export interface NewseshLanguageSignal {
 	readonly category: "apology" | "positive" | "swear";
 	readonly count: number;
 	readonly label: string;
 	readonly speaker: "member" | "model";
 }
+
+type LanguageSignalCountSource = {
+	readonly [key: `${string}_${"swears" | "apologies" | "positive"}`]: number;
+};
 
 const NEWSHESH_LANGUAGE_SIGNAL_ORDER: ReadonlyArray<{
 	category: NewseshLanguageSignal["category"];
@@ -58,15 +60,7 @@ const NEWSHESH_LANGUAGE_SIGNAL_ORDER: ReadonlyArray<{
 ];
 
 export function getNewseshLanguageSignals(
-	session: Pick<
-		SessionAnalytics,
-		| "member_swears"
-		| "member_apologies"
-		| "member_positive"
-		| "model_swears"
-		| "model_apologies"
-		| "model_positive"
-	>,
+	session: LanguageSignalCountSource,
 ): NewseshLanguageSignal[] {
 	return NEWSHESH_LANGUAGE_SIGNAL_ORDER.map((signal, order) => ({
 		category: signal.category,

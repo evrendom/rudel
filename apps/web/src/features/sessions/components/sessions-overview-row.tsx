@@ -2,6 +2,11 @@ import type { SessionAnalytics } from "@rudel/api-routes";
 import { User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { DashboardModelBadges } from "@/features/dashboard/components/DashboardModelBadges";
+import {
+	getNewseshLanguageSignalCategoryLabel,
+	getNewseshLanguageSignals,
+	getNewseshLanguageSignalTagLabel,
+} from "@/features/sessions/components/newsesh-session-language-signal";
 import { SessionModelMark } from "@/features/sessions/components/session-model-mark";
 import {
 	resolveSessionErrorCount,
@@ -34,6 +39,57 @@ type SessionsOverviewRowProps = {
 	session: SessionAnalytics;
 	userLabel: string;
 };
+
+const MAX_SESSION_OVERVIEW_SIGNAL_TAGS = 2;
+
+function SessionOverviewLanguageSignals({
+	session,
+}: {
+	session: SessionAnalytics;
+}) {
+	const signals = getNewseshLanguageSignals(session);
+	if (signals.length === 0) {
+		return (
+			<span
+				className="text-xs text-(--session-overview-subtle)"
+				title="No language signals"
+			>
+				—
+			</span>
+		);
+	}
+
+	const signalSummary = signals
+		.map(
+			(signal) =>
+				`${signal.count} ${getNewseshLanguageSignalCategoryLabel(signal)}`,
+		)
+		.join(", ");
+
+	return (
+		<div
+			className="flex min-w-0 max-w-full items-center gap-1 overflow-hidden"
+			title={`Language signals: ${signalSummary}`}
+		>
+			{signals.slice(0, MAX_SESSION_OVERVIEW_SIGNAL_TAGS).map((signal) => (
+				<span
+					key={`${signal.speaker}:${signal.category}`}
+					className={cn(
+						"min-w-0 shrink truncate rounded-sm px-1.5 py-0.5 text-[0.625rem] font-normal tabular-nums",
+						signal.category === "positive" &&
+							"bg-[#dcfce7] text-[#15803d] dark:bg-[#173d2a] dark:text-[#4ade80]",
+						signal.category === "apology" &&
+							"bg-[#fef3c7] text-[#b45309] dark:bg-[#493719] dark:text-[#fbbf24]",
+						signal.category === "swear" &&
+							"bg-[#ffe4e6] text-[#be123c] dark:bg-[#4c1d25] dark:text-[#fb7185]",
+					)}
+				>
+					{getNewseshLanguageSignalTagLabel(signal)}
+				</span>
+			))}
+		</div>
+	);
+}
 
 function SessionMetricMagnitude({
 	label,
@@ -231,6 +287,9 @@ export function SessionsOverviewRow({
 				<div className="flex min-w-0 items-center overflow-hidden">
 					<DashboardModelBadges models={[session.model_used]} size="sm" />
 				</div>
+			</div>
+			<div className={cellClassName}>
+				<SessionOverviewLanguageSignals session={session} />
 			</div>
 			<div className={cn(cellClassName, "justify-end")}>
 				<div className="flex min-w-0 items-center justify-end gap-1.5">

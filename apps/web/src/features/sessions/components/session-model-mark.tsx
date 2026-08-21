@@ -1,10 +1,11 @@
 import { User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/ui/avatar";
+import { TraceBotIcon } from "@/components/conversation/conversation-trace-hugeicons";
+import { getModelIconComponent } from "@/components/conversation/conversation-trace-model-icon";
 import {
-	ClaudeModelIcon,
-	CodexModelIcon,
-} from "@/features/dashboard/components/DashboardModelBadges";
-import { getModelBadgeTone } from "@/features/dashboard/components/dashboard-model-brand";
+	getModelBadgeTone,
+	getModelBrandIconClassName,
+} from "@/features/dashboard/components/dashboard-model-brand";
 import { cn } from "@/lib/utils";
 
 export function SessionModelMark({
@@ -17,6 +18,7 @@ export function SessionModelMark({
 	userLabel: string;
 }) {
 	const tone = getModelBadgeTone(model);
+	const ModelIcon = getModelIconComponent(model);
 	const userTitle = `Session owner: ${userLabel}`;
 
 	return (
@@ -35,13 +37,22 @@ export function SessionModelMark({
 					tone.icon !== "claude" && "bg-black/4 dark:bg-white/8",
 				)}
 			/>
-			{tone.icon === "claude" ? (
-				<ClaudeModelIcon className="size-3.5 shrink-0" />
-			) : tone.icon === "codex" ? (
-				<CodexModelIcon className="size-3.5 shrink-0" />
-			) : (
-				<span className="size-1.5 rounded-full bg-current" />
-			)}
+			<span
+				aria-hidden="true"
+				className="relative flex size-5 items-center justify-center"
+				data-session-model-mark-glyph
+			>
+				{ModelIcon ? (
+					<ModelIcon
+						className={cn(
+							"size-3.5 shrink-0",
+							getModelBrandIconClassName(model),
+						)}
+					/>
+				) : (
+					<TraceBotIcon className="size-3.5 shrink-0" />
+				)}
+			</span>
 			<Avatar
 				aria-label={userTitle}
 				className="absolute -right-0.5 -bottom-0.5 size-3.5 bg-(--session-overview-surface) ring-1 ring-(--session-overview-surface) after:border-black/5 dark:after:border-white/10"
