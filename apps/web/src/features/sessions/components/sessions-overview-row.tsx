@@ -149,7 +149,7 @@ export function SessionsOverviewRow({
 	const isActive = activeSessionId === session.session_id;
 	const clock = getSessionClockParts(session.session_date);
 	const rowClassName = cn(
-		"group/session grid h-9 w-full text-left outline-none focus-visible:z-20 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)",
+		"group/session grid h-8 w-full text-left outline-none focus-visible:z-20 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)",
 		SESSION_OVERVIEW_GRID_CLASS_NAME,
 		isClickable ? "cursor-pointer" : "cursor-default opacity-65",
 	);
@@ -164,7 +164,7 @@ export function SessionsOverviewRow({
 			<div className={cn(cellClassName, "justify-start px-1.5")}>
 				<time
 					dateTime={session.session_date}
-					className="grid w-full grid-cols-[2.25rem_1fr] items-baseline gap-0.5 whitespace-nowrap text-xs font-normal tracking-normal text-[#787774] tabular-nums [font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe_UI_Variable_Display','Segoe_UI',Helvetica,Arial,sans-serif] dark:text-white/65"
+					className="grid w-full grid-cols-[2.5rem_1fr] items-baseline gap-0.5 whitespace-nowrap font-mono text-[0.6875rem]/4 font-normal tracking-normal text-[#787774] tabular-nums dark:text-white/65"
 				>
 					<span className="text-left">{clock.date}</span>
 					<span className="flex items-baseline justify-start">
@@ -189,7 +189,7 @@ export function SessionsOverviewRow({
 			<div className={cellClassName}>
 				<p
 					className={cn(
-						"min-w-0 truncate text-base font-medium tracking-[-0.01em] text-(--session-overview-text) sm:text-sm",
+						"min-w-0 truncate text-base/5 font-[450] tracking-normal text-(--session-overview-text) sm:text-[0.8125rem]/5",
 						branchLabel && "max-w-[55%]",
 					)}
 					title={repositoryLabel}
@@ -205,7 +205,7 @@ export function SessionsOverviewRow({
 							·
 						</span>
 						<p
-							className="min-w-0 flex-1 truncate text-base font-normal tracking-[-0.01em] text-(--session-overview-muted) sm:text-sm"
+							className="min-w-0 flex-1 truncate text-base/5 font-[450] tracking-normal text-(--session-overview-muted) sm:text-[0.8125rem]/5"
 							title={branchLabel}
 						>
 							{branchLabel}
@@ -228,7 +228,7 @@ export function SessionsOverviewRow({
 						className="size-4 h-lh shrink-0 stroke-(--session-overview-muted)"
 					/>
 				)}
-				<p className="min-w-0 truncate pl-1.5 text-base font-medium tracking-[-0.01em] text-(--session-overview-text) sm:text-sm">
+				<p className="min-w-0 truncate pl-1.5 text-base/5 font-[450] tracking-normal text-(--session-overview-text) sm:text-[0.8125rem]/5">
 					{userLabel}
 				</p>
 			</div>
@@ -244,7 +244,7 @@ export function SessionsOverviewRow({
 						maximumValue={maximumSessionDuration}
 						value={session.duration_min}
 					/>
-					<p className="truncate font-mono text-base font-light text-(--session-overview-muted) tabular-nums sm:text-sm">
+					<p className="truncate text-base/5 font-[450] text-(--session-overview-muted) tabular-nums sm:text-[0.8125rem]/5">
 						{formatRoundedDuration(session.duration_min)}
 					</p>
 				</div>
@@ -256,7 +256,7 @@ export function SessionsOverviewRow({
 						maximumValue={maximumSessionInputTokens}
 						value={session.input_tokens}
 					/>
-					<p className="truncate font-mono text-base font-light text-(--session-overview-muted) tabular-nums sm:text-sm">
+					<p className="truncate text-base/5 font-[450] text-(--session-overview-muted) tabular-nums sm:text-[0.8125rem]/5">
 						{formatCompactNumber(session.input_tokens)}
 					</p>
 				</div>
@@ -268,7 +268,7 @@ export function SessionsOverviewRow({
 						maximumValue={maximumSessionOutputTokens}
 						value={session.output_tokens}
 					/>
-					<p className="truncate font-mono text-base font-light text-(--session-overview-muted) tabular-nums sm:text-sm">
+					<p className="truncate text-base/5 font-[450] text-(--session-overview-muted) tabular-nums sm:text-[0.8125rem]/5">
 						{formatCompactNumber(session.output_tokens)}
 					</p>
 				</div>
@@ -280,7 +280,7 @@ export function SessionsOverviewRow({
 						maximumValue={maximumSessionCost}
 						value={sessionCost}
 					/>
-					<p className="truncate font-mono text-base font-light text-(--session-overview-muted) tabular-nums sm:text-sm">
+					<p className="truncate text-base/5 font-[450] text-(--session-overview-muted) tabular-nums sm:text-[0.8125rem]/5">
 						{formatCurrency(sessionCost)}
 					</p>
 				</div>
@@ -288,7 +288,7 @@ export function SessionsOverviewRow({
 			<div className={cn(cellClassName, "justify-end")}>
 				<p
 					className={cn(
-						"truncate font-mono text-base font-light tabular-nums sm:text-sm",
+						"truncate text-base/5 font-[450] tabular-nums sm:text-[0.8125rem]/5",
 						errorCount > 0
 							? "text-red-600 dark:text-red-400"
 							: "text-(--session-overview-muted)",
@@ -300,7 +300,7 @@ export function SessionsOverviewRow({
 			</div>
 			<div className={cn(cellClassName, "justify-end")}>
 				<p
-					className="truncate font-mono text-base font-light text-(--session-overview-muted) tabular-nums sm:text-sm"
+					className="truncate text-base/5 font-[450] text-(--session-overview-muted) tabular-nums sm:text-[0.8125rem]/5"
 					title={skillsTitle}
 				>
 					{session.skills.length.toLocaleString()}
@@ -308,7 +308,7 @@ export function SessionsOverviewRow({
 			</div>
 			<div className={cn(cellClassName, "justify-end")}>
 				<p
-					className="truncate font-mono text-base font-light text-(--session-overview-muted) tabular-nums sm:text-sm"
+					className="truncate text-base/5 font-[450] text-(--session-overview-muted) tabular-nums sm:text-[0.8125rem]/5"
 					title={`${subagentCount.toLocaleString()} ${subagentCount === 1 ? "subagent" : "subagents"} used`}
 				>
 					{subagentCount.toLocaleString()}

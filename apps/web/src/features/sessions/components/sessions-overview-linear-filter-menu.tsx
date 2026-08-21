@@ -160,7 +160,7 @@ export function LinearFilterList<TFilter extends LinearFilterItem>({
 									<span className="truncate">{filter.label}</span>
 									{summary ? (
 										<span
-											className="truncate font-mono text-[0.6875rem]/4 font-normal tabular-nums text-[#5e69c1] dark:text-[#8b93dc]"
+											className="truncate text-[0.6875rem]/4 font-[450] tabular-nums text-[#5e69c1] dark:text-[#8b93dc]"
 											title={summary}
 										>
 											{summary}
