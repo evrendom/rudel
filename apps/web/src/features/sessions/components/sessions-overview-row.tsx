@@ -153,7 +153,7 @@ export function SessionsOverviewRow({
 		? `${clock.date}, ${clockTimeLabel}`
 		: clockTimeLabel;
 	const rowClassName = cn(
-		"group/session grid h-8 w-full text-left outline-none focus-visible:z-20 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)",
+		"group/session grid h-9 w-full text-left outline-none focus-visible:z-20 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)",
 		SESSION_OVERVIEW_GRID_CLASS_NAME,
 		isClickable ? "cursor-pointer" : "cursor-default opacity-65",
 	);
