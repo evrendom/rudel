@@ -107,6 +107,13 @@ describe("SessionsOverviewTable", () => {
 		).not.toBeInTheDocument();
 
 		const sessionsList = screen.getByRole("list", { name: "Recent sessions" });
+		const sessionTime = sessionsList.querySelector("time");
+		assert(sessionTime);
+		expect(sessionTime.textContent).toMatch(/^\d{2}:\d{2} (AM|PM)$/);
+		expect(sessionTime).toHaveAttribute(
+			"title",
+			expect.stringContaining("May 4"),
+		);
 		expect(within(sessionsList).getByText("12m")).toBeVisible();
 		expect(within(sessionsList).getByText("pr2-usage-events")).toBeVisible();
 		expect(

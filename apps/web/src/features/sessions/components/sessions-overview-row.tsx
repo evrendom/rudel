@@ -148,6 +148,10 @@ export function SessionsOverviewRow({
 		(canOpenSession?.(session) ?? true);
 	const isActive = activeSessionId === session.session_id;
 	const clock = getSessionClockParts(session.session_date);
+	const clockTimeLabel = `${clock.hour}${clock.minute ? `:${clock.minute}` : ""}${clock.period ? ` ${clock.period}` : ""}`;
+	const clockDateTimeLabel = clock.date
+		? `${clock.date}, ${clockTimeLabel}`
+		: clockTimeLabel;
 	const rowClassName = cn(
 		"group/session grid h-8 w-full text-left outline-none focus-visible:z-20 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--session-overview-accent)",
 		SESSION_OVERVIEW_GRID_CLASS_NAME,
@@ -164,19 +168,10 @@ export function SessionsOverviewRow({
 			<div className={cn(cellClassName, "justify-start px-1.5")}>
 				<time
 					dateTime={session.session_date}
-					className="flex w-full items-baseline justify-between gap-2 whitespace-nowrap text-xs font-normal tracking-normal text-[#787774] tabular-nums [font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe_UI_Variable_Display','Segoe_UI',Helvetica,Arial,sans-serif] dark:text-white/65"
+					className="w-full whitespace-nowrap text-right text-xs font-normal tracking-normal text-[#787774] tabular-nums [font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe_UI_Variable_Display','Segoe_UI',Helvetica,Arial,sans-serif] dark:text-white/65"
+					title={clockDateTimeLabel}
 				>
-					<span className="shrink-0 text-left">{clock.date}</span>
-					<span className="flex shrink-0 items-baseline justify-end">
-						<span>
-							{clock.hour}
-							{clock.minute ? ":" : ""}
-						</span>
-						<span>
-							{clock.minute}
-							{clock.period ? ` ${clock.period}` : ""}
-						</span>
-					</span>
+					{clockTimeLabel}
 				</time>
 			</div>
 			<div className={cn(cellClassName, "justify-center px-2")}>
