@@ -2,7 +2,6 @@ import { implement, ORPCError } from "@orpc/server";
 import { contract } from "@rudel/api-routes";
 import type { Session } from "./auth.js";
 import { sqlClient } from "./db.js";
-import { checkAnalyticsRateLimit } from "./rate-limit.js";
 
 export interface AppContext {
 	user: Session["user"] | null;
@@ -56,7 +55,6 @@ export const orgMiddleware = os.middleware(async ({ context, next }) => {
 		throw new ORPCError("UNAUTHORIZED");
 	}
 
-	checkAnalyticsRateLimit(context.user.id);
 	const organizationId =
 		(context.session as Record<string, unknown>).activeOrganizationId ??
 		context.user.id;
