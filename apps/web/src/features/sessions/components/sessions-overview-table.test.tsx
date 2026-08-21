@@ -114,11 +114,21 @@ describe("SessionsOverviewTable", () => {
 		expect(sessionDate.getAttribute("title")).toMatch(
 			/^May 4, \d{2}:\d{2} (AM|PM)$/,
 		);
-		const modelGlyph = sessionsList.querySelector(
-			"[data-session-model-mark-glyph] svg",
+		const modelMark = sessionsList.querySelector(
+			"[data-session-detail-model-mark]",
+		);
+		assert(modelMark);
+		expect(modelMark).toHaveClass("drop-shadow-[0_0_0.75px_rgb(0_0_0_/_14%)]");
+		const modelGlyph = modelMark.querySelector(
+			'[data-trace-icon-tone="claude"]',
 		);
 		assert(modelGlyph);
-		expect(modelGlyph).toHaveClass("text-[#CC7D5E]");
+		expect(modelGlyph).toHaveClass(
+			"bg-white",
+			"rounded-none",
+			"border-0",
+			"[-webkit-mask:url('/opaline-trace-fill.svg')_center/contain_no-repeat]",
+		);
 		expect(within(sessionsList).getByText("you swore +1")).toBeVisible();
 		expect(within(sessionsList).getByText("model praised")).toBeVisible();
 		expect(within(sessionsList).getByText("12m")).toBeVisible();

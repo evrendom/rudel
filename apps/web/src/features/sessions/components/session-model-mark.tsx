@@ -1,11 +1,7 @@
 import { User } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/ui/avatar";
-import { TraceBotIcon } from "@/components/conversation/conversation-trace-hugeicons";
-import { getModelIconComponent } from "@/components/conversation/conversation-trace-model-icon";
-import {
-	getModelBadgeTone,
-	getModelBrandIconClassName,
-} from "@/features/dashboard/components/dashboard-model-brand";
+import { ModelTraceIcon } from "@/components/conversation/conversation-trace-icons";
+import { getModelBadgeTone } from "@/features/dashboard/components/dashboard-model-brand";
 import { cn } from "@/lib/utils";
 
 export function SessionModelMark({
@@ -18,7 +14,6 @@ export function SessionModelMark({
 	userLabel: string;
 }) {
 	const tone = getModelBadgeTone(model);
-	const ModelIcon = getModelIconComponent(model);
 	const userTitle = `Session owner: ${userLabel}`;
 
 	return (
@@ -39,19 +34,15 @@ export function SessionModelMark({
 			/>
 			<span
 				aria-hidden="true"
-				className="relative flex size-5 items-center justify-center"
-				data-session-model-mark-glyph
+				className="session-turn-table-model-icon-shell relative flex size-5 shrink-0 drop-shadow-[0_0_0.75px_rgb(0_0_0_/_14%)]"
+				data-session-detail-model-mark
 			>
-				{ModelIcon ? (
-					<ModelIcon
-						className={cn(
-							"size-3.5 shrink-0",
-							getModelBrandIconClassName(model),
-						)}
-					/>
-				) : (
-					<TraceBotIcon className="size-3.5 shrink-0" />
-				)}
+				<ModelTraceIcon
+					className="session-turn-table-model-icon size-5 rounded-none border-0 bg-white shadow-none [-webkit-mask:url('/opaline-trace-fill.svg')_center/contain_no-repeat] [mask:url('/opaline-trace-fill.svg')_center/contain_no-repeat]"
+					expandable={false}
+					expanded={false}
+					model={model}
+				/>
 			</span>
 			<Avatar
 				aria-label={userTitle}
