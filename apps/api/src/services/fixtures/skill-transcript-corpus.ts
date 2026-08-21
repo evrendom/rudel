@@ -8,6 +8,10 @@ const CODEX_BODY_TEMPLATE = [
 	"",
 ].join("\n");
 
+function windowsPath(...segments: string[]): string {
+	return segments.join("\\");
+}
+
 export const CLAUDE_CORPUS_BODIES = {
 	bundled: "# Bundled\n\nBundled body.\n",
 	crlf: "# CRLF\r\n\r\nWindows newlines stay intact.\r\n",
@@ -53,7 +57,7 @@ export function buildClaudeSkillCorpus(): string {
 		),
 		claudeInvocation("crlf", "2026-08-01T10:04:00.000Z"),
 		claudeMeta(
-			"C:\\Users\\test\\.claude\\skills\\crlf",
+			windowsPath("C:", "Users", "test", ".claude", "skills", "crlf"),
 			CLAUDE_CORPUS_BODIES.crlf,
 			true,
 		),
