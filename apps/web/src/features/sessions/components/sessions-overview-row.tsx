@@ -164,7 +164,7 @@ export function SessionsOverviewRow({
 			<div className={cn(cellClassName, "justify-start px-1.5")}>
 				<time
 					dateTime={session.session_date}
-					className="grid w-full grid-cols-[2.5rem_1fr] items-baseline gap-0.5 whitespace-nowrap font-mono text-[0.6875rem]/4 font-normal tracking-normal text-[#787774] tabular-nums dark:text-white/65"
+					className="grid w-full grid-cols-[2.25rem_1fr] items-baseline gap-0.5 whitespace-nowrap text-xs font-normal tracking-normal text-[#787774] tabular-nums [font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe_UI_Variable_Display','Segoe_UI',Helvetica,Arial,sans-serif] dark:text-white/65"
 				>
 					<span className="text-left">{clock.date}</span>
 					<span className="flex items-baseline justify-start">
