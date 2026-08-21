@@ -7,8 +7,8 @@ import { getSessionTimestamp } from "@/features/sessions/session-ordering";
 import { calculateCost, formatUsername } from "@/lib/format";
 
 export const SESSION_OVERVIEW_GRID_CLASS_NAME =
-	"grid-cols-[112px_48px_264px_180px_180px_112px_112px_112px_112px_88px_88px_104px]";
-export const SESSION_OVERVIEW_MIN_WIDTH_CLASS_NAME = "min-w-[1512px]";
+	"grid-cols-[64px_40px_264px_180px_180px_112px_112px_112px_112px_88px_88px_104px]";
+export const SESSION_OVERVIEW_MIN_WIDTH_CLASS_NAME = "min-w-[1456px]";
 export const SESSION_OVERVIEW_COLUMNS = [
 	{ align: "left", key: "time", label: "Time" },
 	{ align: "left", key: "repository", label: "Repository" },
