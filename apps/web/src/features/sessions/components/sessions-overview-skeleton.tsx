@@ -26,7 +26,7 @@ export function SessionsOverviewSkeleton() {
 			{SESSION_OVERVIEW_SKELETON_ROWS.map((rowId) => (
 				<div
 					key={rowId}
-					className={cn("grid h-8", SESSION_OVERVIEW_GRID_CLASS_NAME)}
+					className={cn("grid h-9", SESSION_OVERVIEW_GRID_CLASS_NAME)}
 				>
 					{SESSION_OVERVIEW_COLUMNS.map((column) => (
 						<Fragment key={column.key}>
