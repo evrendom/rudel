@@ -1,4 +1,11 @@
 import { beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
+import {
+	addOptionalStringEqFilter,
+	addOptionalStringInFilter,
+	buildAbsoluteDateFilter,
+	buildDateFilter,
+	getSafeClickHouseTable,
+} from "../clickhouse.js";
 
 interface QueryClickhouseInput {
 	query: string;
@@ -44,69 +51,10 @@ const queryClickhouse = mock((input: QueryClickhouseInput) => {
 	throw new Error(`Unexpected ClickHouse query: ${input.query.slice(0, 120)}`);
 });
 
-const allowedClickHouseTables = new Set([
-	"rudel.claude_sessions",
-	"rudel.codex_sessions",
-	"rudel.session_analytics",
-	"rudel.skill_receipts",
-	"rudel.skill_uses",
-	"rudel.skill_version_contents",
-	"rudel.usage_events",
-]);
-
-function getSafeClickHouseTable(table: string): string {
-	if (!allowedClickHouseTables.has(table)) {
-		throw new Error(`Unsupported ClickHouse table: ${table}`);
-	}
-
-	return table;
-}
-
-function addOptionalStringEqFilter(
-	where: string[],
-	query_params: Record<string, unknown>,
-	column: string,
-	paramName: string,
-	value?: string,
-): void {
-	if (!value) {
-		return;
-	}
-
-	where.push(`${column} = {${paramName}:String}`);
-	query_params[paramName] = value;
-}
-
-function addOptionalStringInFilter(
-	where: string[],
-	query_params: Record<string, unknown>,
-	column: string,
-	paramBase: string,
-	values?: string[],
-): void {
-	if (!values || values.length === 0) {
-		return;
-	}
-
-	const placeholders = values.map((value, index) => {
-		const paramName = `${paramBase}_${index}`;
-		query_params[paramName] = value;
-		return `{${paramName}:String}`;
-	});
-	where.push(`${column} IN (${placeholders.join(", ")})`);
-}
-
-function buildDateFilter(paramName: string, column = "session_date"): string {
-	return `${column} >= now64(3) - toIntervalDay({${paramName}:UInt32}) AND ${column} <= now64(3)`;
-}
-
-function buildAbsoluteDateFilter(
-	startParamName: string,
-	endParamName: string,
-	column = "session_date",
-): string {
-	return `toDate(${column}) >= toDate({${startParamName}:String}) AND toDate(${column}) <= toDate({${endParamName}:String})`;
-}
+// Bun's mock.module is process-global and leaks across test files, so this mock
+// must never carry its own copies of the table allowlist or filter helpers — a
+// stale copy poisons whichever test file runs after this one. Delegate to the
+// real implementations and stub only the I/O.
 
 mock.module("../clickhouse.js", () => ({
 	addOptionalStringEqFilter,
