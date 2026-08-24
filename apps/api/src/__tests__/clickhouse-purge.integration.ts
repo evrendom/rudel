@@ -619,6 +619,82 @@ describe("durable ClickHouse purge worker", () => {
 		expect(attempts.every((attemptCount) => attemptCount === 1)).toBe(true);
 	});
 
+	test("wake triggers an immediate pass before the recovery poll", async () => {
+		const target: ClickHousePurgeTarget = {
+			targetId: `${TEST_RUN_ID}_wake`,
+			targetType: "organization",
+		};
+		const worker = startClickHousePurgeWorker({
+			pollIntervalMs: 60_000,
+			resend: {},
+		});
+
+		try {
+			await worker.wake();
+			await enqueue(target, 3);
+			await worker.wake();
+		} finally {
+			await worker.stop();
+		}
+
+		expect(await getPurgeJob(target)).toEqual(
+			expect.objectContaining({
+				attemptCount: 1,
+				status: "succeeded",
+			}),
+		);
+	});
+
+	test("empty steady state issues no Postgres query before the recovery interval", async () => {
+		const observedQueries: string[] = [];
+		const observedSqlClient = postgres(postgresConnectionString, {
+			debug: (_connection, query) => {
+				observedQueries.push(query);
+			},
+			max: 1,
+		});
+		const pollIntervalMs = 250;
+		const worker = startClickHousePurgeWorker({
+			pollIntervalMs,
+			resend: {},
+			sqlClient: observedSqlClient,
+		});
+
+		try {
+			await worker.wake();
+			observedQueries.length = 0;
+			await Bun.sleep(Math.floor(pollIntervalMs / 2));
+			expect(observedQueries).toEqual([]);
+		} finally {
+			await worker.stop();
+			await observedSqlClient.end();
+		}
+	});
+
+	test("disabled worker ignores wake requests", async () => {
+		const target: ClickHousePurgeTarget = {
+			targetId: `${TEST_RUN_ID}_disabled`,
+			targetType: "organization",
+		};
+		await enqueue(target, 3);
+		const worker = startClickHousePurgeWorker({
+			enabled: false,
+			pollIntervalMs: 5,
+			resend: {},
+		});
+
+		await worker.wake();
+		await Bun.sleep(25);
+		await worker.stop();
+
+		expect(await getPurgeJob(target)).toEqual(
+			expect.objectContaining({
+				attemptCount: 0,
+				status: "pending",
+			}),
+		);
+	});
+
 	test("limits each polling pass to twenty jobs before scheduling another", async () => {
 		const targetPrefix = `${TEST_RUN_ID}_batching_`;
 		const targets = createTargets(targetPrefix, 25);

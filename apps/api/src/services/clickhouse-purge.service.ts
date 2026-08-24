@@ -15,7 +15,7 @@ import {
 const logger = getLogger(["rudel", "api", "clickhouse-purge"]);
 
 const DEFAULT_MAX_ATTEMPTS = 5;
-const DEFAULT_POLL_INTERVAL_MS = 1_000;
+const DEFAULT_POLL_INTERVAL_MS = 15 * 60_000;
 const DEFAULT_LEASE_DURATION_MS = 3 * 60_000;
 const DEFAULT_RETRY_BASE_DELAY_MS = 5_000;
 const DEFAULT_RETRY_MAX_DELAY_MS = 15 * 60_000;
@@ -30,6 +30,10 @@ const MAX_SANITIZED_ERROR_LENGTH = 800;
 const CONFIGURED_MAX_ATTEMPTS = readPositiveSafeIntegerEnv(
 	"CLICKHOUSE_PURGE_MAX_ATTEMPTS",
 	DEFAULT_MAX_ATTEMPTS,
+);
+const CONFIGURED_POLL_INTERVAL_MS = readPositiveSafeIntegerEnv(
+	"CLICKHOUSE_PURGE_POLL_INTERVAL_MS",
+	DEFAULT_POLL_INTERVAL_MS,
 );
 
 export type ClickHousePurgeTarget =
@@ -48,6 +52,7 @@ export interface ClickHousePurgeProcessorEnv {
 }
 
 export interface ClickHousePurgeWorker {
+	wake: () => Promise<void>;
 	stop: () => Promise<void>;
 }
 
@@ -86,8 +91,22 @@ interface PurgeJobCandidate {
 }
 
 export interface StartClickHousePurgeWorkerOptions {
+	enabled?: boolean;
 	pollIntervalMs?: number;
 	resend: ResendConfig;
+	sqlClient?: postgres.Sql;
+}
+
+let registeredClickHousePurgeWorker: ClickHousePurgeWorker | undefined;
+
+export function registerClickHousePurgeWorker(
+	worker: ClickHousePurgeWorker,
+): void {
+	registeredClickHousePurgeWorker = worker;
+}
+
+export function wakeClickHousePurgeWorker(): void {
+	void registeredClickHousePurgeWorker?.wake();
 }
 
 export async function enqueueClickHousePurge(
@@ -140,7 +159,20 @@ export async function enqueueClickHousePurge(
 export function startClickHousePurgeWorker(
 	options: StartClickHousePurgeWorkerOptions,
 ): ClickHousePurgeWorker {
-	const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
+	if (options.enabled === false) {
+		return {
+			async stop() {},
+			async wake() {},
+		};
+	}
+
+	const pollIntervalMs = options.pollIntervalMs ?? CONFIGURED_POLL_INTERVAL_MS;
+	if (!Number.isSafeInteger(pollIntervalMs) || pollIntervalMs <= 0) {
+		throw new Error(
+			"ClickHouse purge poll interval must be a positive integer",
+		);
+	}
+
 	const env: ClickHousePurgeProcessorEnv = {
 		executePurge: async (target) => {
 			if (target.targetType === "organization") {
@@ -158,25 +190,36 @@ export function startClickHousePurgeWorker(
 			options.resend.clickHousePurgeAlertRecipient
 				? (alert) => sendClickHousePurgeFailureAlert(options.resend, alert)
 				: undefined,
-		sqlClient,
+		sqlClient: options.sqlClient ?? sqlClient,
 	};
 
 	let activeRun = Promise.resolve();
+	let isRunning = false;
 	let nextCleanupAt = 0;
+	let runAgain = false;
 	let stopped = false;
 	let timer: ReturnType<typeof setTimeout> | undefined;
 
-	const scheduleNextRun = () => {
+	function clearScheduledRun(): void {
+		if (!timer) {
+			return;
+		}
+		clearTimeout(timer);
+		timer = undefined;
+	}
+
+	function scheduleNextRun(): void {
 		if (stopped) {
 			return;
 		}
 		timer = setTimeout(() => {
-			activeRun = runWorkerPass();
+			timer = undefined;
+			startWorkerPass();
 		}, pollIntervalMs);
 		timer.unref();
-	};
+	}
 
-	const runWorkerPass = async () => {
+	async function runWorkerPass(): Promise<void> {
 		try {
 			const now = Date.now();
 			if (now >= nextCleanupAt) {
@@ -204,18 +247,54 @@ export function startClickHousePurgeWorker(
 			logger.error("ClickHouse purge worker pass failed: {error}", {
 				error: sanitizeClickHousePurgeError(error),
 			});
-		} finally {
-			scheduleNextRun();
 		}
-	};
+	}
 
-	activeRun = runWorkerPass();
+	function startWorkerPass(): void {
+		if (stopped) {
+			return;
+		}
+		if (isRunning) {
+			runAgain = true;
+			return;
+		}
+
+		clearScheduledRun();
+		isRunning = true;
+		activeRun = runWorkerPass().finally(() => {
+			isRunning = false;
+			if (stopped) {
+				return;
+			}
+			if (runAgain) {
+				runAgain = false;
+				startWorkerPass();
+				return;
+			}
+			scheduleNextRun();
+		});
+	}
+
+	startWorkerPass();
 
 	return {
 		async stop() {
 			stopped = true;
-			if (timer) {
-				clearTimeout(timer);
+			runAgain = false;
+			clearScheduledRun();
+			await activeRun;
+		},
+		async wake() {
+			if (stopped) {
+				return;
+			}
+
+			const currentRun = activeRun;
+			startWorkerPass();
+			if (currentRun === activeRun) {
+				await currentRun;
+				await activeRun;
+				return;
 			}
 			await activeRun;
 		},
