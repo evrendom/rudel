@@ -294,8 +294,9 @@ jobs:
             exit 1
           fi
 
+  # Production deploys are owned by the private opalinehq/athena repository.
   deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: false
     needs: [verify, integration]
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
