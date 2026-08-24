@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   changes:
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
     outputs:
       cli: ${{ steps.filter.outputs.cli }}
@@ -45,7 +45,7 @@ jobs:
               - ".github/workflows/ci.yml"
 
   verify:
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -89,7 +89,7 @@ jobs:
         run: bun run --cwd apps/web test:resource-budgets:chrome
 
   integration:
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
     services:
       postgres:
@@ -220,15 +220,15 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - ubuntu-24.04
+          - blacksmith-4vcpu-ubuntu-2404
           - macos-15
           - windows-2025
         node:
           - 20
         include:
-          - os: ubuntu-24.04
+          - os: blacksmith-4vcpu-ubuntu-2404
             node: 22
-          - os: ubuntu-24.04
+          - os: blacksmith-4vcpu-ubuntu-2404
             node: 24
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
@@ -275,7 +275,7 @@ jobs:
     needs:
       - changes
       - cli-smoke
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
     steps:
       - name: Require successful CLI smoke tests when applicable
@@ -297,7 +297,7 @@ jobs:
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: [verify, integration]
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 30
     environment: production
     concurrency:
