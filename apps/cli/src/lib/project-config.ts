@@ -5,10 +5,10 @@ import {
 	readFileSync,
 	writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { exec } from "./exec.js";
 import { normalizeRemoteUrl } from "./git-info.js";
+import { getConfigDir } from "./local-state.js";
 
 interface ProjectEntry {
 	organizationId: string;
@@ -16,10 +16,6 @@ interface ProjectEntry {
 
 interface ProjectsConfig {
 	projects: Record<string, ProjectEntry>;
-}
-
-function getConfigDir(): string {
-	return process.env.RUDEL_CONFIG_DIR ?? join(homedir(), ".rudel");
 }
 
 function getProjectsConfigPath(): string {

@@ -1,6 +1,6 @@
 import * as p from "@clack/prompts";
-import { getAllAdapters } from "@rudel/agent-adapters";
 import { buildCommand } from "@stricli/core";
+import { getAllAdapters } from "../internal/agent-adapters/index.js";
 
 async function runDisable(): Promise<void> {
 	const adapters = getAllAdapters();

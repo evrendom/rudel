@@ -1,9 +1,0 @@
-{
-	"extends": "@rudel/typescript-config/base.json",
-	"compilerOptions": {
-		"noEmit": true,
-		"types": ["bun-types"]
-	},
-	"include": ["src", "scripts/chcli-connect.ts"],
-	"exclude": ["src/generated"]
-}

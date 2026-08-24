@@ -1,0 +1,36 @@
+{
+	"name": "rudel",
+	"version": "0.4.0",
+	"type": "module",
+	"description": "Compatibility alias for the Opaline CLI",
+	"license": "MIT",
+	"engines": {
+		"node": ">=20"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/opalinehq/cli.git",
+		"directory": "packages/rudel-alias"
+	},
+	"bugs": {
+		"url": "https://github.com/opalinehq/cli/issues"
+	},
+	"keywords": [
+		"opaline",
+		"rudel",
+		"claude-code",
+		"codex",
+		"cli"
+	],
+	"author": "Opaline",
+	"bin": {
+		"rudel": "./bin/rudel.js"
+	},
+	"files": [
+		"bin",
+		"README.md"
+	],
+	"dependencies": {
+		"@opalinehq/cli": "0.4.0"
+	}
+}

@@ -30,9 +30,9 @@ describe("resolveBrowserOpener", () => {
 		const { command, args, detach, env } = resolveBrowserOpener("win32", url);
 
 		expect(command).toBe("powershell.exe");
-		expect(args.at(-1)).toBe("Start-Process -FilePath $env:RUDEL_OPEN_URL");
+		expect(args.at(-1)).toBe("Start-Process -FilePath $env:OPALINE_OPEN_URL");
 		expect(args).not.toContain("-EncodedCommand");
-		expect(env).toEqual({ RUDEL_OPEN_URL: url });
+		expect(env).toEqual({ OPALINE_OPEN_URL: url });
 		// DETACHED_PROCESS makes Start-Process report success while the browser
 		// launch silently dies (bisected on windows-2025 CI).
 		expect(detach).toBe(false);

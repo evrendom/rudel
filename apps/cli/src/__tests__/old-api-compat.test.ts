@@ -2,8 +2,8 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { IngestSessionInput } from "@rudel/api-routes";
-import { FILTER_VERSION } from "@rudel/secret-filter";
+import type { IngestSessionInput } from "../contracts/index.js";
+import { FILTER_VERSION } from "../internal/secret-filter/index.js";
 import { uploadSession } from "../lib/uploader.js";
 import {
 	buildCliArtifact,
@@ -193,29 +193,30 @@ describe("uploadSession against an old-API ingest stub", () => {
 		},
 	];
 
-	test.each(
-		DEGRADED_RESPONSE_CASES,
-	)("degraded response $name fails cleanly after exactly one attempt", async (degradedCase) => {
-		const stub = startIngestStub({ respond: degradedCase.respond });
-		try {
-			const result = await uploadSession(
-				createDirtyClaudeRequest("old-api-degraded-response"),
-				stubUploadConfig(stub),
-			);
+	test.each(DEGRADED_RESPONSE_CASES)(
+		"degraded response $name fails cleanly after exactly one attempt",
+		async (degradedCase) => {
+			const stub = startIngestStub({ respond: degradedCase.respond });
+			try {
+				const result = await uploadSession(
+					createDirtyClaudeRequest("old-api-degraded-response"),
+					stubUploadConfig(stub),
+				);
 
-			// Deterministic responses remain permanent. A generic 500 is retained
-			// for a later retry even though only 502/503/504 retry inline.
-			expect(result).toMatchObject({
-				success: false,
-				attempts: 1,
-				retryable: degradedCase.expectedRetryable,
-			});
-			expect(result.error).toContain(degradedCase.expectedErrorSubstring);
-			expect(stub.requests).toHaveLength(1);
-		} finally {
-			await stub.server.stop(true);
-		}
-	});
+				// Deterministic responses remain permanent. A generic 500 is retained
+				// for a later retry even though only 502/503/504 retry inline.
+				expect(result).toMatchObject({
+					success: false,
+					attempts: 1,
+					retryable: degradedCase.expectedRetryable,
+				});
+				expect(result.error).toContain(degradedCase.expectedErrorSubstring);
+				expect(stub.requests).toHaveLength(1);
+			} finally {
+				await stub.server.stop(true);
+			}
+		},
+	);
 
 	test("recovers from a transient 502 with both wire bodies redacted", async () => {
 		// Empirically pinned: oRPC raises ORPCError(status 502) for the stub's
@@ -364,9 +365,9 @@ describe("built CLI against an old-API ingest stub", () => {
 			expect(result.exitCode).toBe(1);
 			expect(result.stderr).toContain("Upload failed:");
 			expect(result.stderr).toContain(
-				"Network error while contacting Rudel API",
+				"Network error while contacting Opaline API",
 			);
-			expect(result.stderr).toContain("rudel upload --retry");
+			expect(result.stderr).toContain("opaline upload --retry");
 			expect(containsAnyCanary(result.stderr, CLAUDE_SECRETS)).toBe(false);
 			// The 1s + 2s backoff between the three attempts puts a hard floor on
 			// the wall clock; a non-retrying run fails in well under a second.

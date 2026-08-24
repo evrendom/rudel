@@ -92,7 +92,7 @@ export function renderBatchSummary(
 
 	if (showRetryHint && summary.failed > 0) {
 		lines.push("");
-		lines.push("Run `rudel upload --retry` to retry failed uploads.");
+		lines.push("Run `opaline upload --retry` to retry failed uploads.");
 	}
 
 	if (lines.length > 0) {

@@ -239,7 +239,7 @@ export async function runBuiltCli(
 			...process.env,
 			HOME: options.home,
 			USERPROFILE: options.home,
-			RUDEL_CONFIG_DIR: options.configDir,
+			OPALINE_CONFIG_DIR: options.configDir,
 			POSTHOG_ENABLED: "false",
 			...options.env,
 		},

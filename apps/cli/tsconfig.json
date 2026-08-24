@@ -1,10 +1,25 @@
 {
-	"extends": "@rudel/typescript-config/node.json",
 	"compilerOptions": {
+		"esModuleInterop": true,
+		"isolatedModules": true,
+		"lib": ["es2022", "DOM", "DOM.Iterable"],
+		"module": "NodeNext",
+		"moduleDetection": "force",
+		"moduleResolution": "NodeNext",
+		"noEmit": true,
+		"noUncheckedIndexedAccess": true,
 		"outDir": "./dist",
+		"resolveJsonModule": true,
 		"rootDir": "./src",
+		"skipLibCheck": true,
+		"strict": true,
+		"target": "ES2022",
 		"types": ["@types/node"]
 	},
 	"include": ["src"],
-	"exclude": ["src/__tests__"]
+	"exclude": [
+		"src/**/__tests__/**",
+		"src/**/*.integration.ts",
+		"src/**/*.test.ts"
+	]
 }

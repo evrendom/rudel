@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
 	ensurePrivateFile,
-	getRudelConfigDir,
+	getConfigDir,
 	writePrivateFile,
 } from "./local-state.js";
 
@@ -12,7 +12,7 @@ export async function getRemoteCache(): Promise<RemoteCacheData> {
 	try {
 		const path = getRemoteCachePath();
 		if (!existsSync(path)) return {};
-		await ensurePrivateFile(path, getRudelConfigDir());
+		await ensurePrivateFile(path, getConfigDir());
 		return JSON.parse(readFileSync(path, "utf-8")) as RemoteCacheData;
 	} catch {
 		return {};
@@ -39,7 +39,7 @@ export async function cacheRemotes(cache: RemoteCacheData): Promise<void> {
 		await writePrivateFile(
 			getRemoteCachePath(),
 			JSON.stringify(cache),
-			getRudelConfigDir(),
+			getConfigDir(),
 		);
 	} catch {
 		// Fire-and-forget — cache is best-effort
@@ -47,5 +47,5 @@ export async function cacheRemotes(cache: RemoteCacheData): Promise<void> {
 }
 
 function getRemoteCachePath(): string {
-	return join(getRudelConfigDir(), "remote-cache.json");
+	return join(getConfigDir(), "remote-cache.json");
 }

@@ -7,11 +7,11 @@ import {
 	SECRET_FILTER_JSON_INTEGRITY_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 	SESSION_UPLOAD_SHRINK_REJECTED_CODE,
-} from "@rudel/api-routes";
+} from "../contracts/index.js";
 import {
 	SecretFilterConvergenceError,
 	SecretFilterJsonIntegrityError,
-} from "@rudel/secret-filter";
+} from "../internal/secret-filter/index.js";
 import {
 	formatRedactionSummary,
 	formatUploadError,
@@ -36,7 +36,7 @@ describe("formatUploadError", () => {
 		});
 
 		expect(formatUploadError(error)).toBe(
-			"API key rate limit reached. Run `rudel login` to create a fresh ingest key, or wait for the key's rate-limit window to reset.",
+			"API key rate limit reached. Run `opaline login` to create a fresh ingest key, or wait for the key's rate-limit window to reset.",
 		);
 	});
 
@@ -50,7 +50,7 @@ describe("formatUploadError", () => {
 		});
 
 		expect(formatUploadError(error)).toBe(
-			"Rate limit reached (500 sessions per 60 min). Wait and retry with: rudel upload --retry",
+			"Rate limit reached (500 sessions per 60 min). Wait and retry with: opaline upload --retry",
 		);
 	});
 
@@ -64,7 +64,7 @@ describe("formatUploadError", () => {
 		});
 
 		expect(formatUploadError(error)).toBe(
-			"Ingest request limit reached (15000 requests per 60 min). Wait and retry with: rudel upload --retry",
+			"Ingest request limit reached (15000 requests per 60 min). Wait and retry with: opaline upload --retry",
 		);
 	});
 
@@ -78,7 +78,7 @@ describe("formatUploadError", () => {
 		});
 
 		expect(formatUploadError(error)).toBe(
-			"Ingest byte limit reached (10240.00 MiB per 60 min). Wait and retry with: rudel upload --retry",
+			"Ingest byte limit reached (10240.00 MiB per 60 min). Wait and retry with: opaline upload --retry",
 		);
 	});
 
@@ -110,7 +110,7 @@ describe("formatUploadError", () => {
 		});
 
 		expect(formatUploadError(error)).toContain(
-			"rudel upload <session> --force-replace",
+			"opaline upload <session> --force-replace",
 		);
 	});
 
@@ -136,7 +136,7 @@ describe("formatUploadError", () => {
 		});
 
 		expect(formatUploadError(error)).toBe(
-			"Upload request is too large (413 Payload Too Large). Request body too large. Maximum size is 500 MB. This is a request-size limit, not an auth or proxy issue. This session will keep failing until its transcript/subagent payload is smaller; other failed sessions can still be retried with: rudel upload --retry",
+			"Upload request is too large (413 Payload Too Large). Request body too large. Maximum size is 500 MB. This is a request-size limit, not an auth or proxy issue. This session will keep failing until its transcript/subagent payload is smaller; other failed sessions can still be retried with: opaline upload --retry",
 		);
 	});
 
@@ -158,7 +158,7 @@ describe("formatUploadError", () => {
 		const error = new ORPCError("BAD_GATEWAY");
 
 		expect(formatUploadError(error)).toBe(
-			"Temporary Rudel server/proxy error (502 Bad Gateway). The CLI retries these automatically; retry remaining failed uploads with: rudel upload --retry",
+			"Temporary Opaline server/proxy error (502 Bad Gateway). The CLI retries these automatically; retry remaining failed uploads with: opaline upload --retry",
 		);
 	});
 
@@ -166,7 +166,7 @@ describe("formatUploadError", () => {
 		const error = new ORPCError("INTERNAL_SERVER_ERROR");
 
 		expect(formatUploadError(error)).toBe(
-			"Rudel server error (500 Internal Server Error). This is not an auth problem. Retry later with: rudel upload --retry; if it repeats, share this status with the Rudel team.",
+			"Opaline server error (500 Internal Server Error). This is not an auth problem. Retry later with: opaline upload --retry; if it repeats, share this status with the Opaline team.",
 		);
 	});
 
@@ -174,7 +174,7 @@ describe("formatUploadError", () => {
 		const error = new TypeError("fetch failed");
 
 		expect(formatUploadError(error)).toBe(
-			"Network error while contacting Rudel API: fetch failed. Check your connection and retry with: rudel upload --retry",
+			"Network error while contacting Opaline API: fetch failed. Check your connection and retry with: opaline upload --retry",
 		);
 	});
 });
@@ -317,7 +317,9 @@ describe("uploadSession transient transport handling", () => {
 			attempts: 3,
 			retryable: true,
 		});
-		expect(result.error).toContain("Network error while contacting Rudel API");
+		expect(result.error).toContain(
+			"Network error while contacting Opaline API",
+		);
 		expect(retries).toEqual([1, 2]);
 	}, 10_000);
 });
@@ -332,50 +334,50 @@ describe("uploadSession timestamp validation", () => {
 			source: "codex" as const,
 			message: "Codex transcript contains no valid timestamp",
 		},
-	])("marks a $source server rejection as not retryable", async ({
-		source,
-		message,
-	}) => {
-		const stub = startIngestStub({
-			respond: () =>
-				Response.json(
-					{
-						json: {
-							defined: false,
-							code: "BAD_REQUEST",
-							status: 400,
-							message,
+	])(
+		"marks a $source server rejection as not retryable",
+		async ({ source, message }) => {
+			const stub = startIngestStub({
+				respond: () =>
+					Response.json(
+						{
+							json: {
+								defined: false,
+								code: "BAD_REQUEST",
+								status: 400,
+								message,
+							},
 						},
-					},
-					{ status: 400 },
-				),
-		});
-
-		try {
-			const result = await uploadSession(
-				{
-					source,
-					sessionId: `${source}-server-timestamp-validation`,
-					projectPath: "/test/project",
-					content: '{"type":"user","timestamp":"2026-07-31T10:00:00.000Z"}',
-				},
-				{
-					endpoint: `${stub.loopbackBase}/rpc`,
-					token: INGEST_STUB_TEST_TOKEN,
-					allowInsecureEndpoint: false,
-				},
-			);
-
-			expect(result).toEqual({
-				success: false,
-				error: message,
-				attempts: 1,
-				retryable: false,
+						{ status: 400 },
+					),
 			});
-		} finally {
-			await stub.server.stop(true);
-		}
-	});
+
+			try {
+				const result = await uploadSession(
+					{
+						source,
+						sessionId: `${source}-server-timestamp-validation`,
+						projectPath: "/test/project",
+						content: '{"type":"user","timestamp":"2026-07-31T10:00:00.000Z"}',
+					},
+					{
+						endpoint: `${stub.loopbackBase}/rpc`,
+						token: INGEST_STUB_TEST_TOKEN,
+						allowInsecureEndpoint: false,
+					},
+				);
+
+				expect(result).toEqual({
+					success: false,
+					error: message,
+					attempts: 1,
+					retryable: false,
+				});
+			} finally {
+				await stub.server.stop(true);
+			}
+		},
+	);
 });
 
 describe("uploadSession typed filtering failures", () => {
@@ -576,7 +578,7 @@ describe("uploadSession endpoint safety", () => {
 		expect(result).toEqual({
 			success: false,
 			error:
-				'Upload endpoint refused: refusing to send credentials over plaintext http: to "evil.example". Pass --allow-insecure-endpoint (or set RUDEL_ALLOW_INSECURE_ENDPOINT=1) if this upload destination really is plaintext. This does not opt login or other API-base traffic into --allow-insecure-api-base.',
+				'Upload endpoint refused: refusing to send credentials over plaintext http: to "evil.example". Pass --allow-insecure-endpoint (or set OPALINE_ALLOW_INSECURE_ENDPOINT=1) if this upload destination really is plaintext. This does not opt login or other API-base traffic into --allow-insecure-api-base.',
 			attempts: 0,
 			endpointRejected: true,
 			retryable: false,

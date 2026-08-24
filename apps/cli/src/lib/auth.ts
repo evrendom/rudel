@@ -26,7 +26,7 @@ export async function verifyAuth(): Promise<AuthResult> {
 		return {
 			authenticated: false,
 			reason: "no_credentials",
-			message: "Not authenticated. Run `rudel login` first.",
+			message: "Not authenticated. Run `opaline login` first.",
 		};
 	}
 
@@ -43,7 +43,7 @@ export async function verifyAuth(): Promise<AuthResult> {
 				authenticated: false,
 				reason: "rate_limited",
 				message:
-					"API key rate limit reached. Run `rudel login` to create a fresh ingest key, or wait for the key's rate-limit window to reset.",
+					"API key rate limit reached. Run `opaline login` to create a fresh ingest key, or wait for the key's rate-limit window to reset.",
 			};
 		}
 
@@ -60,7 +60,7 @@ export async function verifyAuth(): Promise<AuthResult> {
 				authenticated: false,
 				reason: "token_expired",
 				message:
-					"Session expired or invalid. Run `rudel login` to re-authenticate.",
+					"Session expired or invalid. Run `opaline login` to re-authenticate.",
 			};
 		}
 

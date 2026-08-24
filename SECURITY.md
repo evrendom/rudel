@@ -12,7 +12,7 @@ Only the latest released version receives security updates.
 
 **Do not open a public GitHub issue for security vulnerabilities.**
 
-Instead, please report vulnerabilities privately via [GitHub Security Advisories](https://github.com/evrendom/rudel/security/advisories/new).
+Instead, please report vulnerabilities privately via [GitHub Security Advisories](https://github.com/opalinehq/cli/security/advisories/new).
 
 Include:
 
@@ -27,8 +27,7 @@ We aim to acknowledge reports within 48 hours and provide a fix or mitigation pl
 
 ## Scope
 
-This policy covers the Rudel platform:
+This policy covers the public Opaline CLI packages:
 
-- API server (`apps/api`)
-- CLI tool (`apps/cli`, published as `rudel` on npm)
-- Web application (`apps/web`)
+- `@opalinehq/cli`
+- the `rudel` compatibility alias

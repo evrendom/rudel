@@ -50,10 +50,10 @@ export function resolveBrowserOpener(
 				"-WindowStyle",
 				"Hidden",
 				"-Command",
-				"Start-Process -FilePath $env:RUDEL_OPEN_URL",
+				"Start-Process -FilePath $env:OPALINE_OPEN_URL",
 			],
 			detach: false,
-			env: { RUDEL_OPEN_URL: url },
+			env: { OPALINE_OPEN_URL: url },
 		};
 	}
 	if (platform === "darwin") {

@@ -1,7 +1,10 @@
 import * as p from "@clack/prompts";
-import { type AgentAdapter, getAvailableAdapters } from "@rudel/agent-adapters";
-import type { Source } from "@rudel/api-routes";
 import { buildCommand } from "@stricli/core";
+import type { Source } from "../contracts/index.js";
+import {
+	type AgentAdapter,
+	getAvailableAdapters,
+} from "../internal/agent-adapters/index.js";
 import { describeSavedCredentialsApiBaseRisk } from "../lib/api-base.js";
 import { createApiClient } from "../lib/api-client.js";
 import { verifyAuth } from "../lib/auth.js";
@@ -21,7 +24,7 @@ import { allowsInsecureEndpointFromEnv } from "../lib/upload-endpoint.js";
 import { uploadSession } from "../lib/uploader.js";
 
 async function runEnable(): Promise<undefined | Error> {
-	p.intro("rudel enable");
+	p.intro("opaline enable");
 
 	const captureEnableFailure = (options: {
 		agentSource?: Source | "unknown";
@@ -63,7 +66,7 @@ async function runEnable(): Promise<undefined | Error> {
 			failureStage: "auth_verify",
 			error: auth.reason,
 		});
-		p.outro("Run `rudel login` to authenticate.");
+		p.outro("Run `opaline login` to authenticate.");
 		return new Error(auth.message);
 	}
 
@@ -264,7 +267,7 @@ async function runEnable(): Promise<undefined | Error> {
 	}
 
 	if (totalFailed > 0) {
-		p.log.info("Run `rudel upload --retry` to retry failed uploads.");
+		p.log.info("Run `opaline upload --retry` to retry failed uploads.");
 	}
 
 	p.outro("Done!");

@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.4.6/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.5.8/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
@@ -16,13 +16,7 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true
-		}
-	},
-	"css": {
-		"parser": {
-			"cssModules": true,
-			"tailwindDirectives": true
+			"preset": "recommended"
 		}
 	},
 	"javascript": {
@@ -30,71 +24,6 @@
 			"quoteStyle": "double"
 		}
 	},
-	"overrides": [
-		{
-			"includes": [
-				"apps/web/src/components/analytics/**",
-				"apps/web/src/components/conversation/**",
-				"apps/web/src/features/dashboard/DashboardPage.tsx",
-				"apps/web/src/features/sessions/components/**",
-				"apps/web/src/hooks/useChartTheme.ts"
-			],
-			"linter": {
-				"rules": {
-					"nursery": {
-						"noExcessiveLinesPerFile": {
-							"level": "error",
-							"options": {
-								"maxLines": 500,
-								"skipBlankLines": true
-							}
-						}
-					},
-					"style": {
-						"noRestrictedImports": {
-							"level": "error",
-							"options": {
-								"paths": {
-									"react": {
-										"importNames": ["useEffect"],
-										"message": "Derive state first, then use dedicated hooks like useMountEffect when an effect is still necessary."
-									}
-								}
-							}
-						}
-					},
-					"suspicious": {
-						"noDoubleEquals": {
-							"level": "error",
-							"options": {
-								"ignoreNull": false
-							}
-						}
-					}
-				}
-			}
-		},
-		{
-			"includes": ["apps/web/src/features/wrapped/**"],
-			"linter": {
-				"rules": {
-					"style": {
-						"noRestrictedImports": {
-							"level": "error",
-							"options": {
-								"paths": {
-									"react": {
-										"importNames": ["useEffect"],
-										"message": "Wrapped files must use useMountEffect instead of importing useEffect directly."
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	],
 	"assist": {
 		"enabled": true,
 		"actions": {

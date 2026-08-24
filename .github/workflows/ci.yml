@@ -8,50 +8,18 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
-
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  changes:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 5
-    outputs:
-      cli: ${{ steps.filter.outputs.cli }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 20
-
-      - name: Detect CLI changes
-        id: filter
-        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
-        with:
-          base: main
-          filters: |
-            cli:
-              - "apps/cli/**"
-              - "packages/agent-adapters/**"
-              - "packages/api-routes/**"
-              - "packages/secret-filter/**"
-              - "packages/typescript-config/**"
-              - "package.json"
-              - "bun.lock"
-              - ".github/actions/setup/**"
-              - ".github/workflows/ci.yml"
-
   verify:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -62,68 +30,12 @@ jobs:
       - name: Setup Bun
         uses: ./.github/actions/setup
 
-      - name: Check for local overrides
-        run: bun scripts/check-overrides.ts
-
-      - name: Check for accidental disclosures
-        run: bun run check:disclosure
-
-      - name: Test disclosure checker
-        run: bun test scripts/check-disclosure.test.ts
-
-      - name: Check pull request disclosure channels
-        if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          bun scripts/check-disclosure.ts --commits "${{ github.event.pull_request.base.sha }}"
-          bun scripts/check-disclosure.ts --pull-request "${{ github.event.pull_request.number }}"
-
-      - name: Typecheck standalone Decimal gate
-        run: bun run check-types:decimal-e2e
-
       - name: Verify
-        run: bun run turbo run lint check-types test build --concurrency=1
-
-      - name: Verify browser resource budgets in Chrome
-        run: bun run --cwd apps/web test:resource-budgets:chrome
+        run: bun run verify
 
   integration:
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 30
-    services:
-      postgres:
-        image: postgres:17.10-alpine
-        env:
-          POSTGRES_DB: rudel
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_USER: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready --username postgres --dbname rudel"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
-    # These credentials are only for the disposable services created above.
-    env:
-      PG_CONNECTION_STRING: postgres://postgres:postgres@localhost:5432/rudel
-      CLICKHOUSE_URL: http://localhost:8123
-      CLICKHOUSE_USER: rudel
-      CLICKHOUSE_USERNAME: rudel
-      CLICKHOUSE_PASSWORD: rudel-ci
-      CLICKHOUSE_DB: default
-      CLICKHOUSE_CREDENTIAL_TEST_URL: http://localhost.:8124
-      CLICKHOUSE_CREDENTIAL_TEST_USERNAME: rudel_app
-      CLICKHOUSE_CREDENTIAL_TEST_PASSWORD: rudel-app-ci
-      CLICKHOUSE_CREDENTIAL_TEST_DEFAULT_PASSWORD: default-ci
-      SKILL_EXTRACTION_ENABLED: "true"
-      SKILL_ANALYTICS_CUTOVER_MODE: all
-      SKILL_ANALYTICS_CANARY_ORG_IDS: ""
-      SKILL_BACKFILL_MAX_SESSIONS: "10000"
-      SKILL_BACKFILL_MAX_SESSION_BYTES: "536870912"
-      SKILL_BACKFILL_BATCH_MAX_ROWS: "64"
-      SKILL_BACKFILL_BATCH_MAX_BYTES: "134217728"
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -137,85 +49,10 @@ jobs:
       - name: Setup Bun
         uses: ./.github/actions/setup
 
-      - name: Start ClickHouse
-        run: |
-          docker run --detach \
-            --name rudel-ci-clickhouse \
-            --publish 8123:8123 \
-            --env CLICKHOUSE_DB=default \
-            --env CLICKHOUSE_USER=rudel \
-            --env CLICKHOUSE_PASSWORD=rudel-ci \
-            --env CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
-            --volume "${GITHUB_WORKSPACE}/.github/clickhouse/config.d/storage-policy.xml:/etc/clickhouse-server/config.d/storage-policy.xml:ro" \
-            clickhouse/clickhouse-server:26.3.17.56
-
-          docker run --detach \
-            --name rudel-ci-clickhouse-credentials \
-            --publish 8124:8123 \
-            --env CLICKHOUSE_DB=default \
-            --env CLICKHOUSE_PASSWORD=default-ci \
-            --env CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 \
-            clickhouse/clickhouse-server:26.3.17.56
-
-      - name: Wait for ClickHouse
-        run: |
-          wait_for_clickhouse() {
-            local container="$1"
-            local credentials="$2"
-            local url="$3"
-
-            for attempt in {1..60}; do
-              if curl --fail --silent --user "${credentials}" "${url}/ping" | grep --quiet Ok; then
-                return 0
-              fi
-              sleep 1
-            done
-
-            docker logs "${container}"
-            return 1
-          }
-
-          wait_for_clickhouse \
-            rudel-ci-clickhouse \
-            rudel:rudel-ci \
-            http://localhost:8123
-          wait_for_clickhouse \
-            rudel-ci-clickhouse-credentials \
-            default:default-ci \
-            http://localhost:8124
-
-      - name: Provision ClickHouse credential test user
-        run: |
-          curl --fail --silent --show-error \
-            --user default:default-ci \
-            --data-binary "CREATE USER rudel_app IDENTIFIED WITH sha256_password BY 'rudel-app-ci'" \
-            http://localhost:8124/
-
-      - name: Run Postgres migrations
-        run: bun run --cwd packages/sql-schema migrate
-
-      - name: Run ClickHouse migrations
-        working-directory: packages/ch-schema
-        run: bun --bun chkit migrate --apply --allow-destructive
-
-      - name: Run integration tests
-        run: bun run turbo run test:integration --concurrency=1
-
-      - name: Fetch the published rudel@0.1.17 CLI
-        run: |
-          mkdir -p .tmp/old-cli
-          curl -fsSL -o .tmp/old-cli/rudel-0.1.17.tgz https://registry.npmjs.org/rudel/-/rudel-0.1.17.tgz
-          tar -xzf .tmp/old-cli/rudel-0.1.17.tgz -C .tmp/old-cli
-          node .tmp/old-cli/package/dist/cli.js --version
-
-      - name: Run version-skew tests against the published 0.1.17 CLI
-        run: bun run --cwd apps/cli test:integration:skew
-        env:
-          RUDEL_OLD_CLI_PATH: ${{ github.workspace }}/.tmp/old-cli/package/dist/cli.js
+      - name: Run CLI integration tests
+        run: bun run test:integration
 
   cli-smoke:
-    if: needs.changes.outputs.cli == 'true'
-    needs: changes
     strategy:
       fail-fast: false
       matrix:
@@ -245,88 +82,63 @@ jobs:
       - name: Setup Bun
         uses: ./.github/actions/setup
 
-      - name: Pack and run the installed CLI
+      - name: Pack and install both CLI packages
         shell: bash
         run: |
           rm -rf .tmp/cli-smoke
-          mkdir -p .tmp/cli-smoke/package
-          npm pack ./apps/cli --pack-destination .tmp/cli-smoke/package
+          mkdir -p .tmp/cli-smoke/package .tmp/cli-smoke/install
+          opaline_tarball="$(npm pack ./apps/cli --pack-destination .tmp/cli-smoke/package | tail -n 1)"
+          rudel_tarball="$(npm pack ./packages/rudel-alias --pack-destination .tmp/cli-smoke/package | tail -n 1)"
           npm install \
             --prefix .tmp/cli-smoke/install \
             --ignore-scripts \
             --no-audit \
             --no-fund \
-            .tmp/cli-smoke/package/rudel-*.tgz
-          node .tmp/cli-smoke/install/node_modules/rudel/dist/cli.js --help
+            ".tmp/cli-smoke/package/${opaline_tarball}" \
+            ".tmp/cli-smoke/package/${rudel_tarball}"
 
-      - name: Run the packed-CLI smoke suite
+      - name: Verify canonical and alias behavior
+        shell: bash
+        run: |
+          opaline_cli=".tmp/cli-smoke/install/node_modules/@opalinehq/cli/dist/cli.js"
+          rudel_cli=".tmp/cli-smoke/install/node_modules/rudel/bin/rudel.js"
+
+          node "${opaline_cli}" --help > .tmp/cli-smoke/opaline-help.stdout 2> .tmp/cli-smoke/opaline-help.stderr
+          node "${rudel_cli}" --help > .tmp/cli-smoke/rudel-help.stdout 2> .tmp/cli-smoke/rudel-help.stderr
+          cmp .tmp/cli-smoke/opaline-help.stdout .tmp/cli-smoke/rudel-help.stdout
+          test "$(head -n 1 .tmp/cli-smoke/rudel-help.stderr)" = "rudel is now opaline"
+          tail -n +2 .tmp/cli-smoke/rudel-help.stderr | cmp .tmp/cli-smoke/opaline-help.stderr -
+
+          set +e
+          node "${opaline_cli}" not-a-command > .tmp/cli-smoke/opaline-error.stdout 2> .tmp/cli-smoke/opaline-error.stderr
+          opaline_exit=$?
+          node "${rudel_cli}" not-a-command > .tmp/cli-smoke/rudel-error.stdout 2> .tmp/cli-smoke/rudel-error.stderr
+          rudel_exit=$?
+          set -e
+
+          test "${opaline_exit}" -ne 0
+          test "${opaline_exit}" -eq "${rudel_exit}"
+          cmp .tmp/cli-smoke/opaline-error.stdout .tmp/cli-smoke/rudel-error.stdout
+          tail -n +2 .tmp/cli-smoke/rudel-error.stderr | cmp .tmp/cli-smoke/opaline-error.stderr -
+
+          mkdir -p .tmp/cli-smoke/opaline-config .tmp/cli-smoke/rudel-config
+          hook_input='{"session_id":"","transcript_path":"","cwd":""}'
+          printf '%s' "${hook_input}" | OPALINE_CONFIG_DIR=.tmp/cli-smoke/opaline-config node "${opaline_cli}" hooks claude session-end > .tmp/cli-smoke/opaline-stdin.stdout 2> .tmp/cli-smoke/opaline-stdin.stderr
+          opaline_stdin_exit=$?
+          printf '%s' "${hook_input}" | OPALINE_CONFIG_DIR=.tmp/cli-smoke/rudel-config node "${rudel_cli}" hooks claude session-end > .tmp/cli-smoke/rudel-stdin.stdout 2> .tmp/cli-smoke/rudel-stdin.stderr
+          rudel_stdin_exit=$?
+
+          test "${opaline_stdin_exit}" -eq "${rudel_stdin_exit}"
+          cmp .tmp/cli-smoke/opaline-stdin.stdout .tmp/cli-smoke/rudel-stdin.stdout
+          tail -n +2 .tmp/cli-smoke/rudel-stdin.stderr | cmp .tmp/cli-smoke/opaline-stdin.stderr -
+
+      - name: Run packed CLI smoke suite
         shell: bash
         run: bun run --cwd apps/cli test:packed-smoke
         env:
-          RUDEL_PACKED_CLI: ${{ github.workspace }}/.tmp/cli-smoke/install/node_modules/rudel/dist/cli.js
+          OPALINE_PACKED_CLI: ${{ github.workspace }}/.tmp/cli-smoke/install/node_modules/@opalinehq/cli/dist/cli.js
 
-      - name: Verify the Windows opener delivers the complete URL
+      - name: Verify Windows browser opening
         if: runner.os == 'Windows'
         shell: bash
         run: bun test ./apps/cli/src/__tests__/browser-opener.windows.integration.ts
-
-  cli-smoke-required:
-    if: always()
-    needs:
-      - changes
-      - cli-smoke
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 5
-    steps:
-      - name: Require successful CLI smoke tests when applicable
-        env:
-          CHANGES_RESULT: ${{ needs.changes.result }}
-          CLI_CHANGED: ${{ needs.changes.outputs.cli }}
-          CLI_SMOKE_RESULT: ${{ needs.cli-smoke.result }}
-        run: |
-          if [[ "${CHANGES_RESULT}" != "success" ]]; then
-            echo "CLI change detection failed."
-            exit 1
-          fi
-
-          if [[ "${CLI_CHANGED}" == "true" && "${CLI_SMOKE_RESULT}" != "success" ]]; then
-            echo "CLI smoke tests did not succeed: ${CLI_SMOKE_RESULT}"
-            exit 1
-          fi
-
-  # Production deploys are owned by the private opalinehq/athena repository.
-  deploy:
-    if: false
-    needs: [verify, integration]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    timeout-minutes: 30
-    environment: production
-    concurrency:
-      group: production-deploy
-      cancel-in-progress: false
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Bun
-        uses: ./.github/actions/setup
-
-      - name: Run Postgres migrations
-        run: bun run --cwd packages/sql-schema migrate
-        env:
-          PG_CONNECTION_STRING: ${{ secrets.PG_CONNECTION_STRING }}
-
-      - name: Setup Fly.io
-        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
-
-      - name: Deploy
-        run: |
-          flyctl deploy --remote-only \
-            --build-arg "VITE_CHATWOOT_BASE_URL=${{ secrets.VITE_CHATWOOT_BASE_URL }}" \
-            --build-arg "VITE_CHATWOOT_WEBSITE_TOKEN=${{ secrets.VITE_CHATWOOT_WEBSITE_TOKEN }}" \
-            --build-arg "VITE_POSTHOG_KEY=${{ secrets.VITE_POSTHOG_KEY }}" \
-            --build-arg "VITE_POSTHOG_HOST=${{ secrets.VITE_POSTHOG_HOST }}" \
-            --build-arg "VITE_POSTHOG_ENABLED=${{ secrets.VITE_POSTHOG_ENABLED }}" \
-            --build-arg "VITE_ADMIN_ORGANIZATION_ID=${{ secrets.VITE_ADMIN_ORGANIZATION_ID }}"
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

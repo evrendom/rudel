@@ -3,8 +3,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Logger } from "@logtape/logtape";
-import { MissingTranscriptTimestampError } from "@rudel/agent-adapters";
-import { SecretFilterJsonIntegrityError } from "@rudel/secret-filter";
+import { MissingTranscriptTimestampError } from "../internal/agent-adapters/index.js";
+import { SecretFilterJsonIntegrityError } from "../internal/secret-filter/index.js";
 import { type BatchUploadItem, batchUpload } from "../lib/batch-upload.js";
 import {
 	type FailedUpload,

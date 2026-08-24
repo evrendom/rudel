@@ -5,11 +5,11 @@ import { loadCredentials } from "../lib/credentials.js";
 import { getProjectOrgId, setProjectOrgId } from "../lib/project-config.js";
 
 async function runSetOrg(): Promise<undefined | Error> {
-	p.intro("rudel set-org");
+	p.intro("opaline set-org");
 
 	const credentials = loadCredentials();
 	if (!credentials) {
-		p.outro("Run `rudel login` first.");
+		p.outro("Run `opaline login` first.");
 		return new Error("Not authenticated.");
 	}
 

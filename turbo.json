@@ -15,15 +15,7 @@
 		"test:integration": {},
 		"dev": {
 			"cache": false,
-			"persistent": true,
-			"passThroughEnv": [
-				"PG_CONNECTION_STRING",
-				"CLICKHOUSE_URL",
-				"CLICKHOUSE_USER",
-				"CLICKHOUSE_USERNAME",
-				"CLICKHOUSE_PASSWORD",
-				"CLICKHOUSE_DB"
-			]
+			"persistent": true
 		}
 	}
 }

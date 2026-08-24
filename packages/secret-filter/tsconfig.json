@@ -1,9 +1,0 @@
-{
-	"extends": "@rudel/typescript-config/base.json",
-	"compilerOptions": {
-		"outDir": "./dist",
-		"rootDir": ".",
-		"types": ["bun-types"]
-	},
-	"include": ["src", "scripts"]
-}

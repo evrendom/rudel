@@ -8,8 +8,8 @@ on:
       - completed
   workflow_dispatch:
     inputs:
-      publish_tag:
-        description: Existing rudel@* tag to publish after a failed release attempt
+      release_tag:
+        description: Existing opaline-cli@* tag to resume after a failed publish
         required: false
         type: string
 
@@ -26,7 +26,7 @@ jobs:
     if: >-
       (
         github.event_name == 'workflow_dispatch' &&
-        inputs.publish_tag == ''
+        inputs.release_tag == ''
       ) ||
       (
         github.event.workflow_run.conclusion == 'success' &&
@@ -43,6 +43,9 @@ jobs:
       cli_release_created: ${{ steps.release.outputs['apps/cli--release_created'] }}
       cli_tag_name: ${{ steps.release.outputs['apps/cli--tag_name'] }}
       cli_sha: ${{ steps.release.outputs['apps/cli--sha'] }}
+      alias_release_created: ${{ steps.release.outputs['packages/rudel-alias--release_created'] }}
+      alias_tag_name: ${{ steps.release.outputs['packages/rudel-alias--tag_name'] }}
+      alias_sha: ${{ steps.release.outputs['packages/rudel-alias--sha'] }}
     steps:
       - name: Run Release Please
         id: release
@@ -54,10 +57,13 @@ jobs:
     if: >-
       always() &&
       (
-        needs.release_please.outputs.cli_release_created == 'true' ||
+        (
+          needs.release_please.outputs.cli_release_created == 'true' &&
+          needs.release_please.outputs.alias_release_created == 'true'
+        ) ||
         (
           github.event_name == 'workflow_dispatch' &&
-          inputs.publish_tag != ''
+          inputs.release_tag != ''
         )
       )
     needs: release_please
@@ -72,39 +78,46 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          ref: ${{ needs.release_please.outputs.cli_sha || inputs.publish_tag }}
+          ref: ${{ needs.release_please.outputs.cli_sha || inputs.release_tag }}
 
-      - name: Authorize release source
+      - name: Authorize lockstep release source
         env:
-          EXPECTED_RELEASE_SHA: ${{ needs.release_please.outputs.cli_sha }}
-          RELEASE_TAG: ${{ needs.release_please.outputs.cli_tag_name || inputs.publish_tag }}
+          ALIAS_RELEASE_SHA: ${{ needs.release_please.outputs.alias_sha }}
+          ALIAS_RELEASE_TAG: ${{ needs.release_please.outputs.alias_tag_name }}
+          CLI_RELEASE_SHA: ${{ needs.release_please.outputs.cli_sha }}
+          CLI_RELEASE_TAG: ${{ needs.release_please.outputs.cli_tag_name || inputs.release_tag }}
         run: |
-          if [[ -z "${RELEASE_TAG}" || "${RELEASE_TAG}" != rudel@* ]]; then
-            echo "Release tag must match rudel@*."
-            exit 1
+          package_version="$(node -p "require('./apps/cli/package.json').version")"
+          alias_version="$(node -p "require('./packages/rudel-alias/package.json').version")"
+          alias_dependency="$(node -p "require('./packages/rudel-alias/package.json').dependencies['@opalinehq/cli']")"
+          expected_cli_tag="opaline-cli@${package_version}"
+          expected_alias_tag="rudel@${package_version}"
+
+          test "${package_version}" = "${alias_version}"
+          test "${package_version}" = "${alias_dependency}"
+          test "${CLI_RELEASE_TAG}" = "${expected_cli_tag}"
+          if [[ -n "${ALIAS_RELEASE_TAG}" ]]; then
+            test "${ALIAS_RELEASE_TAG}" = "${expected_alias_tag}"
           fi
 
           git fetch --force --no-tags origin main:refs/remotes/origin/main
           git fetch --force --no-tags origin \
-            "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+            "refs/tags/${expected_cli_tag}:refs/tags/${expected_cli_tag}" \
+            "refs/tags/${expected_alias_tag}:refs/tags/${expected_alias_tag}"
 
           checked_out_sha="$(git rev-parse HEAD)"
-          tag_sha="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+          cli_tag_sha="$(git rev-parse "refs/tags/${expected_cli_tag}^{commit}")"
+          alias_tag_sha="$(git rev-parse "refs/tags/${expected_alias_tag}^{commit}")"
 
-          if [[ "${checked_out_sha}" != "${tag_sha}" ]]; then
-            echo "Release tag and checked-out commit do not agree."
-            exit 1
+          test "${checked_out_sha}" = "${cli_tag_sha}"
+          test "${cli_tag_sha}" = "${alias_tag_sha}"
+          if [[ -n "${CLI_RELEASE_SHA}" ]]; then
+            test "${cli_tag_sha}" = "${CLI_RELEASE_SHA}"
           fi
-
-          if [[ -n "${EXPECTED_RELEASE_SHA}" && "${tag_sha}" != "${EXPECTED_RELEASE_SHA}" ]]; then
-            echo "Release tag does not match the commit reported by Release Please."
-            exit 1
+          if [[ -n "${ALIAS_RELEASE_SHA}" ]]; then
+            test "${alias_tag_sha}" = "${ALIAS_RELEASE_SHA}"
           fi
-
-          if ! git merge-base --is-ancestor "${tag_sha}" refs/remotes/origin/main; then
-            echo "Release commit ${tag_sha} is not reachable from protected main."
-            exit 1
-          fi
+          git merge-base --is-ancestor "${cli_tag_sha}" refs/remotes/origin/main
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -116,21 +129,42 @@ jobs:
       - name: Setup Bun
         uses: ./.github/actions/setup
 
-      - name: Validate package version
-        env:
-          RELEASE_TAG: ${{ needs.release_please.outputs.cli_tag_name || inputs.publish_tag }}
+      - name: Require completed manual npm bootstrap
         run: |
-          package_version="$(node -p "require('./apps/cli/package.json').version")"
-          expected_tag="rudel@${package_version}"
-
-          if [[ "${RELEASE_TAG}" != "${expected_tag}" ]]; then
-            echo "Expected tag ${expected_tag}, received ${RELEASE_TAG}."
-            exit 1
-          fi
+          npm view @opalinehq/cli version >/dev/null
+          npm view rudel version >/dev/null
 
       - name: Verify
         run: bun run verify
 
-      - name: Publish with provenance
+      - name: Publish @opalinehq/cli with provenance
         working-directory: apps/cli
-        run: npm publish --access public --provenance
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if npm view "@opalinehq/cli@${version}" version >/dev/null 2>&1; then
+            echo "@opalinehq/cli@${version} is already published."
+          else
+            npm publish --access public --provenance
+          fi
+
+      - name: Wait for @opalinehq/cli registry availability
+        run: |
+          version="$(node -p "require('./apps/cli/package.json').version")"
+          for attempt in {1..30}; do
+            if [[ "$(npm view "@opalinehq/cli@${version}" version 2>/dev/null)" == "${version}" ]]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "@opalinehq/cli@${version} did not become available in time."
+          exit 1
+
+      - name: Publish rudel alias with provenance
+        working-directory: packages/rudel-alias
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if npm view "rudel@${version}" version >/dev/null 2>&1; then
+            echo "rudel@${version} is already published."
+          else
+            npm publish --access public --provenance
+          fi

@@ -12,7 +12,7 @@ async function runWhoami(): Promise<undefined | Error> {
 		).length;
 		const permanent = failedUploads.length - retryable;
 		p.log.warn(
-			`Local upload status: ${retryable} retryable failure(s), ${permanent} permanent failure(s). Run \`rudel upload --retry\` for details.`,
+			`Local upload status: ${retryable} retryable failure(s), ${permanent} permanent failure(s). Run \`opaline upload --retry\` for details.`,
 		);
 	}
 
@@ -25,7 +25,7 @@ async function runWhoami(): Promise<undefined | Error> {
 	const result = await verifyAuth();
 	if (!result.authenticated) {
 		if (result.reason === "no_credentials") {
-			p.log.info("Not logged in. Run `rudel login` to authenticate.");
+			p.log.info("Not logged in. Run `opaline login` to authenticate.");
 			return;
 		}
 		return new Error(result.message);

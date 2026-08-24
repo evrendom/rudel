@@ -1,10 +1,11 @@
 import { getLogger } from "@logtape/logtape";
+import { buildCommand } from "@stricli/core";
 import {
 	codexAdapter,
 	findActiveRolloutFile,
 	type SessionFile,
-} from "@rudel/agent-adapters";
-import { buildCommand } from "@stricli/core";
+} from "../../../internal/agent-adapters/index.js";
+import { getApiBaseOverride } from "../../../lib/api-target.js";
 import { loadCredentials } from "../../../lib/credentials.js";
 import { removeFailedUpload } from "../../../lib/failed-uploads.js";
 import { getGitInfo } from "../../../lib/git-info.js";
@@ -43,7 +44,7 @@ async function runTurnComplete(
 	notification: string,
 ): Promise<undefined | Error> {
 	await setupHookLogging();
-	const logger = getLogger(["rudel", "cli", "hook"]);
+	const logger = getLogger(["opaline", "cli", "hook"]);
 
 	try {
 		if (!notification.trim()) return;
@@ -54,7 +55,7 @@ async function runTurnComplete(
 		const credentials = loadCredentials();
 		if (!credentials) {
 			process.stderr.write(
-				`Rudel hook upload skipped for session ${input.threadId}: not authenticated; run \`rudel login\`.\n`,
+				`Opaline hook upload skipped for session ${input.threadId}: not authenticated; run \`opaline login\`.\n`,
 			);
 			return;
 		}
@@ -62,7 +63,7 @@ async function runTurnComplete(
 		const transcriptPath = await findActiveRolloutFile(input.threadId);
 		if (!transcriptPath) {
 			process.stderr.write(
-				`Rudel hook upload skipped for session ${input.threadId}: transcript file was not found.\n`,
+				`Opaline hook upload skipped for session ${input.threadId}: transcript file was not found.\n`,
 			);
 			return;
 		}
@@ -82,7 +83,7 @@ async function runTurnComplete(
 			uploadMode: "hook",
 		});
 
-		const apiBase = process.env.RUDEL_API_BASE ?? credentials.apiBaseUrl;
+		const apiBase = getApiBaseOverride() ?? credentials.apiBaseUrl;
 		const endpoint = `${apiBase}/rpc`;
 		const result = await uploadSession(request, {
 			endpoint,
@@ -113,7 +114,7 @@ async function runTurnComplete(
 	} catch (error) {
 		logger.error("Codex turn-complete hook failed: {error}", { error });
 		process.stderr.write(
-			`Rudel Codex hook failed: ${error instanceof Error ? error.message : String(error)}\n`,
+			`Opaline Codex hook failed: ${error instanceof Error ? error.message : String(error)}\n`,
 		);
 	} finally {
 		await disposeLogging();

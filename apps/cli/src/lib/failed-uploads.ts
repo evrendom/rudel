@@ -1,18 +1,18 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { type Source, SourceSchema } from "@rudel/api-routes";
+import { type Source, SourceSchema } from "../contracts/index.js";
 import {
 	ensurePrivateFile,
-	getRudelConfigDir,
+	getConfigDir,
 	writePrivateFile,
 } from "./local-state.js";
 
-// Resolved per call, not at module load: RUDEL_CONFIG_DIR must work the same
-// way it does for credentials.ts, including when set after import (Bun
+// Resolved per call, not at module load: config-directory environment
+// overrides must work when set after import (Bun
 // snapshots homedir() at process start, so a load-time constant would pin the
 // real home directory for the life of the process).
 function getFailedUploadsPath(): string {
-	return join(getRudelConfigDir(), "failed-uploads.json");
+	return join(getConfigDir(), "failed-uploads.json");
 }
 
 export interface FailedUpload {
@@ -44,7 +44,7 @@ export async function loadFailedUploads(): Promise<FailedUpload[]> {
 	try {
 		const path = getFailedUploadsPath();
 		if (!existsSync(path)) return [];
-		await ensurePrivateFile(path, getRudelConfigDir());
+		await ensurePrivateFile(path, getConfigDir());
 		const data = JSON.parse(readFileSync(path, "utf-8")) as FailedUploadsData;
 		return data.failures.map((f) => ({
 			...f,
@@ -60,11 +60,7 @@ async function saveFailedUploads(failures: FailedUpload[]): Promise<void> {
 	try {
 		const path = getFailedUploadsPath();
 		const data: FailedUploadsData = { failures };
-		await writePrivateFile(
-			path,
-			JSON.stringify(data, null, 2),
-			getRudelConfigDir(),
-		);
+		await writePrivateFile(path, JSON.stringify(data, null, 2), getConfigDir());
 	} catch {
 		// Best-effort — don't break the upload flow
 	}

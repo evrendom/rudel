@@ -2,6 +2,7 @@ import { buildApplication, buildRouteMap } from "@stricli/core";
 import pkg from "../package.json" with { type: "json" };
 import { devRouteMap } from "./commands/dev/index.js";
 import { disableCommand } from "./commands/disable.js";
+import { doctorCommand } from "./commands/doctor.js";
 import { enableCommand } from "./commands/enable.js";
 import { hooksRouteMap } from "./commands/hooks/index.js";
 import { loginCommand } from "./commands/login.js";
@@ -18,18 +19,19 @@ const routes = buildRouteMap({
 		upload: uploadCommand,
 		enable: enableCommand,
 		disable: disableCommand,
+		doctor: doctorCommand,
 		"set-org": setOrgCommand,
 		hooks: hooksRouteMap,
 		dev: devRouteMap,
 	},
 	docs: {
-		brief: "CLI tools for managing Claude Code / Codex sessions",
+		brief: "Opaline CLI for Claude Code and Codex session analytics",
 		hideRoute: { hooks: true, dev: true },
 	},
 });
 
 export const app = buildApplication(routes, {
-	name: "rudel",
+	name: "opaline",
 	versionInfo: {
 		currentVersion: pkg.version,
 	},

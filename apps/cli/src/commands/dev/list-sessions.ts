@@ -1,5 +1,8 @@
-import { getAdapter, type ScannedProject } from "@rudel/agent-adapters";
 import { buildCommand } from "@stricli/core";
+import {
+	getAdapter,
+	type ScannedProject,
+} from "../../internal/agent-adapters/index.js";
 import { scanAndGroupProjects } from "../../lib/project-grouping.js";
 
 async function runListSessions(): Promise<void> {

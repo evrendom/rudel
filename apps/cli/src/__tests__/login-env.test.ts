@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { getDefaultApiBase } from "../commands/login.js";
+import { getDefaultApiBase } from "../lib/api-target.js";
 
 const originalApiBase = process.env.RUDEL_API_BASE;
 

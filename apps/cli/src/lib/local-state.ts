@@ -5,8 +5,48 @@ import { dirname, join } from "node:path";
 const PRIVATE_DIRECTORY_MODE = 0o700;
 const PRIVATE_FILE_MODE = 0o600;
 
-export function getRudelConfigDir(): string {
-	return process.env.RUDEL_CONFIG_DIR ?? join(homedir(), ".rudel");
+export type ConfigPathSource =
+	| "opaline-environment"
+	| "rudel-environment"
+	| "rudel-default";
+
+export interface ConfigPathInfo {
+	directory: string;
+	migrationStatus: string;
+	source: ConfigPathSource;
+}
+
+export function getConfigPathInfo(
+	environment: NodeJS.ProcessEnv = process.env,
+	homeDirectory: string = homedir(),
+): ConfigPathInfo {
+	const opalineDirectory = environment.OPALINE_CONFIG_DIR?.trim();
+	if (opalineDirectory) {
+		return {
+			directory: opalineDirectory,
+			migrationStatus: "using OPALINE_CONFIG_DIR",
+			source: "opaline-environment",
+		};
+	}
+
+	const rudelDirectory = environment.RUDEL_CONFIG_DIR?.trim();
+	if (rudelDirectory) {
+		return {
+			directory: rudelDirectory,
+			migrationStatus: "using legacy RUDEL_CONFIG_DIR compatibility",
+			source: "rudel-environment",
+		};
+	}
+
+	return {
+		directory: join(homeDirectory, ".rudel"),
+		migrationStatus: "legacy ~/.rudel path retained; no migration needed",
+		source: "rudel-default",
+	};
+}
+
+export function getConfigDir(): string {
+	return getConfigPathInfo().directory;
 }
 
 export async function ensurePrivateFile(
