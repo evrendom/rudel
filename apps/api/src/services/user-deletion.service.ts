@@ -1,5 +1,8 @@
 import type postgres from "postgres";
-import { enqueueClickHousePurge } from "./clickhouse-purge.service.js";
+import {
+	enqueueClickHousePurge,
+	wakeClickHousePurgeWorker,
+} from "./clickhouse-purge.service.js";
 
 export interface DeletedUserPostgresData {
 	deletedOrganizationIds: string[];
@@ -13,7 +16,7 @@ export async function deleteUserPostgresData(
 	userId: string,
 	env: DeleteUserPostgresDataEnv,
 ): Promise<DeletedUserPostgresData> {
-	return env.sqlClient.begin(async (transaction) => {
+	const deletedData = await env.sqlClient.begin(async (transaction) => {
 		await transaction.unsafe(
 			`
 				SELECT id
@@ -109,4 +112,6 @@ export async function deleteUserPostgresData(
 
 		return { deletedOrganizationIds };
 	});
+	wakeClickHousePurgeWorker();
+	return deletedData;
 }

@@ -60,7 +60,10 @@ import {
 	checkManualIngestRateLimit,
 	checkOrganizationSessionCountRateLimit,
 } from "./rate-limit.js";
-import { enqueueClickHousePurge } from "./services/clickhouse-purge.service.js";
+import {
+	enqueueClickHousePurge,
+	wakeClickHousePurgeWorker,
+} from "./services/clickhouse-purge.service.js";
 import {
 	filterSessionTextFieldsOffThread,
 	IngestFilterQueueAbortedError,
@@ -902,6 +905,7 @@ const deleteOrganization = os.deleteOrganization
 					[orgId],
 				);
 			});
+			wakeClickHousePurgeWorker();
 
 			captureApiProductAnalyticsEvent({
 				distinctId: userId,

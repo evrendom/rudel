@@ -24,7 +24,10 @@ import { resolveWrappedShareLookupSource } from "./lib/wrapped-share-lookup-sour
 import { setupLogging } from "./logging.js";
 import type { ApiKeyAuthFailure } from "./middleware.js";
 import { router } from "./router.js";
-import { startClickHousePurgeWorker } from "./services/clickhouse-purge.service.js";
+import {
+	registerClickHousePurgeWorker,
+	startClickHousePurgeWorker,
+} from "./services/clickhouse-purge.service.js";
 import {
 	getIngestFilterQueueMetrics,
 	shutdownIngestFilterQueue,
@@ -356,12 +359,11 @@ const server = Bun.serve({
 		);
 	},
 });
-const clickHousePurgeWorker = readBooleanEnv(
-	"CLICKHOUSE_PURGE_WORKER_ENABLED",
-	true,
-)
-	? startClickHousePurgeWorker({ resend })
-	: undefined;
+const clickHousePurgeWorker = startClickHousePurgeWorker({
+	enabled: readBooleanEnv("CLICKHOUSE_PURGE_WORKER_ENABLED", true),
+	resend,
+});
+registerClickHousePurgeWorker(clickHousePurgeWorker);
 const sessionLanguageSignalReconciliationWorker = IS_TEST
 	? undefined
 	: startSessionLanguageSignalReconciliationWorker();
@@ -420,7 +422,7 @@ async function shutdown(signal?: string) {
 	shutdownSessionLanguageSignalScanner();
 	await Promise.all([
 		shutdownApiProductAnalytics(),
-		clickHousePurgeWorker?.stop(),
+		clickHousePurgeWorker.stop(),
 		sessionLanguageSignalReconciliationWorker?.stop(),
 	]);
 	if (signal) {
