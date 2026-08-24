@@ -4,6 +4,7 @@ import {
 	addOptionalStringEqFilter,
 	buildDateFilter,
 	buildInclusiveDateRangeFilter,
+	getSafeClickHouseTable,
 } from "../clickhouse.js";
 
 /**
@@ -16,21 +17,9 @@ import {
 
 const queryCalls: ClickHouseStatement[] = [];
 
-const allowedClickHouseTables = new Set([
-	"rudel.claude_sessions",
-	"rudel.codex_sessions",
-	"rudel.session_analytics",
-	"rudel.usage_events",
-	"rudel.wrapped_user_archetype_snapshots_v1",
-]);
-
-function getSafeTestClickHouseTable(table: string): string {
-	if (!allowedClickHouseTables.has(table)) {
-		throw new Error(`Unsupported ClickHouse table: ${table}`);
-	}
-	return table;
-}
-
+// Bun's mock.module is process-global and leaks across test files, so this mock
+// must never carry its own copy of the table allowlist — a stale copy poisons
+// whichever test file runs after this one. Delegate to the real implementation.
 mock.module("../clickhouse.js", () => ({
 	addOptionalStringEqFilter,
 	buildDateFilter,
@@ -38,7 +27,7 @@ mock.module("../clickhouse.js", () => ({
 	getClickhouse: () => ({
 		query: () => Promise.resolve([]),
 	}),
-	getSafeClickHouseTable: getSafeTestClickHouseTable,
+	getSafeClickHouseTable,
 	queryClickhouse: (statement: ClickHouseStatement) => {
 		queryCalls.push(statement);
 		return Promise.resolve([]);
@@ -102,9 +91,9 @@ describe("session list date range", () => {
 
 	test("preserves the production ClickHouse table allowlist in the module mock", () => {
 		expect(() =>
-			getSafeTestClickHouseTable("rudel.session_analytics"),
+			getSafeClickHouseTable("rudel.session_analytics"),
 		).not.toThrow();
-		expect(() => getSafeTestClickHouseTable("rudel.unknown_table")).toThrow(
+		expect(() => getSafeClickHouseTable("rudel.unknown_table")).toThrow(
 			"Unsupported ClickHouse table: rudel.unknown_table",
 		);
 	});
