@@ -44,7 +44,7 @@ A platform for ingesting, storing, and analyzing Claude Code / Codex session tra
 | `CLICKHOUSE_USERNAME` | Remote only | ClickHouse username; local endpoints may use `default` |
 | `CLICKHOUSE_PASSWORD` | No | ClickHouse password |
 | `CLICKHOUSE_DB` | No | ClickHouse database name |
-| `CLICKHOUSE_PURGE_POLL_INTERVAL_MS` | No | Crash-recovery interval for durable ClickHouse purge jobs; enqueue paths wake the in-process worker immediately after commit (default: 900,000 / 15 min) |
+| `CLICKHOUSE_PURGE_POLL_INTERVAL_MS` | No | Crash-recovery ceiling for durable ClickHouse purge jobs; enqueue paths and scheduled retries wake the in-process worker sooner (default: 3,600,000 / 60 min) |
 | `APP_URL` | No | API base URL (default: `http://localhost:4010`) |
 | `ALLOWED_ORIGIN` | No | CORS origin (default: `http://localhost:4011`) |
 | `TRUSTED_PROXY_HOPS` | No | Number of trusted reverse proxies in front of the API (or in front of Fly Proxy); used to resolve client IPs from right to left in `X-Forwarded-For` (default: 0) |

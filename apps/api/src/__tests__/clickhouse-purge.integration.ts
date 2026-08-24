@@ -21,6 +21,7 @@ import {
 	type ClickHousePurgeTarget,
 	calculateExponentialBackoffWithJitter,
 	enqueueClickHousePurge,
+	registerClickHousePurgeWorker,
 	runClickHousePurgeWorkerOnce,
 	sanitizeClickHousePurgeError,
 	startClickHousePurgeWorker,
@@ -29,6 +30,7 @@ import {
 	deleteOrgSessions,
 	deleteUserSessions,
 } from "../services/org-session.service.js";
+import { deleteUserPostgresData } from "../services/user-deletion.service.js";
 
 const TEST_RUN_ID = `clickhouse_purge_${Date.now()}_${crypto.randomUUID()}`;
 const unavailableClickHouse = createClickHouseExecutor({
@@ -55,6 +57,20 @@ afterEach(async () => {
 	await sqlClient`
 		DELETE FROM clickhouse_purge_job
 		WHERE target_id LIKE ${`${TEST_RUN_ID}%`}
+	`;
+	await sqlClient`
+		DELETE FROM member
+		WHERE id LIKE ${`${TEST_RUN_ID}%`}
+			OR organization_id LIKE ${`${TEST_RUN_ID}%`}
+			OR user_id LIKE ${`${TEST_RUN_ID}%`}
+	`;
+	await sqlClient`
+		DELETE FROM organization
+		WHERE id LIKE ${`${TEST_RUN_ID}%`}
+	`;
+	await sqlClient`
+		DELETE FROM "user"
+		WHERE id LIKE ${`${TEST_RUN_ID}%`}
 	`;
 });
 
@@ -145,9 +161,13 @@ describe("durable ClickHouse purge worker", () => {
 		);
 	});
 
-	test("fails an expired final attempt instead of reclaiming it forever", async () => {
-		const target: ClickHousePurgeTarget = {
+	test("counts terminalizing an expired attempt as work and continues", async () => {
+		const terminalTarget: ClickHousePurgeTarget = {
 			targetId: `${TEST_RUN_ID}_expired_final`,
+			targetType: "organization",
+		};
+		const runnableTarget: ClickHousePurgeTarget = {
+			targetId: `${TEST_RUN_ID}_after_expired_final`,
 			targetType: "organization",
 		};
 		await sqlClient`
@@ -161,35 +181,47 @@ describe("durable ClickHouse purge worker", () => {
 				next_attempt_at,
 				last_attempt_at,
 				lease_token,
-				lease_expires_at
+				lease_expires_at,
+				created_at
 			)
 			VALUES (
 				${crypto.randomUUID()},
-				${target.targetType},
-				${target.targetId},
+				${terminalTarget.targetType},
+				${terminalTarget.targetId},
 				'running',
 				1,
 				1,
 				NULL,
 				NOW() - INTERVAL '2 minutes',
 				'abandoned-worker',
-				NOW() - INTERVAL '1 minute'
+				TIMESTAMPTZ '1950-01-01 00:00:00+00',
+				TIMESTAMPTZ '1960-01-01 00:00:00+00'
 			)
 		`;
+		await enqueue(runnableTarget, 3);
 
 		let executionCount = 0;
 		const env = createProcessorEnv(async () => {
 			executionCount += 1;
 		});
 
-		expect(await runClickHousePurgeWorkerOnce(env)).toBe(false);
+		expect(await runClickHousePurgeWorkerOnce(env)).toBe(true);
 		expect(executionCount).toBe(0);
-		expect(await getPurgeJob(target)).toEqual(
+		expect(await getPurgeJob(terminalTarget)).toEqual(
 			expect.objectContaining({
 				alertStatus: "not_required",
 				attemptCount: 1,
 				leaseToken: null,
 				status: "failed",
+			}),
+		);
+
+		expect(await runClickHousePurgeWorkerOnce(env)).toBe(true);
+		expect(executionCount).toBe(1);
+		expect(await getPurgeJob(runnableTarget)).toEqual(
+			expect.objectContaining({
+				attemptCount: 1,
+				status: "succeeded",
 			}),
 		);
 	});
@@ -224,7 +256,7 @@ describe("durable ClickHouse purge worker", () => {
 		const env = createProcessorEnv(async () => {
 			executionCount += 1;
 		});
-		expect(await runClickHousePurgeWorkerOnce(env)).toBe(false);
+		expect(await runClickHousePurgeWorkerOnce(env)).toBe(true);
 		expect(await runClickHousePurgeWorkerOnce(env)).toBe(false);
 		expect(executionCount).toBe(0);
 		expect(await getPurgeJob(target)).toEqual(
@@ -645,6 +677,146 @@ describe("durable ClickHouse purge worker", () => {
 		);
 	});
 
+	test("schedules a durable retry at its due time before the recovery poll", async () => {
+		const target: ClickHousePurgeTarget = {
+			targetId: `${TEST_RUN_ID}_scheduled_retry`,
+			targetType: "organization",
+		};
+		await enqueue(target, 3);
+		await sqlClient`
+			UPDATE clickhouse_purge_job
+			SET
+				status = 'retrying',
+				attempt_count = 1,
+				next_attempt_at = NOW() + INTERVAL '2 seconds'
+			WHERE target_type = ${target.targetType}
+				AND target_id = ${target.targetId}
+		`;
+
+		const worker = startClickHousePurgeWorker({
+			pollIntervalMs: 60_000,
+			resend: {},
+		});
+		try {
+			await Bun.sleep(100);
+			expect(await getPurgeJob(target)).toEqual(
+				expect.objectContaining({
+					attemptCount: 1,
+					status: "retrying",
+				}),
+			);
+			await waitForPurgeJobAttemptCount(target, 2, 5_000);
+		} finally {
+			await worker.stop();
+		}
+
+		expect(await getPurgeJob(target)).toEqual(
+			expect.objectContaining({
+				attemptCount: 2,
+				status: "succeeded",
+			}),
+		);
+	});
+
+	test("registered worker wakes after commit and stays quiet after rollback", async () => {
+		const observedQueries: string[] = [];
+		const observedSqlClient = postgres(postgresConnectionString, {
+			debug: (_connection, query) => {
+				observedQueries.push(query);
+			},
+			max: 1,
+		});
+		const worker = startClickHousePurgeWorker({
+			pollIntervalMs: 60_000,
+			resend: {},
+			sqlClient: observedSqlClient,
+		});
+
+		try {
+			await worker.wake();
+			registerClickHousePurgeWorker(worker);
+			observedQueries.length = 0;
+
+			const committedUserId = `${TEST_RUN_ID}_committed_user`;
+			await createUserRecord(committedUserId);
+			await deleteUserPostgresData(committedUserId, { sqlClient });
+			await waitForPurgeJobStatus(
+				{ targetId: committedUserId, targetType: "account" },
+				"succeeded",
+				5_000,
+			);
+			expect(countClaimQueries(observedQueries)).toBeGreaterThan(0);
+
+			const rolledBackUserId = `${TEST_RUN_ID}_rolled_back_user`;
+			const lockedOrganizationId = `${TEST_RUN_ID}_locked_organization`;
+			await createUserRecord(rolledBackUserId);
+			await createOwnedOrganizationRecord(
+				rolledBackUserId,
+				lockedOrganizationId,
+			);
+			const organizationLock = holdOrganizationRowLock(lockedOrganizationId);
+			await organizationLock.acquired;
+			observedQueries.length = 0;
+			try {
+				await expect(
+					deleteUserPostgresData(rolledBackUserId, {
+						sqlClient: lockTimeoutSqlClient,
+					}),
+				).rejects.toThrow();
+			} finally {
+				organizationLock.release();
+				await organizationLock.completed;
+			}
+
+			await Bun.sleep(100);
+			expect(observedQueries).toEqual([]);
+			expect(
+				await countPurgeJobs({
+					targetId: rolledBackUserId,
+					targetType: "account",
+				}),
+			).toBe(0);
+		} finally {
+			await worker.stop();
+			await observedSqlClient.end();
+		}
+	});
+
+	test("coalesces wakes during an active pass into one follow-up", async () => {
+		const observedQueries: string[] = [];
+		const observedSqlClient = postgres(postgresConnectionString, {
+			debug: (_connection, query) => {
+				observedQueries.push(query);
+			},
+			max: 1,
+		});
+		const tableLock = holdPurgeJobTableLock();
+		await tableLock.acquired;
+		const worker = startClickHousePurgeWorker({
+			pollIntervalMs: 60_000,
+			resend: {},
+			sqlClient: observedSqlClient,
+		});
+
+		let wakes: Promise<void>[] = [];
+		try {
+			await waitForObservedQuery(observedQueries, (query) =>
+				query.includes("DELETE FROM clickhouse_purge_job"),
+			);
+			wakes = [worker.wake(), worker.wake(), worker.wake()];
+			tableLock.release();
+			await tableLock.completed;
+			await Promise.all(wakes);
+
+			expect(countClaimQueries(observedQueries)).toBe(2);
+		} finally {
+			tableLock.release();
+			await tableLock.completed;
+			await worker.stop();
+			await observedSqlClient.end();
+		}
+	});
+
 	test("empty steady state issues no Postgres query before the recovery interval", async () => {
 		const observedQueries: string[] = [];
 		const observedSqlClient = postgres(postgresConnectionString, {
@@ -695,27 +867,43 @@ describe("durable ClickHouse purge worker", () => {
 		);
 	});
 
-	test("limits each polling pass to twenty jobs before scheduling another", async () => {
+	test("immediately continues when a pass reaches the twenty-item cap", async () => {
 		const targetPrefix = `${TEST_RUN_ID}_batching_`;
 		const targets = createTargets(targetPrefix, 25);
 		for (const target of targets) {
-			await enqueue(target, 3);
+			await enqueue(target, 1);
 		}
+		await sqlClient`
+			UPDATE clickhouse_purge_job
+			SET attempt_count = max_attempts
+			WHERE target_id LIKE ${`${targetPrefix}%`}
+		`;
 
+		const observedQueries: string[] = [];
+		const observedSqlClient = postgres(postgresConnectionString, {
+			debug: (_connection, query) => {
+				observedQueries.push(query);
+			},
+			max: 1,
+		});
 		const worker = startClickHousePurgeWorker({
-			pollIntervalMs: 500,
+			pollIntervalMs: 60_000,
 			resend: {},
+			sqlClient: observedSqlClient,
 		});
 		try {
-			await waitForPurgeJobCount(targetPrefix, "succeeded", 20);
-			expect(await getPurgeStatusCounts(targetPrefix)).toEqual({
-				pending: 5,
-				running: 0,
-				succeeded: 20,
-			});
-			await waitForPurgeJobCount(targetPrefix, "succeeded", targets.length);
+			await waitForPurgeJobCount(targetPrefix, "failed", targets.length, 5_000);
+			await waitForObservedQuery(observedQueries, (query) =>
+				query.includes('SELECT MIN(due_at) AS "nextDueAt"'),
+			);
+			expect(
+				observedQueries.filter((query) =>
+					query.includes('SELECT MIN(due_at) AS "nextDueAt"'),
+				),
+			).toHaveLength(1);
 		} finally {
 			await worker.stop();
+			await observedSqlClient.end();
 		}
 	});
 
@@ -1081,6 +1269,51 @@ function createTargets(
 	}));
 }
 
+async function createUserRecord(userId: string): Promise<void> {
+	await sqlClient`
+		INSERT INTO "user" (id, name, email)
+		VALUES (${userId}, ${userId}, ${`${userId}@example.com`})
+	`;
+}
+
+async function createOwnedOrganizationRecord(
+	userId: string,
+	organizationId: string,
+): Promise<void> {
+	await sqlClient.begin(async (transaction) => {
+		await transaction.unsafe(
+			"INSERT INTO organization (id, name, slug) VALUES ($1, $2, $3)",
+			[organizationId, organizationId, organizationId],
+		);
+		await transaction.unsafe(
+			"INSERT INTO member (id, organization_id, user_id, role) VALUES ($1, $2, $3, 'owner')",
+			[`${TEST_RUN_ID}_member_${crypto.randomUUID()}`, organizationId, userId],
+		);
+	});
+}
+
+function countClaimQueries(queries: readonly string[]): number {
+	return queries.filter(
+		(query) =>
+			query.includes('attempt_count AS "attemptCount"') &&
+			query.includes("FOR UPDATE SKIP LOCKED"),
+	).length;
+}
+
+async function waitForObservedQuery(
+	queries: readonly string[],
+	predicate: (query: string) => boolean,
+	timeoutMs = 5_000,
+): Promise<void> {
+	const deadline = Date.now() + timeoutMs;
+	let observed = queries.some(predicate);
+	while (!observed && Date.now() < deadline) {
+		await Bun.sleep(5);
+		observed = queries.some(predicate);
+	}
+	expect(observed).toBe(true);
+}
+
 async function waitForPurgeJobCount(
 	targetPrefix: string,
 	status: string,
@@ -1110,6 +1343,20 @@ async function waitForPurgeJobStatus(
 	expect(job?.status).toBe(status);
 }
 
+async function waitForPurgeJobAttemptCount(
+	target: ClickHousePurgeTarget,
+	attemptCount: number,
+	timeoutMs = 10_000,
+): Promise<void> {
+	const deadline = Date.now() + timeoutMs;
+	let job = await getPurgeJob(target);
+	while (job?.attemptCount !== attemptCount && Date.now() < deadline) {
+		await Bun.sleep(1);
+		job = await getPurgeJob(target);
+	}
+	expect(job?.attemptCount).toBe(attemptCount);
+}
+
 async function countPurgeJobsByStatus(
 	targetPrefix: string,
 	status: string,
@@ -1131,24 +1378,6 @@ async function getAttemptCounts(targetPrefix: string): Promise<number[]> {
 		ORDER BY target_id
 	`;
 	return rows.map((row) => row.attemptCount);
-}
-
-async function getPurgeStatusCounts(targetPrefix: string): Promise<{
-	pending: number;
-	running: number;
-	succeeded: number;
-}> {
-	const [row] = await sqlClient<
-		Array<{ pending: number; running: number; succeeded: number }>
-	>`
-		SELECT
-			COUNT(*) FILTER (WHERE status = 'pending')::int AS pending,
-			COUNT(*) FILTER (WHERE status = 'running')::int AS running,
-			COUNT(*) FILTER (WHERE status = 'succeeded')::int AS succeeded
-		FROM clickhouse_purge_job
-		WHERE target_id LIKE ${`${targetPrefix}%`}
-	`;
-	return row ?? { pending: 0, running: 0, succeeded: 0 };
 }
 
 async function countPurgeJobs(target: ClickHousePurgeTarget): Promise<number> {
@@ -1193,6 +1422,51 @@ function holdPurgeJobRowLock(target: ClickHousePurgeTarget): {
 				FOR UPDATE
 			`,
 			[target.targetType, target.targetId],
+		);
+		acquired.release();
+		await release.wait;
+	});
+
+	return {
+		acquired: acquired.wait,
+		completed,
+		release: release.release,
+	};
+}
+
+function holdOrganizationRowLock(organizationId: string): {
+	acquired: Promise<void>;
+	completed: Promise<void>;
+	release: () => void;
+} {
+	const acquired = createSignal();
+	const release = createSignal();
+	const completed = rowLockSqlClient.begin(async (transaction) => {
+		await transaction.unsafe(
+			"SELECT id FROM organization WHERE id = $1 FOR UPDATE",
+			[organizationId],
+		);
+		acquired.release();
+		await release.wait;
+	});
+
+	return {
+		acquired: acquired.wait,
+		completed,
+		release: release.release,
+	};
+}
+
+function holdPurgeJobTableLock(): {
+	acquired: Promise<void>;
+	completed: Promise<void>;
+	release: () => void;
+} {
+	const acquired = createSignal();
+	const release = createSignal();
+	const completed = rowLockSqlClient.begin(async (transaction) => {
+		await transaction.unsafe(
+			"LOCK TABLE clickhouse_purge_job IN ACCESS EXCLUSIVE MODE",
 		);
 		acquired.release();
 		await release.wait;

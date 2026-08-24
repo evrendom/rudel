@@ -15,7 +15,7 @@ import {
 const logger = getLogger(["rudel", "api", "clickhouse-purge"]);
 
 const DEFAULT_MAX_ATTEMPTS = 5;
-const DEFAULT_POLL_INTERVAL_MS = 15 * 60_000;
+const DEFAULT_POLL_INTERVAL_MS = 60 * 60_000;
 const DEFAULT_LEASE_DURATION_MS = 3 * 60_000;
 const DEFAULT_RETRY_BASE_DELAY_MS = 5_000;
 const DEFAULT_RETRY_MAX_DELAY_MS = 15 * 60_000;
@@ -24,6 +24,7 @@ const DEFAULT_ALERT_RETRY_MAX_DELAY_MS = 60 * 60_000;
 const SUCCEEDED_JOB_RETENTION_MS = 30 * 24 * 60 * 60_000;
 const SUCCEEDED_JOB_CLEANUP_INTERVAL_MS = 24 * 60 * 60_000;
 const MAX_WORK_ITEMS_PER_PASS = 20;
+const MIN_DUE_WORK_DELAY_MS = 100;
 const MAX_ERROR_SEGMENTS = 8;
 const MAX_ERROR_DEPTH = 4;
 const MAX_SANITIZED_ERROR_LENGTH = 800;
@@ -88,6 +89,15 @@ interface PurgeJobCandidate {
 	id: string;
 	maxAttempts: number;
 	status: "pending" | "retrying" | "running";
+}
+
+type PurgeJobClaimResult =
+	| { status: "claimed"; job: ClaimedPurgeJob }
+	| { status: "empty" }
+	| { status: "terminalized" };
+
+interface NextPurgeWorkDueRow {
+	nextDueAt: Date | string | null;
 }
 
 export interface StartClickHousePurgeWorkerOptions {
@@ -208,18 +218,18 @@ export function startClickHousePurgeWorker(
 		timer = undefined;
 	}
 
-	function scheduleNextRun(): void {
+	function scheduleNextRun(delayMs = pollIntervalMs): void {
 		if (stopped) {
 			return;
 		}
 		timer = setTimeout(() => {
 			timer = undefined;
 			startWorkerPass();
-		}, pollIntervalMs);
+		}, delayMs);
 		timer.unref();
 	}
 
-	async function runWorkerPass(): Promise<void> {
+	async function runWorkerPass(): Promise<number> {
 		try {
 			const now = Date.now();
 			if (now >= nextCleanupAt) {
@@ -234,19 +244,30 @@ export function startClickHousePurgeWorker(
 				}
 			}
 
-			for (
-				let processed = 0;
-				processed < MAX_WORK_ITEMS_PER_PASS;
-				processed++
-			) {
+			let processed = 0;
+			for (; processed < MAX_WORK_ITEMS_PER_PASS; processed++) {
 				if (stopped || !(await runClickHousePurgeWorkerOnce(env))) {
 					break;
 				}
 			}
+			if (processed === MAX_WORK_ITEMS_PER_PASS) {
+				runAgain = true;
+			}
+
+			if (stopped || runAgain) {
+				return pollIntervalMs;
+			}
+
+			const nextDueAt = await getNextClickHousePurgeWorkDueAt(
+				env.sqlClient,
+				env.sendFailureAlert !== undefined,
+			);
+			return calculateNextWorkerDelayMs(nextDueAt, pollIntervalMs);
 		} catch (error) {
 			logger.error("ClickHouse purge worker pass failed: {error}", {
 				error: sanitizeClickHousePurgeError(error),
 			});
+			return pollIntervalMs;
 		}
 	}
 
@@ -261,7 +282,7 @@ export function startClickHousePurgeWorker(
 
 		clearScheduledRun();
 		isRunning = true;
-		activeRun = runWorkerPass().finally(() => {
+		activeRun = runWorkerPass().then((nextRunDelayMs) => {
 			isRunning = false;
 			if (stopped) {
 				return;
@@ -271,7 +292,7 @@ export function startClickHousePurgeWorker(
 				startWorkerPass();
 				return;
 			}
-			scheduleNextRun();
+			scheduleNextRun(nextRunDelayMs);
 		});
 	}
 
@@ -304,14 +325,15 @@ export function startClickHousePurgeWorker(
 export async function runClickHousePurgeWorkerOnce(
 	env: ClickHousePurgeProcessorEnv,
 ): Promise<boolean> {
-	const purgeJob = await claimNextPurgeJob(env);
-	if (purgeJob) {
-		await processClaimedPurgeJob(purgeJob, env);
+	const purgeJobClaim = await claimNextPurgeJob(env);
+	if (purgeJobClaim.status === "claimed") {
+		await processClaimedPurgeJob(purgeJobClaim.job, env);
 	}
+	const handledPurgeWork = purgeJobClaim.status !== "empty";
 
 	const sendFailureAlert = env.sendFailureAlert;
 	if (!sendFailureAlert) {
-		return purgeJob !== null;
+		return handledPurgeWork;
 	}
 
 	const purgeAlert = await claimNextPurgeAlert(env);
@@ -319,7 +341,7 @@ export async function runClickHousePurgeWorkerOnce(
 		await processClaimedPurgeAlert(purgeAlert, sendFailureAlert, env);
 	}
 
-	return purgeJob !== null || purgeAlert !== null;
+	return handledPurgeWork || purgeAlert !== null;
 }
 
 export function calculateExponentialBackoffWithJitter(
@@ -409,14 +431,80 @@ async function deleteExpiredSucceededPurgeJobs(
 	`;
 }
 
+async function getNextClickHousePurgeWorkDueAt(
+	database: postgres.Sql,
+	alertsEnabled: boolean,
+): Promise<Date | null> {
+	const [row] = await database<NextPurgeWorkDueRow[]>`
+		SELECT MIN(due_at) AS "nextDueAt"
+		FROM (
+			SELECT
+				CASE
+					WHEN status IN ('pending', 'retrying') THEN next_attempt_at
+					WHEN status = 'running' THEN lease_expires_at
+				END AS due_at
+			FROM clickhouse_purge_job
+			WHERE (
+				status IN ('pending', 'retrying')
+				AND next_attempt_at IS NOT NULL
+			) OR (
+				status = 'running'
+				AND lease_expires_at IS NOT NULL
+			)
+
+			UNION ALL
+
+			SELECT
+				CASE
+					WHEN alert_status IN ('pending', 'retrying') THEN alert_next_attempt_at
+					WHEN alert_status = 'sending' THEN lease_expires_at
+				END AS due_at
+			FROM clickhouse_purge_job
+			WHERE ${alertsEnabled}
+				AND status = 'failed'
+				AND alert_sent_at IS NULL
+				AND (
+					(
+						alert_status IN ('pending', 'retrying')
+						AND alert_next_attempt_at IS NOT NULL
+					) OR (
+						alert_status = 'sending'
+						AND lease_expires_at IS NOT NULL
+					)
+				)
+		) AS due_work
+	`;
+
+	if (!row?.nextDueAt) {
+		return null;
+	}
+	const nextDueAt =
+		row.nextDueAt instanceof Date ? row.nextDueAt : new Date(row.nextDueAt);
+	return Number.isNaN(nextDueAt.getTime()) ? null : nextDueAt;
+}
+
+function calculateNextWorkerDelayMs(
+	nextDueAt: Date | null,
+	pollIntervalMs: number,
+): number {
+	if (!nextDueAt) {
+		return pollIntervalMs;
+	}
+	return Math.min(
+		pollIntervalMs,
+		Math.max(MIN_DUE_WORK_DELAY_MS, nextDueAt.getTime() - Date.now()),
+	);
+}
+
 async function claimNextPurgeJob(
 	env: ClickHousePurgeProcessorEnv,
-): Promise<ClaimedPurgeJob | null> {
+): Promise<PurgeJobClaimResult> {
 	const leaseToken = crypto.randomUUID();
 
-	return env.sqlClient.begin(async (transaction) => {
-		const [candidate] = await transaction.unsafe<PurgeJobCandidate[]>(
-			`
+	return env.sqlClient.begin(
+		async (transaction): Promise<PurgeJobClaimResult> => {
+			const [candidate] = await transaction.unsafe<PurgeJobCandidate[]>(
+				`
 				SELECT
 					id,
 					status,
@@ -436,20 +524,20 @@ async function claimNextPurgeJob(
 				FOR UPDATE SKIP LOCKED
 				LIMIT 1
 			`,
-		);
+			);
 
-		if (!candidate) {
-			return null;
-		}
+			if (!candidate) {
+				return { status: "empty" };
+			}
 
-		if (candidate.attemptCount >= candidate.maxAttempts) {
-			const alertsEnabled = env.sendFailureAlert !== undefined;
-			const lastError =
-				candidate.status === "running"
-					? "ClickHouse purge worker lease expired after the final attempt"
-					: "ClickHouse purge job reached its maximum attempts before execution";
-			await transaction.unsafe(
-				`
+			if (candidate.attemptCount >= candidate.maxAttempts) {
+				const alertsEnabled = env.sendFailureAlert !== undefined;
+				const lastError =
+					candidate.status === "running"
+						? "ClickHouse purge worker lease expired after the final attempt"
+						: "ClickHouse purge job reached its maximum attempts before execution";
+				await transaction.unsafe(
+					`
 					UPDATE clickhouse_purge_job
 					SET
 						status = 'failed',
@@ -468,13 +556,13 @@ async function claimNextPurgeJob(
 						updated_at = NOW()
 					WHERE id = $3
 				`,
-				[lastError, alertsEnabled, candidate.id],
-			);
-			return null;
-		}
+					[lastError, alertsEnabled, candidate.id],
+				);
+				return { status: "terminalized" };
+			}
 
-		const [claimed] = await transaction.unsafe<ClaimedPurgeJob[]>(
-			`
+			const [claimed] = await transaction.unsafe<ClaimedPurgeJob[]>(
+				`
 				UPDATE clickhouse_purge_job
 				SET
 					status = 'running',
@@ -493,11 +581,14 @@ async function claimNextPurgeJob(
 					max_attempts AS "maxAttempts",
 					lease_token AS "leaseToken"
 			`,
-			[leaseToken, env.leaseDurationMs, candidate.id],
-		);
+				[leaseToken, env.leaseDurationMs, candidate.id],
+			);
 
-		return claimed ?? null;
-	});
+			return claimed
+				? { status: "claimed", job: claimed }
+				: { status: "empty" };
+		},
+	);
 }
 
 async function processClaimedPurgeJob(
