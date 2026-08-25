@@ -142,3 +142,19 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: bun test ./apps/cli/src/__tests__/browser-opener.windows.integration.ts
+
+  cli-smoke-required:
+    if: always()
+    needs:
+      - cli-smoke
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 5
+    steps:
+      - name: Require successful CLI smoke tests when applicable
+        env:
+          CLI_SMOKE_RESULT: ${{ needs.cli-smoke.result }}
+        run: |
+          if [[ "${CLI_SMOKE_RESULT}" != "success" && "${CLI_SMOKE_RESULT}" != "skipped" ]]; then
+            echo "CLI smoke tests did not succeed: ${CLI_SMOKE_RESULT}"
+            exit 1
+          fi
