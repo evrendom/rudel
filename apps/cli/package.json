@@ -10,7 +10,7 @@
 	"homepage": "https://app.rudel.ai",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/opalinehq/cli.git",
+		"url": "git+https://github.com/opalinehq/cli.git",
 		"directory": "apps/cli"
 	},
 	"bugs": {
@@ -26,7 +26,7 @@
 	],
 	"author": "Opaline",
 	"bin": {
-		"opaline": "./dist/cli.js"
+		"opaline": "dist/cli.js"
 	},
 	"exports": {
 		"./run": "./dist/run-cli.js"

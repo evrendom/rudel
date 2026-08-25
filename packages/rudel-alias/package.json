@@ -9,7 +9,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/opalinehq/cli.git",
+		"url": "git+https://github.com/opalinehq/cli.git",
 		"directory": "packages/rudel-alias"
 	},
 	"bugs": {
@@ -24,7 +24,7 @@
 	],
 	"author": "Opaline",
 	"bin": {
-		"rudel": "./bin/rudel.js"
+		"rudel": "bin/rudel.js"
 	},
 	"files": [
 		"bin",
