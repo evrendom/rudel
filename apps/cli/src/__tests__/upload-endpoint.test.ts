@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { parseSafeApiEndpoint, type SafeUrlResult } from "@rudel/api-routes";
+import {
+	parseSafeApiEndpoint,
+	type SafeUrlResult,
+} from "../contracts/index.js";
 import {
 	allowsInsecureEndpoint,
 	allowsInsecureEndpointFromEnv,
@@ -34,18 +37,15 @@ function rejection(
 }
 
 describe("allowsInsecureEndpoint", () => {
-	test.each([
-		"1",
-		"true",
-		"TRUE",
-		"yes",
-		"on",
-	])("accepts the endpoint-specific env opt-in %p", (value) => {
-		process.env[ENDPOINT_ENV_VAR] = value;
+	test.each(["1", "true", "TRUE", "yes", "on"])(
+		"accepts the endpoint-specific env opt-in %p",
+		(value) => {
+			process.env[ENDPOINT_ENV_VAR] = value;
 
-		expect(allowsInsecureEndpointFromEnv()).toBe(true);
-		expect(allowsInsecureEndpoint(false)).toBe(true);
-	});
+			expect(allowsInsecureEndpointFromEnv()).toBe(true);
+			expect(allowsInsecureEndpoint(false)).toBe(true);
+		},
+	);
 
 	test("accepts the endpoint-specific command flag", () => {
 		delete process.env[ENDPOINT_ENV_VAR];
@@ -73,7 +73,7 @@ describe("describeUploadEndpointRejection", () => {
 			"--allow-insecure-endpoint",
 		);
 		expect(describeUploadEndpointRejection(result)).toContain(
-			"RUDEL_ALLOW_INSECURE_ENDPOINT=1",
+			"OPALINE_ALLOW_INSECURE_ENDPOINT=1",
 		);
 		expect(describeUploadEndpointRejection(result)).toContain(
 			"--allow-insecure-api-base",

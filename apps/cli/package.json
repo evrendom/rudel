@@ -1,8 +1,8 @@
 {
-	"name": "rudel",
-	"version": "0.3.0",
+	"name": "@opalinehq/cli",
+	"version": "0.4.0",
 	"type": "module",
-	"description": "CLI for the Coding Agent Analytics Platform rudel.ai",
+	"description": "Opaline CLI for Claude Code and Codex session analytics",
 	"license": "MIT",
 	"engines": {
 		"node": ">=20"
@@ -10,11 +10,11 @@
 	"homepage": "https://app.rudel.ai",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/evrendom/rudel.git",
+		"url": "https://github.com/opalinehq/cli.git",
 		"directory": "apps/cli"
 	},
 	"bugs": {
-		"url": "https://github.com/evrendom/rudel/issues"
+		"url": "https://github.com/opalinehq/cli/issues"
 	},
 	"keywords": [
 		"claude",
@@ -24,22 +24,25 @@
 		"transcript",
 		"coding-agent"
 	],
-	"author": "ObsessionDB",
+	"author": "Opaline",
 	"bin": {
-		"rudel": "./dist/cli.js"
+		"opaline": "./dist/cli.js"
+	},
+	"exports": {
+		"./run": "./dist/run-cli.js"
 	},
 	"files": [
 		"dist",
-		"README.md"
+		"README.md",
+		"THIRD_PARTY_NOTICES.md"
 	],
 	"scripts": {
 		"dev": "bun run src/bin/cli.ts",
 		"check-types": "tsc --noEmit",
-		"build": "bun build src/bin/cli.ts --outdir dist --target node",
+		"build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && bun build src/bin/cli.ts --outfile dist/cli.js --target node && bun build src/run-cli.ts --outfile dist/run-cli.js --target node",
 		"prepack": "bun run build",
 		"test": "bun test",
-		"test:integration": "bun test ./src/__tests__/api-upload.integration.ts ./src/__tests__/uploader-rate-limit.integration.ts ./src/__tests__/auth-verify.integration.ts ./src/__tests__/auth.e2e.integration.ts ./src/__tests__/release-pressure.integration.ts",
-		"test:integration:skew": "bun test ./src/__tests__/version-skew.integration.ts",
+		"test:integration": "bun test ./src/__tests__/old-api-compat.test.ts ./src/__tests__/upload-destination.integration.test.ts",
 		"test:packed-smoke": "bun test ./src/__tests__/packed-cli-smoke.integration.ts"
 	},
 	"dependencies": {
@@ -50,13 +53,11 @@
 		"@orpc/contract": "^1.13.5",
 		"@stricli/core": "^1.2.5",
 		"posthog-node": "5.46.1",
-		"p-map": "^7.0.4"
+		"p-map": "^7.0.4",
+		"smol-toml": "^1.6.0",
+		"zod": "^3.24.0"
 	},
 	"devDependencies": {
-		"@rudel/agent-adapters": "workspace:*",
-		"@rudel/api-routes": "workspace:*",
-		"@rudel/secret-filter": "workspace:*",
-		"@rudel/typescript-config": "workspace:*",
 		"@types/node": "^22",
 		"bun-types": "latest",
 		"typescript": "5.9.2"

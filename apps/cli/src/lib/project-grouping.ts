@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import {
 	getAvailableAdapters,
 	type ScannedProject,
-} from "@rudel/agent-adapters";
+} from "../internal/agent-adapters/index.js";
 import { getGitRemoteUrl, normalizeRemoteUrl } from "./git-info.js";
 import {
 	cacheRemote,

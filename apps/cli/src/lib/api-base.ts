@@ -1,4 +1,4 @@
-import { parseSafeApiBase, type SafeUrlResult } from "@rudel/api-routes";
+import { parseSafeApiBase, type SafeUrlResult } from "../contracts/index.js";
 import { loadCredentials } from "./credentials.js";
 import {
 	describeUrlRejectionWithOptIn,
@@ -6,14 +6,15 @@ import {
 	resolveInsecureUrlOptIn,
 } from "./insecure-url-opt-in.js";
 
-const INSECURE_API_BASE_ENV_VAR = "RUDEL_ALLOW_INSECURE_API_BASE";
+const INSECURE_API_BASE_ENV_VAR = "OPALINE_ALLOW_INSECURE_API_BASE";
+const LEGACY_INSECURE_API_BASE_ENV_VAR = "RUDEL_ALLOW_INSECURE_API_BASE";
 
 /**
  * Escape hatch for automation that cannot easily change its argv (RUD-237).
  * Mirrors the `--allow-insecure-api-base` flag.
  */
 export function allowsInsecureApiBaseFromEnv(): boolean {
-	return hasTruthyEnvironmentValue(process.env[INSECURE_API_BASE_ENV_VAR]);
+	return hasTruthyEnvironmentValue(getInsecureApiBaseEnvironmentValue());
 }
 
 /**
@@ -27,7 +28,7 @@ export function allowsInsecureApiBaseFromEnv(): boolean {
 export function allowsPlaintext(allowInsecureFlag: boolean): boolean {
 	return resolveInsecureUrlOptIn(
 		allowInsecureFlag,
-		process.env[INSECURE_API_BASE_ENV_VAR],
+		getInsecureApiBaseEnvironmentValue(),
 	);
 }
 
@@ -54,6 +55,13 @@ export function describeApiBaseRejection(
 	return describeUrlRejectionWithOptIn(
 		result,
 		`Pass --allow-insecure-api-base (or set ${INSECURE_API_BASE_ENV_VAR}=1) if this deployment really is plaintext. This does not opt transcript uploads into --allow-insecure-endpoint.`,
+	);
+}
+
+function getInsecureApiBaseEnvironmentValue(): string | undefined {
+	return (
+		process.env[INSECURE_API_BASE_ENV_VAR] ??
+		process.env[LEGACY_INSECURE_API_BASE_ENV_VAR]
 	);
 }
 
@@ -99,7 +107,7 @@ export function describeStoredApiBaseRisk(
 ): string | undefined {
 	return describePlaintextStoredBase(
 		storedApiBase,
-		"Run `rudel logout` then `rudel login` against an https:// base to fix this.",
+		"Run `opaline logout` then `opaline login` against an https:// base to fix this.",
 	);
 }
 

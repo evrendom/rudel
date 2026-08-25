@@ -1,10 +1,27 @@
 {
 	"$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
 	"include-v-in-tag": false,
+	"include-component-in-tag": true,
 	"tag-separator": "@",
 	"bootstrap-sha": "ffb9d74e625d34b6a0d8099330c0e54f6a1b6208",
+	"plugins": [
+		{
+			"type": "node-workspace",
+			"merge": false
+		},
+		{
+			"type": "linked-versions",
+			"groupName": "opaline-cli",
+			"components": ["opaline-cli", "rudel"]
+		}
+	],
 	"packages": {
 		"apps/cli": {
+			"release-type": "node",
+			"component": "opaline-cli",
+			"changelog-path": "CHANGELOG.md"
+		},
+		"packages/rudel-alias": {
 			"release-type": "node",
 			"component": "rudel",
 			"changelog-path": "CHANGELOG.md"

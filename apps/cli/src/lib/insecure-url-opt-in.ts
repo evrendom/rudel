@@ -1,4 +1,4 @@
-import type { SafeUrlResult } from "@rudel/api-routes";
+import type { SafeUrlResult } from "../contracts/index.js";
 
 const TRUTHY_ENV_VALUES = ["1", "true", "yes", "on"];
 

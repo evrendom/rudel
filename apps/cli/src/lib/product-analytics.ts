@@ -1,21 +1,21 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { ORPCError } from "@orpc/client";
+import { PostHog } from "posthog-node";
+import pkg from "../../package.json" with { type: "json" };
 import type {
 	ProductAnalyticsEventName,
 	ProductAnalyticsEventPayload,
 	ProductAnalyticsPlatformOs,
-} from "@rudel/api-routes";
+} from "../contracts/index.js";
 import {
 	PRODUCT_ANALYTICS_EVENT_VERSION,
 	PRODUCT_ANALYTICS_EVENTS,
 	parseProductAnalyticsEvent,
-} from "@rudel/api-routes";
-import { PostHog } from "posthog-node";
-import pkg from "../../package.json" with { type: "json" };
-import type { Credentials } from "./credentials.js";
+} from "../contracts/index.js";
+import { getApiBaseOverride } from "./api-target.js";
+import { getConfigDir } from "./local-state.js";
 
 type CliSurface = "cli" | "hook";
 type CliAutoProps = "event_version" | "surface" | "environment";
@@ -39,7 +39,7 @@ function isAnalyticsEnabled() {
 }
 
 function getEnvironment(): "production" | "staging" | "development" | "local" {
-	const apiBase = process.env.RUDEL_API_BASE ?? "";
+	const apiBase = getApiBaseOverride() ?? "";
 	if (apiBase.includes("localhost") || apiBase.includes("127.0.0.1")) {
 		return "local";
 	}
@@ -66,10 +66,6 @@ function getClient() {
 
 	client = new PostHog(key, { host });
 	return client;
-}
-
-function getConfigDir() {
-	return process.env.RUDEL_CONFIG_DIR ?? join(homedir(), ".rudel");
 }
 
 function getAnalyticsStatePath() {
@@ -262,31 +258,6 @@ export function normalizeFailureReason(error: unknown) {
 	);
 }
 
-export function normalizeSignUpErrorCode(error: unknown) {
-	const message =
-		error instanceof Error
-			? error.message.toLowerCase()
-			: String(error).toLowerCase();
-	if (message.includes("already") && message.includes("exist")) {
-		return "already_exists";
-	}
-	if (message.includes("invalid")) {
-		return "invalid_input";
-	}
-	if (message.includes("network")) {
-		return "network_error";
-	}
-	if (message.includes("timeout")) {
-		return "timeout";
-	}
-	return (
-		message
-			.replace(/[^a-z0-9]+/g, "_")
-			.replace(/^_+|_+$/g, "")
-			.slice(0, 64) || "unknown"
-	);
-}
-
 export function getCliDistinctId(userId?: string | null) {
 	return userId ?? getOrCreateCliInstallationId();
 }
@@ -300,49 +271,6 @@ export function getBaseCliEventPayload() {
 		cli_version: getCliVersion(),
 		platform_os: getPlatformOs(),
 	} as const;
-}
-
-export function getCliUserId(credentials?: Credentials | null) {
-	return credentials?.user?.id;
-}
-
-export function getUploadTerminalFailureStage(
-	error: unknown,
-): "auth" | "network" | "api" | "validation" | "rate_limit" | "unknown" {
-	if (error instanceof ORPCError) {
-		if (error.status === 401 || error.status === 403) {
-			return "auth";
-		}
-		if (error.status === 429) {
-			return "rate_limit";
-		}
-		if (error.status === 400) {
-			return "validation";
-		}
-		return "api";
-	}
-
-	if (error instanceof TypeError) {
-		return "network";
-	}
-
-	const message =
-		error instanceof Error
-			? error.message.toLowerCase()
-			: String(error).toLowerCase();
-	if (message.includes("network")) {
-		return "network";
-	}
-	if (message.includes("timeout")) {
-		return "network";
-	}
-	if (message.includes("validation")) {
-		return "validation";
-	}
-	if (message.includes("unauthorized") || message.includes("forbidden")) {
-		return "auth";
-	}
-	return "unknown";
 }
 
 export const CliProductAnalyticsEvents = PRODUCT_ANALYTICS_EVENTS;

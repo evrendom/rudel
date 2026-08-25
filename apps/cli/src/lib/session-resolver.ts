@@ -1,7 +1,7 @@
 import { access, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { decodeProjectPath } from "@rudel/agent-adapters";
+import { decodeProjectPath } from "../internal/agent-adapters/index.js";
 
 export const SESSIONS_BASE_DIR = join(homedir(), ".claude", "projects");
 

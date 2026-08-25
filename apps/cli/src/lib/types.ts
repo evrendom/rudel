@@ -1,4 +1,4 @@
-import type { RedactionCounts } from "@rudel/secret-filter";
+import type { RedactionCounts } from "../internal/secret-filter/index.js";
 
 export type SessionTag =
 	| "research"

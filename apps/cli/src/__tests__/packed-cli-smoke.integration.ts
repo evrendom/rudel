@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
-import { FILTER_VERSION } from "@rudel/secret-filter";
+import { FILTER_VERSION } from "../internal/secret-filter/index.js";
 import {
 	containsAnyCanary,
 	createClaudeFixtureSecrets,
@@ -29,10 +29,10 @@ import {
  * This file is deliberately NOT in any test:integration script. Invoke it
  * explicitly with the artifact path exported:
  *
- *   RUDEL_PACKED_CLI=/abs/path/to/package/dist/cli.js \
+ *   OPALINE_PACKED_CLI=/abs/path/to/package/dist/cli.js \
  *     bun test ./src/__tests__/packed-cli-smoke.integration.ts
  *
- * RUDEL_PACKED_CLI is mandatory: every test hard-fails when it is missing so
+ * OPALINE_PACKED_CLI is mandatory: every test hard-fails when it is missing so
  * a misconfigured run can never silently pass (or silently fall back to the
  * workspace dist build).
  */
@@ -41,7 +41,7 @@ const AWS_CANARY = "AKIACANARY234567ABCD";
 const templates = await readRedactionTemplates();
 
 function requirePackedCliPath(): string {
-	const packedCliPath = process.env.RUDEL_PACKED_CLI;
+	const packedCliPath = process.env.OPALINE_PACKED_CLI;
 	expect(packedCliPath).toBeTruthy();
 	return packedCliPath as string;
 }
@@ -66,7 +66,7 @@ function assertFilteredWireBody(
 	expect(parsed.json?.filter_version).toBe(FILTER_VERSION);
 }
 
-test("RUDEL_PACKED_CLI points at an existing absolute artifact on Node >= 20", async () => {
+test("OPALINE_PACKED_CLI points at an existing absolute artifact on Node >= 20", async () => {
 	const packedCliPath = requirePackedCliPath();
 	expect(isAbsolute(packedCliPath)).toBe(true);
 	await access(packedCliPath);
@@ -272,78 +272,80 @@ test("timestamp-less single upload reports a friendly error", async () => {
 	}
 }, 60_000);
 
-test.each(
-	HOOK_CASES,
-)("$name uploads a filtered transcript through the packed artifact", async (hookCase) => {
-	const packedCliPath = requirePackedCliPath();
-	const stub = startIngestStub();
-	const secrets =
-		hookCase.source === "codex"
-			? createCodexFixtureSecrets()
-			: createClaudeFixtureSecrets();
-	const fixture = await createCliFixture(hookCase.source);
-	try {
-		if (hookCase.source === "codex") {
-			await writeFile(
-				fixture.transcriptPath,
-				renderFixture(
-					templates.codexSession,
+test.each(HOOK_CASES)(
+	"$name uploads a filtered transcript through the packed artifact",
+	async (hookCase) => {
+		const packedCliPath = requirePackedCliPath();
+		const stub = startIngestStub();
+		const secrets =
+			hookCase.source === "codex"
+				? createCodexFixtureSecrets()
+				: createClaudeFixtureSecrets();
+		const fixture = await createCliFixture(hookCase.source);
+		try {
+			if (hookCase.source === "codex") {
+				await writeFile(
+					fixture.transcriptPath,
+					renderFixture(
+						templates.codexSession,
+						fixture.sessionId,
+						secrets,
+						false,
+					),
+				);
+			} else {
+				const subagentDir = join(
+					fixture.projectPath,
 					fixture.sessionId,
-					secrets,
-					false,
-				),
-			);
-		} else {
-			const subagentDir = join(
-				fixture.projectPath,
-				fixture.sessionId,
-				"subagents",
-			);
-			await mkdir(subagentDir, { recursive: true });
-			await writeFile(
-				fixture.transcriptPath,
-				renderFixture(
-					templates.claudeSession,
-					fixture.sessionId,
-					secrets,
-					false,
-				),
-			);
-			await writeFile(
-				join(subagentDir, "agent-nested-agent-001.jsonl"),
-				renderFixture(
-					templates.claudeSubagent,
-					fixture.sessionId,
-					secrets,
-					false,
-				),
-			);
+					"subagents",
+				);
+				await mkdir(subagentDir, { recursive: true });
+				await writeFile(
+					fixture.transcriptPath,
+					renderFixture(
+						templates.claudeSession,
+						fixture.sessionId,
+						secrets,
+						false,
+					),
+				);
+				await writeFile(
+					join(subagentDir, "agent-nested-agent-001.jsonl"),
+					renderFixture(
+						templates.claudeSubagent,
+						fixture.sessionId,
+						secrets,
+						false,
+					),
+				);
+			}
+
+			const invocation = hookCase.buildInvocation(fixture);
+			const result = await runBuiltCli(invocation.command, {
+				home: fixture.home,
+				configDir: fixtureConfigDir(fixture),
+				cliPath: packedCliPath,
+				stdin: invocation.stdin,
+				env: {
+					RUDEL_API_BASE: stub.loopbackBase,
+					RUDEL_ALLOW_INSECURE_ENDPOINT: "",
+				},
+			});
+
+			expect(result.exitCode).toBe(0);
+			expect(containsAnyCanary(result.stdout, secrets)).toBe(false);
+			expect(containsAnyCanary(result.stderr, secrets)).toBe(false);
+			expect(stub.requests).toEqual([
+				{ apiKey: INGEST_STUB_TEST_TOKEN, pathname: "/rpc/ingestSession" },
+			]);
+			assertFilteredWireBody(stub.bodies[0] ?? "", secrets);
+		} finally {
+			await stub.server.stop(true);
+			await rm(fixture.home, { recursive: true, force: true });
 		}
-
-		const invocation = hookCase.buildInvocation(fixture);
-		const result = await runBuiltCli(invocation.command, {
-			home: fixture.home,
-			configDir: fixtureConfigDir(fixture),
-			cliPath: packedCliPath,
-			stdin: invocation.stdin,
-			env: {
-				RUDEL_API_BASE: stub.loopbackBase,
-				RUDEL_ALLOW_INSECURE_ENDPOINT: "",
-			},
-		});
-
-		expect(result.exitCode).toBe(0);
-		expect(containsAnyCanary(result.stdout, secrets)).toBe(false);
-		expect(containsAnyCanary(result.stderr, secrets)).toBe(false);
-		expect(stub.requests).toEqual([
-			{ apiKey: INGEST_STUB_TEST_TOKEN, pathname: "/rpc/ingestSession" },
-		]);
-		assertFilteredWireBody(stub.bodies[0] ?? "", secrets);
-	} finally {
-		await stub.server.stop(true);
-		await rm(fixture.home, { recursive: true, force: true });
-	}
-}, 60_000);
+	},
+	60_000,
+);
 
 test("plaintext non-loopback endpoint is refused before any request", async () => {
 	const packedCliPath = requirePackedCliPath();

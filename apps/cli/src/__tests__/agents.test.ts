@@ -2,7 +2,10 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { claudeCodeAdapter, getAvailableAdapters } from "@rudel/agent-adapters";
+import {
+	claudeCodeAdapter,
+	getAvailableAdapters,
+} from "../internal/agent-adapters/index.js";
 
 const SAMPLE_SESSION = [
 	JSON.stringify({ type: "summary", sessionId: "test-1" }),

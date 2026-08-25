@@ -124,26 +124,27 @@ test("repairs existing permissions before loading credentials", () => {
 	}
 });
 
-test.each(
-	PERMISSION_FAILURE_ACTIONS,
-)("%s fails closed when file permissions cannot be repaired", async (action) => {
-	const configDir = join(tempRoot, `failure-${action}`);
-	const credentialsPath = preparePermissiveCredentials(configDir);
+test.each(PERMISSION_FAILURE_ACTIONS)(
+	"%s fails closed when file permissions cannot be repaired",
+	async (action) => {
+		const configDir = join(tempRoot, `failure-${action}`);
+		const credentialsPath = preparePermissiveCredentials(configDir);
 
-	const result = await runPermissionPolicyScript("linux", action, configDir);
+		const result = await runPermissionPolicyScript("linux", action, configDir);
 
-	expect(result.exitCode).toBe(0);
-	expect(result.stdout).toBe("blocked");
-	expect(result.stderr).toBe("");
-	expect(result.stdout).not.toContain(OLD_TOKEN);
-	expect(result.stdout).not.toContain(NEW_TOKEN);
-	expect(result.stderr).not.toContain(OLD_TOKEN);
-	expect(result.stderr).not.toContain(NEW_TOKEN);
-	expect(JSON.parse(readFileSync(credentialsPath, "utf8"))).toEqual({
-		token: OLD_TOKEN,
-		apiBaseUrl: "https://old.rudel.test",
-	});
-});
+		expect(result.exitCode).toBe(0);
+		expect(result.stdout).toBe("blocked");
+		expect(result.stderr).toBe("");
+		expect(result.stdout).not.toContain(OLD_TOKEN);
+		expect(result.stdout).not.toContain(NEW_TOKEN);
+		expect(result.stderr).not.toContain(OLD_TOKEN);
+		expect(result.stderr).not.toContain(NEW_TOKEN);
+		expect(JSON.parse(readFileSync(credentialsPath, "utf8"))).toEqual({
+			token: OLD_TOKEN,
+			apiBaseUrl: "https://old.rudel.test",
+		});
+	},
+);
 
 test("uses account ACLs instead of unsupported POSIX modes on Windows", async () => {
 	const configDir = join(tempRoot, "windows");

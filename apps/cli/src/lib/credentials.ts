@@ -9,8 +9,9 @@ import {
 	statSync,
 	writeFileSync,
 } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
+import { debugLog } from "./debug.js";
+import { getConfigDir } from "./local-state.js";
 
 const PRIVATE_DIRECTORY_MODE = 0o700;
 const PRIVATE_FILE_MODE = 0o600;
@@ -32,14 +33,13 @@ export interface Credentials {
 	}>;
 }
 
-function getConfigDir(): string {
-	return process.env.RUDEL_CONFIG_DIR ?? join(homedir(), ".rudel");
-}
+export type CredentialReadMode = "secure" | "read-only";
 
 export function saveCredentials(credentials: Credentials): void {
 	const dir = getConfigDir();
 	const path = getCredentialsPath(dir);
 	const content = JSON.stringify(credentials, null, 2);
+	debugLog("saving credentials", { path });
 
 	mkdirSync(dir, { recursive: true, mode: PRIVATE_DIRECTORY_MODE });
 	enforcePrivateMode(dir, PRIVATE_DIRECTORY_MODE);
@@ -49,15 +49,21 @@ export function saveCredentials(credentials: Credentials): void {
 	replaceCredentialsFile(path, content);
 }
 
-export function loadCredentials(): Credentials | null {
-	const dir = getConfigDir();
+export function loadCredentials(
+	mode: CredentialReadMode = "secure",
+	dir: string = getConfigDir(),
+): Credentials | null {
 	const path = getCredentialsPath(dir);
-	if (!existsSync(path)) return null;
+	const exists = existsSync(path);
+	debugLog("checking credentials", { exists, path });
+	if (!exists) return null;
 
-	enforcePrivateMode(dir, PRIVATE_DIRECTORY_MODE);
-	enforcePrivateMode(path, PRIVATE_FILE_MODE);
+	if (mode === "secure") {
+		enforcePrivateMode(dir, PRIVATE_DIRECTORY_MODE);
+		enforcePrivateMode(path, PRIVATE_FILE_MODE);
+	}
 	const content = readFileSync(path, "utf-8");
-	return JSON.parse(content) as Credentials;
+	return parseCredentials(content);
 }
 
 export function clearCredentials(): void {
@@ -69,6 +75,75 @@ export function clearCredentials(): void {
 
 function getCredentialsPath(configDir: string): string {
 	return join(configDir, "credentials.json");
+}
+
+function parseCredentials(content: string): Credentials {
+	const value: unknown = JSON.parse(content);
+	if (!isRecord(value)) {
+		throw new Error("Credentials file must contain an object");
+	}
+
+	const token = value.token;
+	const apiBaseUrl = value.apiBaseUrl;
+	if (typeof token !== "string" || typeof apiBaseUrl !== "string") {
+		throw new Error("Credentials file is missing token or apiBaseUrl");
+	}
+
+	const authType = parseAuthType(value.authType);
+	const apiKeyId =
+		typeof value.apiKeyId === "string" ? value.apiKeyId : undefined;
+	const user = parseUser(value.user);
+	const organizations = parseOrganizations(value.organizations);
+
+	return {
+		token,
+		apiBaseUrl,
+		authType,
+		apiKeyId,
+		user,
+		organizations,
+	};
+}
+
+function parseAuthType(value: unknown): Credentials["authType"] {
+	return value === "bearer" || value === "api-key" ? value : undefined;
+}
+
+function parseUser(value: unknown): Credentials["user"] {
+	if (!isRecord(value)) return undefined;
+	if (
+		typeof value.id !== "string" ||
+		typeof value.email !== "string" ||
+		typeof value.name !== "string"
+	) {
+		return undefined;
+	}
+	return { id: value.id, email: value.email, name: value.name };
+}
+
+function parseOrganizations(value: unknown): Credentials["organizations"] {
+	if (!Array.isArray(value)) return undefined;
+	const organizations: NonNullable<Credentials["organizations"]> = [];
+	for (const candidate of value) {
+		if (!isRecord(candidate)) continue;
+		if (
+			typeof candidate.id !== "string" ||
+			typeof candidate.name !== "string" ||
+			typeof candidate.slug !== "string"
+		) {
+			continue;
+		}
+		organizations.push({
+			id: candidate.id,
+			name: candidate.name,
+			slug: candidate.slug,
+		});
+	}
+	return organizations;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
 }
 
 function replaceCredentialsFile(path: string, content: string): void {

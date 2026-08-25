@@ -1,76 +1,141 @@
-# Rudel
+# Opaline CLI
 
-**Try the hosted version for free at [rudel.ai](https://rudel.ai)**
+Capture Claude Code and OpenAI Codex sessions and upload them to Opaline for
+team analytics. The production API remains at
+[`https://app.rudel.ai`](https://app.rudel.ai) during the Opaline migration.
 
-Analytics for Claude Code and Codex. Rudel gives you a dashboard with insights on your coding sessions — token usage, session duration, activity patterns, model usage, and more.
+## Quick start
 
-## Prerequisites
-
-- [Bun](https://bun.sh) runtime installed
-
-## Getting Started
-
-1. Create an account at [app.rudel.ai](https://app.rudel.ai)
-2. Install the CLI and connect it to your account:
+Requires Node.js 20 or newer.
 
 ```bash
-npm install -g rudel
-
-rudel login     # authenticate via your browser
-rudel enable    # auto-upload sessions when Claude Code / Codex exits
+npm install --global @opalinehq/cli
+opaline login
+opaline enable
 ```
 
-3. Invite teammates (optional): go to **Settings → Organization** in the dashboard, enter their email, and share the generated invite link with them.
+`opaline login` opens a browser-based device flow. `opaline enable` installs
+the available Claude Code and/or Codex hooks so completed sessions upload
+automatically.
 
-That's it. Your Claude Code / Codex sessions will now be uploaded automatically.
+Existing `rudel` users do not need to log in again. Opaline intentionally reads
+the existing `~/.rudel` credential and state directory, and the `rudel` package
+continues as a compatibility alias.
 
-Already have past sessions? Upload them in one go:
+## Typical workflow
 
 ```bash
-rudel upload    # interactive picker for batch upload
+# Check the installation and service connection
+opaline doctor
+
+# See the authenticated account
+opaline whoami
+
+# Upload existing sessions interactively
+opaline upload
+
+# Retry transient hook/upload failures
+opaline upload --retry
+
+# Stop automatic uploads
+opaline disable
 ```
 
-See the [CLI documentation](apps/cli/README.md) for all available commands.
+## Key concepts
 
-## How It Works
+- **Sessions:** Claude Code and Codex JSONL transcripts discovered on the local
+  machine.
+- **Hooks:** Agent lifecycle commands installed by `opaline enable`. Hooks run
+  headlessly, filter known secret patterns, and upload the completed session.
+- **Organizations:** The Opaline workspace receiving uploads. Use
+  `opaline set-org` to change the organization associated with a project.
+- **Local state:** Credentials, retry queues, logs, and project mappings remain
+  in `~/.rudel` for compatibility. Set `OPALINE_CONFIG_DIR` to opt into another
+  directory; `RUDEL_CONFIG_DIR` remains supported.
+- **Compatibility alias:** The `rudel` executable delegates to the same Opaline
+  implementation with unchanged arguments, standard input/output, and exit
+  status. Its only addition is one rename notice on stderr per invocation.
 
-1. You install the CLI and run `rudel enable`
-2. This registers Claude Code / Codex hooks that run when a session ends
-3. The hook redacts known secret patterns and uploads the session transcript to Rudel
-4. Transcripts are stored in ClickHouse and processed into analytics
+## Commands
 
-## What Data Is Collected
+| Command | Description |
+| --- | --- |
+| `opaline login` | Authenticate through the browser device flow. |
+| `opaline logout` | Revoke the current credential and log out locally. |
+| `opaline whoami` | Show the authenticated user and local upload failures. |
+| `opaline doctor` | Run read-only auth, API latency, config, version, and hook diagnostics. |
+| `opaline enable` | Install available Claude Code and Codex upload hooks. |
+| `opaline disable` | Remove Opaline upload hooks. |
+| `opaline upload [session]` | Upload one session or choose past sessions interactively. |
+| `opaline upload --retry` | Retry locally queued transient upload failures. |
+| `opaline set-org` | Set the Opaline organization for the current project. |
+| `opaline --help` | Show complete command and flag help. |
+| `opaline --version` | Print the installed CLI version. |
 
-Each uploaded session includes:
+## Configuration
 
-- Session ID & timestamps (start, last interaction)
-- User ID & organization ID
-- Project path & package name
-- Git context (repository, branch, SHA, remote)
-- Session transcript (full prompt & response content)
-- Sub-agent usage
+The CLI defaults to the current production API at `https://app.rudel.ai`.
 
-## Security & Privacy Disclaimer
+| Variable | Purpose |
+| --- | --- |
+| `OPALINE_LOG_LEVEL=debug` | Print verbose, token-safe diagnostics to stderr for any command. |
+| `OPALINE_API_BASE` | Override the API base; legacy `RUDEL_API_BASE` is also accepted. |
+| `OPALINE_CONFIG_DIR` | Override local state; legacy `RUDEL_CONFIG_DIR` is also accepted. |
+| `OPALINE_ALLOW_INSECURE_API_BASE=1` | Permit plaintext non-loopback login/auth traffic. |
+| `OPALINE_ALLOW_INSECURE_ENDPOINT=1` | Permit plaintext non-loopback transcript uploads. |
 
-Rudel is designed to ingest full coding-agent session data for analytics. That means uploaded transcripts and related metadata may contain sensitive material, including source code, prompts, tool output, file contents, command output, URLs, and secrets that appeared during a session.
+The insecure overrides transmit credentials or transcripts without transport
+encryption. Use them only for a trusted self-hosted network.
 
-The current CLI redacts known secret patterns from the main transcript and sub-agent transcripts before upload, and the API reapplies the same deterministic filter before storage. Matched values are removed in full; uploads are stopped if known-pattern redaction exceeds 20% of the transcript or the bounded filter cannot establish a stable result. This reduces exposure but does not catch `DB_PASSWORD=hunter2`, bare custom tokens without a distinguishing prefix, secrets split across lines, base64-encoded or paraphrased secrets, credentials in screenshots, or double-escaped JSON embedded inside another JSON string. Seven of the 18 selected rules also require a restricted trailing delimiter, so ordinary punctuation immediately after a secret can prevent a match. Do not treat the filter as a substitute for keeping secrets out of coding-agent sessions.
+## Troubleshooting
 
-Only enable Rudel on projects and environments where you are comfortable uploading that data. Review the [Rudel Privacy Policy](https://rudel.ai/privacy) before enabling uploads for yourself or your team.
+Start with:
 
-We also use limited product analytics on the hosted service to understand whether core workflows work, diagnose failures, and improve the product. This is explicit event tracking for account and authentication flows, CLI login and enable flows, session upload outcomes, dashboard views and interactions, organization management actions, and a small set of utility interactions such as theme toggle or sidebar collapse.
+```bash
+OPALINE_LOG_LEVEL=debug opaline doctor
+```
 
-This product analytics layer is intentionally limited. It does not enable blanket click autocapture, session replay, or surveys by default. It is designed to capture product events and operational context like page name, action name, date range, normalized error codes, and organization or user identifiers where needed. It should not include raw transcript content, source code, prompts, tool output, command output, or file contents from your sessions. By using the hosted app, you agree to this limited analytics processing as part of the service.
+- **Not authenticated:** run `opaline login`. Existing credentials should be
+  found automatically under `~/.rudel/credentials.json`.
+- **API unreachable:** confirm that `https://app.rudel.ai/health` is reachable
+  and check `OPALINE_API_BASE`/`RUDEL_API_BASE` overrides.
+- **Hooks disabled:** run `opaline enable` from the project where the agent is
+  used. Existing `rudel` hook commands are recognized and upgraded when the
+  hook is installed again.
+- **Queued upload failures:** run `opaline upload --retry`. Permanent failures
+  remain visible in `opaline whoami`.
+- **Machine-readable scripts changed after installing `rudel`:** the alias
+  keeps command stdout unchanged; its rename notice is written only to stderr.
+
+## Security and data handling
+
+Opaline uploads full coding-agent session transcripts and related metadata.
+Transcripts may contain prompts, model responses, source code, tool output,
+file contents, command output, URLs, repository metadata, and sub-agent
+transcripts. Enable uploads only for projects and environments where that data
+may be sent to the hosted service.
+
+Before upload, the CLI applies deterministic filtering for known secret
+patterns to the main transcript and sub-agent transcripts. Secret filtering is
+best-effort, not a guarantee: custom credentials, split or encoded secrets,
+unusual formats, screenshots, and other sensitive values may not match. Safety
+limits stop an upload when filtering cannot preserve transcript integrity,
+cannot converge, or redacts an unexpectedly large portion of the payload, but
+they cannot prove that the remaining transcript is free of secrets.
+
+Keep secrets out of agent sessions, review your organization's data policies,
+and treat filtering as defense in depth. Report security issues through the
+private process in [SECURITY.md](SECURITY.md).
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, development commands, and PR guidelines.
+```bash
+bun install
+bun run verify
+bun run --cwd apps/cli dev --help
+```
 
-For self-hosting your own instance, see [docs/self-hosting.md](docs/self-hosting.md).
-
-## Security
-
-To report a vulnerability, see [SECURITY.md](SECURITY.md). Do not open public issues for security concerns.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution workflow.
 
 ## License
 

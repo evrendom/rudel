@@ -1,11 +1,12 @@
-import type { SafeUrlResult } from "@rudel/api-routes";
+import type { SafeUrlResult } from "../contracts/index.js";
 import {
 	describeUrlRejectionWithOptIn,
 	hasTruthyEnvironmentValue,
 	resolveInsecureUrlOptIn,
 } from "./insecure-url-opt-in.js";
 
-const INSECURE_ENDPOINT_ENV_VAR = "RUDEL_ALLOW_INSECURE_ENDPOINT";
+const INSECURE_ENDPOINT_ENV_VAR = "OPALINE_ALLOW_INSECURE_ENDPOINT";
+const LEGACY_INSECURE_ENDPOINT_ENV_VAR = "RUDEL_ALLOW_INSECURE_ENDPOINT";
 
 /**
  * Escape hatch for unattended hooks and other automation that cannot change
@@ -13,14 +14,14 @@ const INSECURE_ENDPOINT_ENV_VAR = "RUDEL_ALLOW_INSECURE_ENDPOINT";
  * transcript upload accept different risks and URL shapes.
  */
 export function allowsInsecureEndpointFromEnv(): boolean {
-	return hasTruthyEnvironmentValue(process.env[INSECURE_ENDPOINT_ENV_VAR]);
+	return hasTruthyEnvironmentValue(getInsecureEndpointEnvironmentValue());
 }
 
 /** Resolve the upload-specific flag and environment opt-in once per caller. */
 export function allowsInsecureEndpoint(allowInsecureFlag: boolean): boolean {
 	return resolveInsecureUrlOptIn(
 		allowInsecureFlag,
-		process.env[INSECURE_ENDPOINT_ENV_VAR],
+		getInsecureEndpointEnvironmentValue(),
 	);
 }
 
@@ -34,5 +35,12 @@ export function describeUploadEndpointRejection(
 	return describeUrlRejectionWithOptIn(
 		result,
 		`Pass --allow-insecure-endpoint (or set ${INSECURE_ENDPOINT_ENV_VAR}=1) if this upload destination really is plaintext. This does not opt login or other API-base traffic into --allow-insecure-api-base.`,
+	);
+}
+
+function getInsecureEndpointEnvironmentValue(): string | undefined {
+	return (
+		process.env[INSECURE_ENDPOINT_ENV_VAR] ??
+		process.env[LEGACY_INSECURE_ENDPOINT_ENV_VAR]
 	);
 }

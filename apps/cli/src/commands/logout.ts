@@ -26,7 +26,7 @@ async function runLogout(flags: {
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			return new Error(
-				`Failed to revoke token on server: ${message}. Credentials were kept; retry or run \`rudel logout --local-only\`.`,
+				`Failed to revoke token on server: ${message}. Credentials were kept; retry or run \`opaline logout --local-only\`.`,
 			);
 		}
 	}

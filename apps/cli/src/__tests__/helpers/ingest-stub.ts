@@ -6,7 +6,7 @@ import { dirname, join, resolve } from "node:path";
  * Loopback ingest stub and CLI fixture helpers, extracted from
  * upload-destination.integration.test.ts. The stub simulates degraded or
  * hostile upload destinations; anything asserting real ingest behaviour
- * belongs against a real API server (helpers/bun-server.ts) instead.
+ * belongs in the private API repository instead.
  */
 
 const MONOREPO_ROOT = resolve(import.meta.dir, "..", "..", "..", "..", "..");

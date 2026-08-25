@@ -1,0 +1,81 @@
+import { oc } from "@orpc/contract";
+import { z } from "zod";
+import {
+	IngestSessionInputSchema,
+	IngestSessionOutputSchema,
+	REDACTION_BUDGET_EXCEEDED_CODE,
+	REDACTION_BUDGET_EXCEEDED_MESSAGE,
+	REDACTION_DID_NOT_CONVERGE_CODE,
+	REDACTION_DID_NOT_CONVERGE_MESSAGE,
+	SECRET_FILTER_JSON_INTEGRITY_CODE,
+	SECRET_FILTER_JSON_INTEGRITY_MESSAGE,
+	SESSION_OWNERSHIP_CONFLICT_CODE,
+	SESSION_OWNERSHIP_CONFLICT_MESSAGE,
+	SESSION_UPLOAD_SHRINK_REJECTED_CODE,
+	SESSION_UPLOAD_SHRINK_REJECTED_MESSAGE,
+} from "./ingest.js";
+
+const UserSchema = z.object({
+	id: z.string(),
+	email: z.string(),
+	name: z.string(),
+	image: z.string().nullable(),
+	activeOrganizationId: z.string().nullable(),
+});
+const CliUserSchema = z.object({
+	id: z.string(),
+	email: z.string(),
+	name: z.string(),
+});
+const OrganizationSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	slug: z.string(),
+	logo: z.string().nullable(),
+});
+
+export const contract = {
+	me: oc.output(UserSchema),
+	cli: {
+		authStatus: oc.output(CliUserSchema),
+		revokeToken: oc.output(z.object({ success: z.literal(true) })),
+	},
+	listMyOrganizations: oc.output(z.array(OrganizationSchema)),
+	ingestSession: oc
+		.input(IngestSessionInputSchema)
+		.output(IngestSessionOutputSchema)
+		.errors({
+			[REDACTION_BUDGET_EXCEEDED_CODE]: {
+				status: 422,
+				message: REDACTION_BUDGET_EXCEEDED_MESSAGE,
+				data: z.object({
+					inputBytes: z.number().int().nonnegative(),
+					redactedBytes: z.number().int().nonnegative(),
+					ruleIds: z.array(z.string()),
+				}),
+			},
+			[REDACTION_DID_NOT_CONVERGE_CODE]: {
+				status: 422,
+				message: REDACTION_DID_NOT_CONVERGE_MESSAGE,
+				data: z.object({ maxPasses: z.number().int().positive() }),
+			},
+			[SECRET_FILTER_JSON_INTEGRITY_CODE]: {
+				status: 422,
+				message: SECRET_FILTER_JSON_INTEGRITY_MESSAGE,
+			},
+			[SESSION_OWNERSHIP_CONFLICT_CODE]: {
+				status: 409,
+				message: SESSION_OWNERSHIP_CONFLICT_MESSAGE,
+			},
+			[SESSION_UPLOAD_SHRINK_REJECTED_CODE]: {
+				status: 409,
+				message: SESSION_UPLOAD_SHRINK_REJECTED_MESSAGE,
+				data: z.object({
+					currentAssistantLineCount: z.number().int().nonnegative(),
+					currentContentBytes: z.number().int().nonnegative(),
+					previousAssistantLineCount: z.number().int().nonnegative(),
+					previousContentBytes: z.number().int().nonnegative(),
+				}),
+			},
+		}),
+};

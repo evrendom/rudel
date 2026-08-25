@@ -1,7 +1,6 @@
 import { createORPCClient, ORPCError } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
-import { isMissingTranscriptTimestampMessage } from "@rudel/agent-adapters";
 import {
 	type contract,
 	INGEST_AGGREGATE_CONTENT_MAX_BYTES,
@@ -13,7 +12,8 @@ import {
 	SECRET_FILTER_JSON_INTEGRITY_CODE,
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 	SESSION_UPLOAD_SHRINK_REJECTED_CODE,
-} from "@rudel/api-routes";
+} from "../contracts/index.js";
+import { isMissingTranscriptTimestampMessage } from "../internal/agent-adapters/index.js";
 import {
 	FILTER_VERSION,
 	filterSessionTextFields,
@@ -25,7 +25,7 @@ import {
 	SecretFilterConvergenceError,
 	SecretFilterJsonIntegrityError,
 	type SessionTextFilterResult,
-} from "@rudel/secret-filter";
+} from "../internal/secret-filter/index.js";
 import type { UploadResult } from "./types.js";
 import { describeUploadEndpointRejection } from "./upload-endpoint.js";
 
@@ -123,8 +123,8 @@ export function formatUploadError(error: unknown): string {
 	if (isApiKeyRateLimited(error)) {
 		const data = getErrorData(error);
 		const wait = data.tryAgainIn
-			? ` Wait about ${formatWait(data.tryAgainIn)} before retrying, or run \`rudel login\` to create a fresh ingest key.`
-			: " Run `rudel login` to create a fresh ingest key, or wait for the key's rate-limit window to reset.";
+			? ` Wait about ${formatWait(data.tryAgainIn)} before retrying, or run \`opaline login\` to create a fresh ingest key.`
+			: " Run `opaline login` to create a fresh ingest key, or wait for the key's rate-limit window to reset.";
 		return `API key rate limit reached.${wait}`;
 	}
 
@@ -143,13 +143,13 @@ export function formatUploadError(error: unknown): string {
 					? ` (${limit} per ${Math.round(data.windowSeconds / 60)} min)`
 					: "";
 			const kind = isRequestLimit ? "request" : "byte";
-			return `Ingest ${kind} limit reached${detail}. Wait and retry with: rudel upload --retry`;
+			return `Ingest ${kind} limit reached${detail}. Wait and retry with: opaline upload --retry`;
 		}
 		const windowMin = data?.windowSeconds
 			? Math.round(data.windowSeconds / 60)
 			: 60;
 		const limit = data?.limit ?? "unknown";
-		return `Rate limit reached (${limit} sessions per ${windowMin} min). Wait and retry with: rudel upload --retry`;
+		return `Rate limit reached (${limit} sessions per ${windowMin} min). Wait and retry with: opaline upload --retry`;
 	}
 	if (
 		error instanceof ORPCError &&
@@ -161,7 +161,7 @@ export function formatUploadError(error: unknown): string {
 		error instanceof ORPCError &&
 		error.code === SESSION_UPLOAD_SHRINK_REJECTED_CODE
 	) {
-		return "Rudel refused this upload because it is smaller than the stored session. Check that the transcript is complete, then run `rudel upload <session> --force-replace` only if the replacement is intentional. If this CLI does not recognize the flag, upgrade rudel first.";
+		return "Opaline refused this upload because it is smaller than the stored session. Check that the transcript is complete, then run `opaline upload <session> --force-replace` only if the replacement is intentional. If this CLI does not recognize the flag, upgrade @opalinehq/cli first.";
 	}
 	if (
 		error instanceof ORPCError &&
@@ -198,23 +198,23 @@ export function formatUploadError(error: unknown): string {
 		return `${error.status} ${error.message}`;
 	}
 	const message = error instanceof Error ? error.message : "connection failed";
-	return `Network error while contacting Rudel API: ${message}. Check your connection and retry with: rudel upload --retry`;
+	return `Network error while contacting Opaline API: ${message}. Check your connection and retry with: opaline upload --retry`;
 }
 
 function formatPayloadTooLargeError(error: ORPCError<string, unknown>): string {
 	const status = `${error.status} ${error.message}`;
 	const detail = getPayloadTooLargeDetail(error);
 	const detailText = detail ? ` ${detail}` : "";
-	return `Upload request is too large (${status}).${detailText} This is a request-size limit, not an auth or proxy issue. This session will keep failing until its transcript/subagent payload is smaller; other failed sessions can still be retried with: rudel upload --retry`;
+	return `Upload request is too large (${status}).${detailText} This is a request-size limit, not an auth or proxy issue. This session will keep failing until its transcript/subagent payload is smaller; other failed sessions can still be retried with: opaline upload --retry`;
 }
 
 function formatServerUploadError(error: ORPCError<string, unknown>): string {
 	const status = `${error.status} ${error.message}`;
 	if (RETRYABLE_STATUS_CODES.has(error.status)) {
-		return `Temporary Rudel server/proxy error (${status}). The CLI retries these automatically; retry remaining failed uploads with: rudel upload --retry`;
+		return `Temporary Opaline server/proxy error (${status}). The CLI retries these automatically; retry remaining failed uploads with: opaline upload --retry`;
 	}
 
-	return `Rudel server error (${status}). This is not an auth problem. Retry later with: rudel upload --retry; if it repeats, share this status with the Rudel team.`;
+	return `Opaline server error (${status}). This is not an auth problem. Retry later with: opaline upload --retry; if it repeats, share this status with the Opaline team.`;
 }
 
 function getPayloadTooLargeDetail(
@@ -535,7 +535,7 @@ function isIngestSessionResponse(
 }
 
 function formatUnrecognizedResponseError(): string {
-	return "Rudel API returned an unrecognized response instead of an ingest confirmation, so this upload cannot be verified and was treated as failed. This usually means a proxy, SSO gateway, or wrong endpoint URL answered instead of the Rudel API. Check the endpoint and retry with: rudel upload --retry";
+	return "Opaline API returned an unrecognized response instead of an ingest confirmation, so this upload cannot be verified and was treated as failed. This usually means a proxy, SSO gateway, or wrong endpoint URL answered instead of the Opaline API. Check the endpoint and retry with: opaline upload --retry";
 }
 
 function getUploadAggregateBytes(request: IngestSessionInput): number {

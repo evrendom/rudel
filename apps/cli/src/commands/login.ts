@@ -1,4 +1,5 @@
 import * as p from "@clack/prompts";
+import { buildCommand } from "@stricli/core";
 import {
 	type CliApiKeyCreateResponse,
 	CliApiKeyCreateResponseSchema,
@@ -9,14 +10,14 @@ import {
 	type ProductAnalyticsLoginFailureStage,
 	parseSafeBrowserUrl,
 	sanitizeForTerminalDisplay,
-} from "@rudel/api-routes";
-import { buildCommand } from "@stricli/core";
+} from "../contracts/index.js";
 import {
 	allowsPlaintext,
 	describeApiBaseRejection,
 	resolveApiBase,
 } from "../lib/api-base.js";
 import { createApiClient } from "../lib/api-client.js";
+import { getDefaultApiBase } from "../lib/api-target.js";
 import { openUrl } from "../lib/browser-opener.js";
 import { loadCredentials, saveCredentials } from "../lib/credentials.js";
 import {
@@ -29,7 +30,6 @@ import {
 	shouldDisableCliPersonProfile,
 } from "../lib/product-analytics.js";
 
-const PRODUCTION_APP_URL = "https://app.rudel.ai";
 const DEVICE_CLIENT_ID = "rudel-cli";
 const POLL_SAFETY_TIMEOUT_MS = 120_000;
 
@@ -47,10 +47,6 @@ function describeDeviceFlowFailure(body: unknown, fallback: string): string {
 
 	const supplied = parsed.data.error_description || parsed.data.message;
 	return supplied ? sanitizeForTerminalDisplay(supplied) : fallback;
-}
-
-export function getDefaultApiBase() {
-	return process.env.RUDEL_API_BASE ?? PRODUCTION_APP_URL;
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -221,12 +217,12 @@ async function runLogin(flags: {
 		});
 	};
 
-	p.intro("rudel login");
+	p.intro("opaline login");
 
 	const existing = loadCredentials();
 	if (existing) {
 		p.log.warn("Already logged in.");
-		p.outro("Run `rudel logout` first to switch accounts.");
+		p.outro("Run `opaline logout` first to switch accounts.");
 		return;
 	}
 
@@ -397,6 +393,6 @@ export const loginCommand = buildCommand({
 		},
 	},
 	docs: {
-		brief: "Authenticate with the Rudel API via browser login",
+		brief: "Authenticate with the Opaline API via browser login",
 	},
 });

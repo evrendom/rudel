@@ -16,7 +16,7 @@ import {
 	extractAgentIds,
 	readFileWithRetry,
 	readSubagentFiles,
-} from "@rudel/agent-adapters";
+} from "../internal/agent-adapters/index.js";
 import { getGitInfo } from "../lib/git-info.js";
 import { resolveSession } from "../lib/session-resolver.js";
 
@@ -350,29 +350,28 @@ describe("full upload pipeline (dry-run)", () => {
 			name: "Codex",
 			error: "Codex transcript contains no valid timestamp",
 		},
-	])("rejects a timestamp-less $name transcript before upload", async ({
-		adapter,
-		error,
-		name,
-	}) => {
-		const sessionId = `timestamp-less-${name.toLowerCase().replaceAll(" ", "-")}`;
-		const sessionFile = join(tempDir, `${sessionId}.jsonl`);
-		await writeFile(sessionFile, '{"type":"result","result":{"ok":true}}');
+	])(
+		"rejects a timestamp-less $name transcript before upload",
+		async ({ adapter, error, name }) => {
+			const sessionId = `timestamp-less-${name.toLowerCase().replaceAll(" ", "-")}`;
+			const sessionFile = join(tempDir, `${sessionId}.jsonl`);
+			await writeFile(sessionFile, '{"type":"result","result":{"ok":true}}');
 
-		await expect(
-			adapter.buildUploadRequest(
-				{
-					sessionId,
-					transcriptPath: sessionFile,
-					projectPath: tempDir,
-				},
-				{
-					gitInfo: {},
-					uploadMode: "manual",
-				},
-			),
-		).rejects.toThrow(error);
-	});
+			await expect(
+				adapter.buildUploadRequest(
+					{
+						sessionId,
+						transcriptPath: sessionFile,
+						projectPath: tempDir,
+					},
+					{
+						gitInfo: {},
+						uploadMode: "manual",
+					},
+				),
+			).rejects.toThrow(error);
+		},
+	);
 
 	test("resolves session by path, reads transcript, extracts subagents, and builds request", async () => {
 		// Set up a realistic session directory

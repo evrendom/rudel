@@ -20,7 +20,7 @@ export async function reportHookUploadFailure(
 	const disposition = result.retryable === false ? "permanent" : "retryable";
 	const verb = result.endpointRejected ? "refused" : "failed";
 	process.stderr.write(
-		`Rudel hook upload ${verb} for session ${failure.sessionId} [${disposition}]: ${uploadError}\n`,
+		`Opaline hook upload ${verb} for session ${failure.sessionId} [${disposition}]: ${uploadError}\n`,
 	);
 
 	await recordFailedUpload({

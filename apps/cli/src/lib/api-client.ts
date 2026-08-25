@@ -1,7 +1,8 @@
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
-import type { contract } from "@rudel/api-routes";
+import type { contract } from "../contracts/index.js";
+import { debugLog } from "./debug.js";
 
 export interface ClientConfig {
 	apiBaseUrl: string;
@@ -17,6 +18,10 @@ export function createApiClient(
 		authType === "api-key"
 			? { "x-api-key": config.token }
 			: { Authorization: `Bearer ${config.token}` };
+	debugLog("creating API client", {
+		apiBaseUrl: config.apiBaseUrl,
+		authType,
+	});
 
 	const link = new RPCLink({
 		url: `${config.apiBaseUrl}/rpc`,

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { ok as assert } from "node:assert";
-import { parseSafeBrowserUrl } from "@rudel/api-routes";
+import { parseSafeBrowserUrl } from "../contracts/index.js";
 import { openUrl } from "../lib/browser-opener.js";
 
 const BROWSER_REQUEST_TIMEOUT_MS = 30_000;

@@ -1,13 +1,13 @@
 import * as p from "@clack/prompts";
+import { buildCommand } from "@stricli/core";
+import type { IngestSessionInput, Source } from "../contracts/index.js";
 import {
 	claudeCodeAdapter,
 	getAdapter,
 	MissingTranscriptTimestampError,
 	type ScannedProject,
 	type SessionFile,
-} from "@rudel/agent-adapters";
-import type { IngestSessionInput, Source } from "@rudel/api-routes";
-import { buildCommand } from "@stricli/core";
+} from "../internal/agent-adapters/index.js";
 import type { BatchUploadItem } from "../lib/batch-upload.js";
 import { renderBatchSummary, runBatchUpload } from "../lib/batch-upload-ui.js";
 import { classifySession } from "../lib/classifier.js";
@@ -55,7 +55,7 @@ async function runInteractiveUpload(
 	allowPlaintextEndpoint: boolean,
 	credentials: Credentials | null,
 ): Promise<undefined | Error> {
-	p.intro("rudel upload");
+	p.intro("opaline upload");
 
 	const spin = p.spinner();
 	spin.start("Scanning projects...");
@@ -120,7 +120,7 @@ async function runInteractiveUpload(
 	}
 
 	if (!credentials) {
-		return new Error("Not authenticated. Run `rudel login` first.");
+		return new Error("Not authenticated. Run `opaline login` first.");
 	}
 
 	p.log.info(
@@ -289,7 +289,7 @@ async function runSingleUpload(
 	}
 
 	if (!credentials) {
-		return new Error("Not authenticated. Run `rudel login` first.");
+		return new Error("Not authenticated. Run `opaline login` first.");
 	}
 
 	if (!flags.tag && flags.classify) {
@@ -329,7 +329,7 @@ async function runRetryUpload(
 	allowPlaintextEndpoint: boolean,
 	credentials: Credentials | null,
 ): Promise<undefined | Error> {
-	p.intro("rudel upload --retry");
+	p.intro("opaline upload --retry");
 
 	const failures = await loadFailedUploads();
 	if (failures.length === 0) {
@@ -372,7 +372,7 @@ async function runRetryUpload(
 	}
 
 	if (!credentials) {
-		return new Error("Not authenticated. Run `rudel login` first.");
+		return new Error("Not authenticated. Run `opaline login` first.");
 	}
 
 	if (!flags.yes) {
@@ -454,7 +454,7 @@ async function runUpload(
 ): Promise<undefined | Error> {
 	const credentials = loadCredentials();
 	if (!credentials && !flags.dryRun) {
-		return new Error("Not authenticated. Run `rudel login` first.");
+		return new Error("Not authenticated. Run `opaline login` first.");
 	}
 	const apiBaseUrl = credentials?.apiBaseUrl.replace(/\/+$/u, "");
 	const resolvedFlags: ResolvedUploadFlags = {

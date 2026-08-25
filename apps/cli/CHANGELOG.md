@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0
+
+### Breaking changes
+
+- Rename the canonical package and executable to `@opalinehq/cli` and `opaline`.
+
+### Features
+
+- Preserve existing `~/.rudel` credentials and state without requiring login.
+- Add read-only `opaline doctor` diagnostics and `OPALINE_LOG_LEVEL=debug`.
+- Keep legacy `RUDEL_*` environment variables and installed hook commands compatible.
+
 ## [0.3.0](https://github.com/evrendom/rudel/compare/rudel@0.2.3...rudel@0.3.0) (2026-08-13)
 
 
