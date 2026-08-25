@@ -4,18 +4,15 @@ import { parseSafeBrowserUrl } from "../contracts/index.js";
 import { openUrl } from "../lib/browser-opener.js";
 
 const BROWSER_REQUEST_TIMEOUT_MS = 30_000;
+const BROWSER_LAUNCH_ATTEMPTS = 2;
 
-function waitWithTimeout<T>(
-	promise: Promise<T>,
+function waitForBrowserRequest(
+	promise: Promise<URL>,
 	timeoutMs: number,
-): Promise<T> {
-	return new Promise<T>((resolve, reject) => {
+): Promise<URL | undefined> {
+	return new Promise<URL | undefined>((resolve, reject) => {
 		const timeout = setTimeout(() => {
-			reject(
-				new Error(
-					`Default browser did not request the verification URL within ${timeoutMs}ms`,
-				),
-			);
+			resolve(undefined);
 		}, timeoutMs);
 
 		promise.then(
@@ -29,6 +26,26 @@ function waitWithTimeout<T>(
 			},
 		);
 	});
+}
+
+async function openBrowserUntilRequested(
+	verificationUrl: string,
+	request: Promise<URL>,
+): Promise<URL> {
+	for (let attempt = 0; attempt < BROWSER_LAUNCH_ATTEMPTS; attempt += 1) {
+		openUrl(verificationUrl);
+		const requestedUrl = await waitForBrowserRequest(
+			request,
+			BROWSER_REQUEST_TIMEOUT_MS,
+		);
+		if (requestedUrl !== undefined) {
+			return requestedUrl;
+		}
+	}
+
+	throw new Error(
+		`Default browser did not request the verification URL after ${BROWSER_LAUNCH_ATTEMPTS} launch attempts of ${BROWSER_REQUEST_TIMEOUT_MS}ms each`,
+	);
 }
 
 test(
@@ -62,11 +79,13 @@ test(
 			);
 			assert(result.ok);
 
-			openUrl(result.url);
-
-			const requestedUrl = await waitWithTimeout(
+			// A cold windows-2025 runner once failed to initialize its default browser
+			// within 30s, while the immediate job rerun delivered this URL in 9.4s.
+			// Relaunch once so one-time browser initialization cannot hide the real
+			// end-to-end assertion or turn a persistent opener failure into a pass.
+			const requestedUrl = await openBrowserUntilRequested(
+				result.url,
 				deviceRequest.promise,
-				BROWSER_REQUEST_TIMEOUT_MS,
 			);
 			expect(requestedUrl.pathname).toBe("/device");
 			expect(requestedUrl.searchParams.get("user_code")).toBe("X");
@@ -77,5 +96,5 @@ test(
 		// Above Bun's 5s default so the browser wait inside the test expires first,
 		// producing its descriptive error instead of a generic test timeout.
 	},
-	BROWSER_REQUEST_TIMEOUT_MS + 15_000,
+	BROWSER_REQUEST_TIMEOUT_MS * BROWSER_LAUNCH_ATTEMPTS + 15_000,
 );
