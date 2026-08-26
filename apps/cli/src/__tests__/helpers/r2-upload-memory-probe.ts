@@ -160,6 +160,16 @@ const result = await (async () => {
 		{ gitInfo: {}, uploadMode: "manual" },
 	);
 	sampleMemory();
+	if (probeMode === "adapter-scan") {
+		return {
+			attempts: 0,
+			error: undefined,
+			redacted: {},
+			redactedBytes: 0,
+			retryable: undefined,
+			success: true as const,
+		};
+	}
 	return uploadSession(request, {
 		allowInsecureEndpoint: false,
 		authType: "api-key",

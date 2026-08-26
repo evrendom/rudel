@@ -18,7 +18,7 @@ import {
 	R2_UPLOAD_STAGING_DIRECTORY_PREFIX,
 } from "./r2-staging-cleanup.js";
 
-const MAX_STREAM_RECORD_BYTES = 16 * 1024 * 1024;
+export const MAX_STREAM_RECORD_BYTES = 16 * 1024 * 1024;
 
 export type TranscriptSource =
 	| { readonly content: string; readonly kind: "text" }

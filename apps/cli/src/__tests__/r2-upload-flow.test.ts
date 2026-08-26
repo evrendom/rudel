@@ -505,6 +505,58 @@ describe("capability-gated R2 upload flow", () => {
 		expect(memory.requestPaths).not.toContain("/rpc/ingestSession");
 	}, 120_000);
 
+	test("finds a timestamp after a 100+ MiB record with bounded heap and RSS", async () => {
+		const directory = await mkdtemp(
+			join(tmpdir(), "opaline-r2-e2e-oversized-record-"),
+		);
+		temporaryDirectories.push(directory);
+		const transcriptPath = join(
+			directory,
+			"oversized-record-codex-session.jsonl",
+		);
+		const transcriptBytes = await writeCodexTranscriptWithOversizedFirstRecord(
+			transcriptPath,
+			LARGE_TRANSCRIPT_MIN_BYTES,
+		);
+		expect(transcriptBytes).toBeGreaterThan(LARGE_TRANSCRIPT_MIN_BYTES);
+
+		const probePath = join(
+			import.meta.dir,
+			"helpers",
+			"r2-upload-memory-probe.ts",
+		);
+		const probe = Bun.spawn(
+			[
+				"bun",
+				probePath,
+				transcriptPath,
+				"https://app.rudel.ai/rpc",
+				TOKEN,
+				"oversized-record-codex-session",
+			],
+			{
+				env: { ...process.env, OPALINE_R2_PROBE_MODE: "adapter-scan" },
+				stderr: "pipe",
+				stdout: "pipe",
+			},
+		);
+		const [exitCode, stdout, stderr] = await Promise.all([
+			probe.exited,
+			new Response(probe.stdout).text(),
+			new Response(probe.stderr).text(),
+		]);
+		const resourceUsage = probe.resourceUsage();
+		const memory = parseMemoryProbe(stdout);
+
+		expect(exitCode).toBe(0);
+		expect(stderr).toBe("");
+		expect(memory.success).toBe(true);
+		expect(memory.heapDelta).toBeLessThan(MAX_HEAP_DELTA_BYTES);
+		expect(memory.rssDelta).toBeLessThan(MAX_RSS_DELTA_BYTES);
+		expect(resourceUsage.maxRSS).toBeLessThan(MAX_PROCESS_RSS_BYTES);
+		expect(memory.requestPaths).toEqual([]);
+	}, 120_000);
+
 	test("keeps a 100+ MiB failed R2 init bounded and retryable without legacy fallback", async () => {
 		await isolateCapabilityCache();
 		const directory = await mkdtemp(
@@ -950,6 +1002,36 @@ async function writeCodexTranscriptAtLeast(
 		while (byteLength <= minimumBytes) {
 			byteLength += await writeCompleteBuffer(file, paddingRecord);
 		}
+	} finally {
+		await file.close();
+	}
+	return (await stat(path)).size;
+}
+
+async function writeCodexTranscriptWithOversizedFirstRecord(
+	path: string,
+	minimumRecordBytes: number,
+): Promise<number> {
+	const file = await open(path, "wx", 0o600);
+	try {
+		let recordBytes = await writeCompleteBuffer(
+			file,
+			Buffer.from('{"type":"response_item","message":"'),
+		);
+		const padding = Buffer.alloc(64 * 1024, "x");
+		while (recordBytes < minimumRecordBytes) {
+			recordBytes += await writeCompleteBuffer(file, padding);
+		}
+		await writeCompleteBuffer(file, Buffer.from('"}\n'));
+		await writeCompleteBuffer(
+			file,
+			Buffer.from(
+				`${JSON.stringify({
+					timestamp: "2026-08-25T12:00:00.000Z",
+					type: "event_msg",
+				})}\n`,
+			),
+		);
 	} finally {
 		await file.close();
 	}

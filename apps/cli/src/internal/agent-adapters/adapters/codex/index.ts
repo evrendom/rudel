@@ -1,7 +1,6 @@
-import { createReadStream } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { createInterface } from "node:readline";
+import { scanBoundedJsonlFile } from "../../bounded-jsonl-scan.js";
 import { MissingTranscriptTimestampError } from "../../errors.js";
 import type {
 	AgentAdapter,
@@ -26,33 +25,25 @@ import {
 const SESSIONS_BASE_DIR = join(homedir(), ".codex", "sessions");
 
 async function transcriptHasTimestamp(path: string): Promise<boolean> {
-	const input = createReadStream(path, {
-		encoding: "utf8",
-		highWaterMark: 64 * 1024,
-	});
-	const lines = createInterface({ input, crlfDelay: Number.POSITIVE_INFINITY });
-	try {
-		for await (const line of lines) {
-			if (!line) continue;
+	const state = await scanBoundedJsonlFile(
+		path,
+		() => ({ hasTimestamp: false }),
+		(line, scanState) => {
+			if (!line) return true;
 			let entry: unknown;
 			try {
 				entry = JSON.parse(line);
 			} catch {
-				continue;
-			}
-			if (
-				isRecord(entry) &&
-				typeof entry.timestamp === "string" &&
-				Number.isFinite(Date.parse(entry.timestamp))
-			) {
 				return true;
 			}
-		}
-		return false;
-	} finally {
-		lines.close();
-		input.destroy();
-	}
+			scanState.hasTimestamp =
+				isRecord(entry) &&
+				typeof entry.timestamp === "string" &&
+				Number.isFinite(Date.parse(entry.timestamp));
+			return !scanState.hasTimestamp;
+		},
+	);
+	return state.hasTimestamp;
 }
 
 // ── Exported utilities ──

@@ -250,9 +250,13 @@ export async function runCli(
 	options: {
 		readonly stdin?: string;
 		readonly env?: Readonly<Record<string, string>>;
+		readonly preload?: string;
 	} = {},
 ): Promise<CliResult> {
-	const proc = Bun.spawn(["bun", SOURCE_CLI_PATH, ...args], {
+	const command = ["bun"];
+	if (options.preload) command.push("--preload", options.preload);
+	command.push(SOURCE_CLI_PATH, ...args);
+	const proc = Bun.spawn(command, {
 		cwd: MONOREPO_ROOT,
 		env: {
 			...process.env,

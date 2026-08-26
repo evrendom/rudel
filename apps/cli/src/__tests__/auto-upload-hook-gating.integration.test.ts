@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
-import { rm, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createCliFixture, HOOK_CASES, runCli } from "./helpers/ingest-stub.js";
 
@@ -21,13 +21,27 @@ test.each(HOOK_CASES)(
 			JSON.stringify({ repositories: {}, version: 1 }),
 		);
 		const invocation = hookCase.buildInvocation(fixture);
+		const fetchLogPath = join(fixture.home, "fetch-counter.log");
+		await writeFile(fetchLogPath, "");
+		const fetchCounterPreload = join(
+			import.meta.dir,
+			"helpers",
+			"fetch-counter-preload.ts",
+		);
 
 		const result = await runCli(invocation.command, fixture, {
-			env: { OPALINE_API_BASE: "http://127.0.0.1:1" },
+			// A preload runs in the spawned CLI process, records its own startup,
+			// and synchronously logs every fetch without requiring a socket listener.
+			env: {
+				OPALINE_API_BASE: "https://transport.invalid",
+				OPALINE_TEST_FETCH_LOG: fetchLogPath,
+			},
+			preload: fetchCounterPreload,
 			stdin: invocation.stdin,
 		});
 
 		expect(result.exitCode).toBe(0);
 		expect(result.stderr).toBe("");
+		expect(await readFile(fetchLogPath, "utf8")).toBe("preloaded\n");
 	},
 );

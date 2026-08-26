@@ -1,8 +1,7 @@
-import { createReadStream } from "node:fs";
 import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
-import { createInterface } from "node:readline";
+import { scanBoundedJsonlFile } from "../../bounded-jsonl-scan.js";
 import { MissingTranscriptTimestampError } from "../../errors.js";
 import type {
 	AgentAdapter,
@@ -135,39 +134,35 @@ async function scanUploadTranscript(path: string): Promise<{
 	agentIds: string[];
 	hasTimestamp: boolean;
 }> {
-	const agentIds = new Set<string>();
-	let hasTimestamp = false;
-	const input = createReadStream(path, {
-		encoding: "utf8",
-		highWaterMark: 64 * 1024,
-	});
-	const lines = createInterface({ input, crlfDelay: Number.POSITIVE_INFINITY });
-	try {
-		for await (const line of lines) {
-			if (!line) continue;
+	const state = await scanBoundedJsonlFile(
+		path,
+		() => ({ agentIds: new Set<string>(), hasTimestamp: false }),
+		(line, scanState) => {
+			if (!line) return true;
 			let entry: unknown;
 			try {
 				entry = JSON.parse(line);
 			} catch {
-				continue;
+				return true;
 			}
-			if (!isRecord(entry)) continue;
+			if (!isRecord(entry)) return true;
 			if (
 				(entry.type === "user" || entry.type === "assistant") &&
 				typeof entry.timestamp === "string" &&
 				Number.isFinite(Date.parse(entry.timestamp))
 			) {
-				hasTimestamp = true;
+				scanState.hasTimestamp = true;
 			}
-			if (!isRecord(entry.toolUseResult)) continue;
+			if (!isRecord(entry.toolUseResult)) return true;
 			const agentId = entry.toolUseResult.agentId;
-			if (isSafeBasename(agentId)) agentIds.add(agentId);
-		}
-	} finally {
-		lines.close();
-		input.destroy();
-	}
-	return { agentIds: Array.from(agentIds), hasTimestamp };
+			if (isSafeBasename(agentId)) scanState.agentIds.add(agentId);
+			return true;
+		},
+	);
+	return {
+		agentIds: Array.from(state.agentIds),
+		hasTimestamp: state.hasTimestamp,
+	};
 }
 
 export async function readSubagentFiles(

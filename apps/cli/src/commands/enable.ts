@@ -7,6 +7,7 @@ import {
 } from "../internal/agent-adapters/index.js";
 import { describeSavedCredentialsApiBaseRisk } from "../lib/api-base.js";
 import { createApiClient } from "../lib/api-client.js";
+import { PRODUCTION_API_BASE } from "../lib/api-target.js";
 import { verifyAuth } from "../lib/auth.js";
 import { enableAutoUploadRepository } from "../lib/auto-upload-config.js";
 import type { BatchUploadItem } from "../lib/batch-upload.js";
@@ -99,7 +100,7 @@ async function runEnable(): Promise<undefined | Error> {
 			error: new Error("No organizations found"),
 			userId: auth.user.id,
 		});
-		p.outro("Create one at app.opaline.ai first.");
+		p.outro(`Create one at ${PRODUCTION_API_BASE} first.`);
 		return new Error("No organizations found.");
 	}
 

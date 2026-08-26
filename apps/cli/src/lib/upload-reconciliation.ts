@@ -272,7 +272,7 @@ function formatUploadReconciliationError(error: unknown): string {
 		error instanceof ORPCError &&
 		(error.status === 401 || error.status === 403)
 	) {
-		return "Could not check uploaded sessions because authentication expired. Run `rudel login` and try again.";
+		return "Could not check uploaded sessions because authentication expired. Run `opaline login` and try again.";
 	}
 	if (error instanceof ORPCError) {
 		return `Could not check uploaded sessions (${error.status} ${error.message}). No sessions were uploaded.`;
