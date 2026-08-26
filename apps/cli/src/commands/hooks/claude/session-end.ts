@@ -1,10 +1,12 @@
 import { getLogger } from "@logtape/logtape";
 import { buildCommand } from "@stricli/core";
+import { resolveRepoIdentity } from "../../../contracts/index.js";
 import {
 	claudeCodeAdapter,
 	type SessionFile,
 } from "../../../internal/agent-adapters/index.js";
 import { getApiBaseOverride } from "../../../lib/api-target.js";
+import { isRepositoryAutoUploadAllowed } from "../../../lib/auto-upload-config.js";
 import { loadCredentials } from "../../../lib/credentials.js";
 import { removeFailedUpload } from "../../../lib/failed-uploads.js";
 import { getGitInfo } from "../../../lib/git-info.js";
@@ -41,6 +43,27 @@ async function runSessionEnd(): Promise<undefined | Error> {
 
 		const input = JSON.parse(raw) as HookInput;
 		if (!input.session_id || !input.transcript_path) return;
+		const gitInfo = await getGitInfo(input.cwd);
+		const repository = resolveRepoIdentity({
+			gitRemote: gitInfo.gitRemote ?? null,
+			packageName: gitInfo.packageName ?? null,
+			projectPath: input.cwd,
+		});
+		if (
+			!isRepositoryAutoUploadAllowed(
+				repository.repoKey,
+				claudeCodeAdapter.source,
+			)
+		) {
+			logger.info(
+				"Skipping session {sessionId}: automatic upload is disabled for {repository}",
+				{
+					repository: repository.repoLabel,
+					sessionId: input.session_id,
+				},
+			);
+			return;
+		}
 
 		const credentials = loadCredentials();
 		if (!credentials) {
@@ -60,7 +83,6 @@ async function runSessionEnd(): Promise<undefined | Error> {
 			projectPath: input.cwd,
 		};
 
-		const gitInfo = await getGitInfo(input.cwd);
 		const organizationId = await getProjectOrgId(input.cwd);
 
 		const request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {

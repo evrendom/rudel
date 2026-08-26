@@ -27,6 +27,24 @@ const CliUserSchema = z.object({
 	email: z.string(),
 	name: z.string(),
 });
+// Keep UUID-sized batches below common reverse-proxy URI limits.
+export const CLI_SESSION_UPLOAD_STATUS_MAX_IDS = 64;
+
+const CliSessionUploadStatusInputSchema = z.object({
+	organizationId: z.string().max(200).optional(),
+	sessionIds: z
+		.array(z.string().min(1).max(200))
+		.min(1)
+		.max(CLI_SESSION_UPLOAD_STATUS_MAX_IDS)
+		.refine((sessionIds) => new Set(sessionIds).size === sessionIds.length, {
+			message: "Session IDs must be unique",
+		}),
+});
+
+const CliSessionUploadStatusOutputSchema = z.object({
+	organizationId: z.string(),
+	uploadedSessionIds: z.array(z.string()),
+});
 const OrganizationSchema = z.object({
 	id: z.string(),
 	name: z.string(),
@@ -39,6 +57,9 @@ export const contract = {
 	cli: {
 		authStatus: oc.output(CliUserSchema),
 		revokeToken: oc.output(z.object({ success: z.literal(true) })),
+		sessionUploadStatus: oc
+			.input(CliSessionUploadStatusInputSchema)
+			.output(CliSessionUploadStatusOutputSchema),
 	},
 	listMyOrganizations: oc.output(z.array(OrganizationSchema)),
 	ingestSession: oc

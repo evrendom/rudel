@@ -8,7 +8,7 @@ import {
 	symlink,
 	writeFile,
 } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	claudeCodeAdapter,
@@ -82,7 +82,7 @@ const hasClaudeProjects = hasRealClaudeSessions();
 let tempDir: string;
 
 beforeAll(async () => {
-	tempDir = await mkdtemp(join(homedir(), ".rudel-cli-test-"));
+	tempDir = await mkdtemp(join(tmpdir(), "opaline-cli-test-"));
 });
 
 afterAll(async () => {
@@ -373,6 +373,43 @@ describe("full upload pipeline (dry-run)", () => {
 		},
 	);
 
+	test.each([
+		{
+			adapter: claudeCodeAdapter,
+			content: SAMPLE_SESSION_CONTENT,
+			name: "Claude Code",
+		},
+		{
+			adapter: codexAdapter,
+			content: `${JSON.stringify({
+				timestamp: "2026-07-29T10:00:00.000Z",
+				type: "event_msg",
+			})}\n`,
+			name: "Codex",
+		},
+	])(
+		"builds a file-backed $name upload request",
+		async ({ adapter, content }) => {
+			const sessionId = `file-backed-${adapter.source}`;
+			const sessionFile = join(tempDir, `${sessionId}.jsonl`);
+			await writeFile(sessionFile, content);
+
+			const request = await adapter.buildUploadRequest(
+				{
+					projectPath: tempDir,
+					sessionId,
+					transcriptPath: sessionFile,
+				},
+				{ gitInfo: {}, uploadMode: "manual" },
+			);
+
+			expect(request.kind).toBe("file");
+			expect(request.transcriptPath).toBe(sessionFile);
+			expect(request.metadata.sessionId).toBe(sessionId);
+			expect("content" in request).toBe(false);
+		},
+	);
+
 	test("resolves session by path, reads transcript, extracts subagents, and builds request", async () => {
 		// Set up a realistic session directory
 		const projectDir = join(tempDir, "pipeline-test");
@@ -431,14 +468,21 @@ describe("full upload pipeline (dry-run)", () => {
 			const cliPath = join(import.meta.dir, "..", "bin", "cli.ts");
 			const proc = Bun.spawn(
 				["bun", cliPath, "upload", realSessionId, "--dry-run"],
-				{ stdout: "pipe", stderr: "pipe" },
+				{
+					env: {
+						...process.env,
+						OPALINE_CONFIG_DIR: join(tempDir, "config"),
+					},
+					stdout: "pipe",
+					stderr: "pipe",
+				},
 			);
 
 			const exitCode = await proc.exited;
 			const stdout = await new Response(proc.stdout).text();
 			const stderr = await new Response(proc.stderr).text();
 
-			expect(exitCode).toBe(0);
+			expect(exitCode, stderr).toBe(0);
 			expect(stdout).toContain("Resolving session:");
 			expect(stdout).toContain("Found session at:");
 			expect(stdout).toContain("Dry run - would upload:");
@@ -463,13 +507,21 @@ describe("full upload pipeline (dry-run)", () => {
 		const cliPath = join(import.meta.dir, "..", "bin", "cli.ts");
 		const proc = Bun.spawn(
 			["bun", cliPath, "upload", sessionFile, "--dry-run"],
-			{ stdout: "pipe", stderr: "pipe" },
+			{
+				env: {
+					...process.env,
+					OPALINE_CONFIG_DIR: join(tempDir, "config"),
+				},
+				stdout: "pipe",
+				stderr: "pipe",
+			},
 		);
 
 		const exitCode = await proc.exited;
 		const stdout = await new Response(proc.stdout).text();
+		const stderr = await new Response(proc.stderr).text();
 
-		expect(exitCode).toBe(0);
+		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain("Found session at:");
 		expect(stdout).toContain("Subagents: 1 file(s)");
 		expect(stdout).toContain("Dry run - would upload:");

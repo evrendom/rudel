@@ -22,6 +22,8 @@ export {
 } from "./registry.js";
 export type {
 	AgentAdapter,
+	FileBackedUploadRequest,
+	FileBackedUploadSubagent,
 	GitInfo,
 	ScannedProject,
 	SessionFile,

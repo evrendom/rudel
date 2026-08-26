@@ -1,10 +1,11 @@
-import { readFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { IngestSessionInput } from "../../../../contracts/index.js";
+import { createInterface } from "node:readline";
 import { MissingTranscriptTimestampError } from "../../errors.js";
 import type {
 	AgentAdapter,
+	FileBackedUploadRequest,
 	ScannedProject,
 	SessionFile,
 	SessionTimestamps,
@@ -23,6 +24,36 @@ import {
 } from "./config.js";
 
 const SESSIONS_BASE_DIR = join(homedir(), ".codex", "sessions");
+
+async function transcriptHasTimestamp(path: string): Promise<boolean> {
+	const input = createReadStream(path, {
+		encoding: "utf8",
+		highWaterMark: 64 * 1024,
+	});
+	const lines = createInterface({ input, crlfDelay: Number.POSITIVE_INFINITY });
+	try {
+		for await (const line of lines) {
+			if (!line) continue;
+			let entry: unknown;
+			try {
+				entry = JSON.parse(line);
+			} catch {
+				continue;
+			}
+			if (
+				isRecord(entry) &&
+				typeof entry.timestamp === "string" &&
+				Number.isFinite(Date.parse(entry.timestamp))
+			) {
+				return true;
+			}
+		}
+		return false;
+	} finally {
+		lines.close();
+		input.destroy();
+	}
+}
 
 // ── Exported utilities ──
 
@@ -164,25 +195,28 @@ class CodexAdapter implements AgentAdapter {
 	async buildUploadRequest(
 		session: SessionFile,
 		context: UploadContext,
-	): Promise<IngestSessionInput> {
-		const content = await readFile(session.transcriptPath, "utf-8");
-		if (!this.extractTimestamps(content)) {
+	): Promise<FileBackedUploadRequest> {
+		if (!(await transcriptHasTimestamp(session.transcriptPath))) {
 			throw new MissingTranscriptTimestampError(this.source);
 		}
 
 		return {
-			source: this.source,
-			sessionId: session.sessionId,
-			projectPath: session.projectPath,
-			gitRemote: context.gitInfo.gitRemote,
-			packageName: context.gitInfo.packageName,
-			packageType: context.gitInfo.packageType,
-			gitBranch: session.gitBranch ?? context.gitInfo.branch,
-			gitSha: session.gitSha ?? context.gitInfo.sha,
-			tag: context.tag,
-			content,
-			organizationId: context.organizationId,
-			upload_mode: context.uploadMode,
+			kind: "file",
+			metadata: {
+				source: this.source,
+				sessionId: session.sessionId,
+				projectPath: session.projectPath,
+				gitRemote: context.gitInfo.gitRemote,
+				packageName: context.gitInfo.packageName,
+				packageType: context.gitInfo.packageType,
+				gitBranch: session.gitBranch ?? context.gitInfo.branch,
+				gitSha: session.gitSha ?? context.gitInfo.sha,
+				tag: context.tag,
+				organizationId: context.organizationId,
+				upload_mode: context.uploadMode,
+			},
+			subagents: [],
+			transcriptPath: session.transcriptPath,
 		};
 	}
 

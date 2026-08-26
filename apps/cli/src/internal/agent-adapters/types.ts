@@ -31,6 +31,18 @@ export interface UploadContext {
 	uploadMode: IngestSessionInput["upload_mode"];
 }
 
+export interface FileBackedUploadSubagent {
+	agentId: string;
+	path: string;
+}
+
+export interface FileBackedUploadRequest {
+	kind: "file";
+	metadata: Omit<IngestSessionInput, "content" | "subagents">;
+	subagents: FileBackedUploadSubagent[];
+	transcriptPath: string;
+}
+
 export interface SessionTimestamps {
 	sessionDate: string;
 	lastInteractionDate: string;
@@ -55,7 +67,7 @@ export interface AgentAdapter {
 	buildUploadRequest(
 		session: SessionFile,
 		context: UploadContext,
-	): Promise<IngestSessionInput>;
+	): Promise<FileBackedUploadRequest>;
 
 	extractTimestamps(content: string): SessionTimestamps | null;
 }

@@ -1,6 +1,6 @@
 import * as p from "@clack/prompts";
 import { buildCommand } from "@stricli/core";
-import type { Source } from "../contracts/index.js";
+import { resolveRepoIdentity, type Source } from "../contracts/index.js";
 import {
 	type AgentAdapter,
 	getAvailableAdapters,
@@ -8,6 +8,7 @@ import {
 import { describeSavedCredentialsApiBaseRisk } from "../lib/api-base.js";
 import { createApiClient } from "../lib/api-client.js";
 import { verifyAuth } from "../lib/auth.js";
+import { enableAutoUploadRepository } from "../lib/auto-upload-config.js";
 import type { BatchUploadItem } from "../lib/batch-upload.js";
 import { renderBatchSummary, runBatchUpload } from "../lib/batch-upload-ui.js";
 import { getGitInfo } from "../lib/git-info.js";
@@ -98,7 +99,7 @@ async function runEnable(): Promise<undefined | Error> {
 			error: new Error("No organizations found"),
 			userId: auth.user.id,
 		});
-		p.outro("Create one at app.rudel.ai first.");
+		p.outro("Create one at app.opaline.ai first.");
 		return new Error("No organizations found.");
 	}
 
@@ -168,6 +169,17 @@ async function runEnable(): Promise<undefined | Error> {
 	} else {
 		adaptersToEnable = adapters;
 	}
+	const gitInfo = await getGitInfo(cwd);
+	const repository = resolveRepoIdentity({
+		gitRemote: gitInfo.gitRemote ?? null,
+		packageName: gitInfo.packageName ?? null,
+		projectPath: cwd,
+	});
+	enableAutoUploadRepository({
+		key: repository.repoKey,
+		label: repository.repoLabel,
+		sources: adaptersToEnable.map((adapter) => adapter.source),
+	});
 
 	for (const adapter of adaptersToEnable) {
 		const isAlreadyEnabled = adapter.isHookInstalled();
@@ -227,8 +239,6 @@ async function runEnable(): Promise<undefined | Error> {
 		});
 
 		if (p.isCancel(shouldUpload) || !shouldUpload) continue;
-
-		const gitInfo = await getGitInfo(cwd);
 
 		const items: BatchUploadItem[] = sessions.map((session) => ({
 			sessionId: session.sessionId,
