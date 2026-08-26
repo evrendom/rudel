@@ -26,7 +26,11 @@ export {
 	type ProductAnalyticsPlatformOs,
 	parseProductAnalyticsEvent,
 } from "./product-analytics.js";
-export { contract } from "./rpc.js";
+export {
+	type RepoIdentity,
+	resolveRepoIdentity,
+} from "./repo-identity.js";
+export { CLI_SESSION_UPLOAD_STATUS_MAX_IDS, contract } from "./rpc.js";
 export {
 	parseSafeApiBase,
 	parseSafeApiEndpoint,

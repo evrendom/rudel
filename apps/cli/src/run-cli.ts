@@ -10,12 +10,14 @@ import {
 	getBaseCliEventPayload,
 	shutdownCliProductAnalytics,
 } from "./lib/product-analytics.js";
+import { initializeR2StagingCleanup } from "./lib/r2-staging-cleanup.js";
 
 export async function runCli(
 	args: readonly string[] = process.argv.slice(2),
 ): Promise<void> {
 	const commandName = getTopLevelCommandName(args);
 	debugLog("starting command", { command: commandName, version: pkg.version });
+	await initializeR2StagingCleanup();
 	if (commandName !== "doctor") {
 		trackFirstRun(commandName);
 	}

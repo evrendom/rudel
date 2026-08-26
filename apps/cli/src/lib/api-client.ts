@@ -10,8 +10,24 @@ export interface ClientConfig {
 	authType?: "bearer" | "api-key";
 }
 
+export interface RpcClientConfig {
+	rpcUrl: string;
+	token: string;
+	authType?: "bearer" | "api-key";
+}
+
 export function createApiClient(
 	config: ClientConfig,
+): ContractRouterClient<typeof contract> {
+	return createRpcClient({
+		rpcUrl: `${config.apiBaseUrl.replace(/\/+$/u, "")}/rpc`,
+		token: config.token,
+		authType: config.authType,
+	});
+}
+
+export function createRpcClient(
+	config: RpcClientConfig,
 ): ContractRouterClient<typeof contract> {
 	const authType = config.authType ?? "bearer";
 	const authHeaders =
@@ -19,12 +35,12 @@ export function createApiClient(
 			? { "x-api-key": config.token }
 			: { Authorization: `Bearer ${config.token}` };
 	debugLog("creating API client", {
-		apiBaseUrl: config.apiBaseUrl,
+		apiBaseUrl: config.rpcUrl,
 		authType,
 	});
 
 	const link = new RPCLink({
-		url: `${config.apiBaseUrl}/rpc`,
+		url: config.rpcUrl,
 		headers: authHeaders,
 	});
 	return createORPCClient(link);

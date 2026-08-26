@@ -1,14 +1,16 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, readdirSync } from "node:fs";
 import {
+	type FileHandle,
 	mkdir,
 	mkdtemp,
+	open,
 	readdir,
 	rm,
 	symlink,
 	writeFile,
 } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	claudeCodeAdapter,
@@ -17,6 +19,7 @@ import {
 	readFileWithRetry,
 	readSubagentFiles,
 } from "../internal/agent-adapters/index.js";
+import { MAX_STREAM_RECORD_BYTES } from "../lib/filtered-upload-staging.js";
 import { getGitInfo } from "../lib/git-info.js";
 import { resolveSession } from "../lib/session-resolver.js";
 
@@ -82,7 +85,7 @@ const hasClaudeProjects = hasRealClaudeSessions();
 let tempDir: string;
 
 beforeAll(async () => {
-	tempDir = await mkdtemp(join(homedir(), ".rudel-cli-test-"));
+	tempDir = await mkdtemp(join(tmpdir(), "opaline-cli-test-"));
 });
 
 afterAll(async () => {
@@ -293,7 +296,123 @@ describe("subagent reader", () => {
 			expect(subagents).toEqual([]);
 		},
 	);
+});
 
+describe("file-backed transcript scanning", () => {
+	test("parses a Codex record just under the staging byte cap", async () => {
+		const sessionId = "large-valid-codex-record";
+		const sessionFile = join(tempDir, `${sessionId}.jsonl`);
+		const emptyRecord = JSON.stringify({
+			padding: "",
+			timestamp: "2026-07-29T10:00:00.000Z",
+			type: "event_msg",
+		});
+		const targetBytes = MAX_STREAM_RECORD_BYTES - 1;
+		const paddingBytes = targetBytes - Buffer.byteLength(emptyRecord) - 1;
+		const record = `${JSON.stringify({
+			padding: "x".repeat(paddingBytes),
+			timestamp: "2026-07-29T10:00:00.000Z",
+			type: "event_msg",
+		})}\n`;
+		expect(Buffer.byteLength(record)).toBe(targetBytes);
+		await writeFile(sessionFile, record);
+
+		const request = await codexAdapter.buildUploadRequest(
+			{
+				projectPath: tempDir,
+				sessionId,
+				transcriptPath: sessionFile,
+			},
+			{ gitInfo: {}, uploadMode: "manual" },
+		);
+
+		expect(request.transcriptPath).toBe(sessionFile);
+	});
+
+	test("collects Claude subagent IDs around an oversized record", async () => {
+		const sessionId = "claude-oversized-record";
+		const sessionFile = join(tempDir, `${sessionId}.jsonl`);
+		const file = await open(sessionFile, "wx", 0o600);
+		try {
+			await writeCompleteBuffer(
+				file,
+				Buffer.from(
+					`${JSON.stringify({
+						timestamp: "2026-07-29T10:00:00.000Z",
+						type: "user",
+					})}\n${JSON.stringify({ toolUseResult: { agentId: "before" } })}\n`,
+				),
+			);
+			await writeCompleteBuffer(
+				file,
+				Buffer.from('{"type":"tool_result","content":"'),
+			);
+			await writeCompleteBuffer(
+				file,
+				Buffer.alloc(MAX_STREAM_RECORD_BYTES, "x"),
+			);
+			await writeCompleteBuffer(file, Buffer.from('"}\n'));
+			await writeCompleteBuffer(
+				file,
+				Buffer.from(
+					`${JSON.stringify({ toolUseResult: { agentId: "after" } })}\n`,
+				),
+			);
+		} finally {
+			await file.close();
+		}
+		await Promise.all([
+			writeFile(join(tempDir, "agent-before.jsonl"), "{}"),
+			writeFile(join(tempDir, "agent-after.jsonl"), "{}"),
+		]);
+
+		const request = await claudeCodeAdapter.buildUploadRequest(
+			{
+				projectPath: tempDir,
+				sessionId,
+				transcriptPath: sessionFile,
+			},
+			{ gitInfo: {}, uploadMode: "manual" },
+		);
+
+		expect(request.subagents.map((subagent) => subagent.agentId)).toEqual([
+			"before",
+			"after",
+		]);
+	});
+
+	test("retries opening a Claude transcript that appears after the first attempt", async () => {
+		const sessionId = "claude-delayed-transcript";
+		const sessionFile = join(tempDir, `${sessionId}.jsonl`);
+		const writeTranscript = new Promise<void>((resolve, reject) => {
+			setTimeout(() => {
+				writeFile(
+					sessionFile,
+					JSON.stringify({
+						timestamp: "2026-07-29T10:00:00.000Z",
+						type: "user",
+					}),
+				).then(() => resolve(), reject);
+			}, 100);
+		});
+		const startedAt = Date.now();
+
+		const request = await claudeCodeAdapter.buildUploadRequest(
+			{
+				projectPath: tempDir,
+				sessionId,
+				transcriptPath: sessionFile,
+			},
+			{ gitInfo: {}, uploadMode: "manual" },
+		);
+		await writeTranscript;
+
+		expect(request.transcriptPath).toBe(sessionFile);
+		expect(Date.now() - startedAt).toBeGreaterThanOrEqual(450);
+	});
+});
+
+describe("subagent reader", () => {
 	test.skipIf(process.platform === "win32")(
 		"does not follow a subagents directory symlink outside the session directory",
 		async () => {
@@ -319,6 +438,22 @@ describe("subagent reader", () => {
 		},
 	);
 });
+
+async function writeCompleteBuffer(
+	file: FileHandle,
+	buffer: Uint8Array,
+): Promise<void> {
+	let offset = 0;
+	while (offset < buffer.byteLength) {
+		const { bytesWritten } = await file.write(
+			buffer,
+			offset,
+			buffer.byteLength - offset,
+		);
+		if (bytesWritten === 0) throw new Error("Fixture write stalled");
+		offset += bytesWritten;
+	}
+}
 
 describe("git info", () => {
 	test("extracts git info from current repo", async () => {
@@ -370,6 +505,43 @@ describe("full upload pipeline (dry-run)", () => {
 					},
 				),
 			).rejects.toThrow(error);
+		},
+	);
+
+	test.each([
+		{
+			adapter: claudeCodeAdapter,
+			content: SAMPLE_SESSION_CONTENT,
+			name: "Claude Code",
+		},
+		{
+			adapter: codexAdapter,
+			content: `${JSON.stringify({
+				timestamp: "2026-07-29T10:00:00.000Z",
+				type: "event_msg",
+			})}\n`,
+			name: "Codex",
+		},
+	])(
+		"builds a file-backed $name upload request",
+		async ({ adapter, content }) => {
+			const sessionId = `file-backed-${adapter.source}`;
+			const sessionFile = join(tempDir, `${sessionId}.jsonl`);
+			await writeFile(sessionFile, content);
+
+			const request = await adapter.buildUploadRequest(
+				{
+					projectPath: tempDir,
+					sessionId,
+					transcriptPath: sessionFile,
+				},
+				{ gitInfo: {}, uploadMode: "manual" },
+			);
+
+			expect(request.kind).toBe("file");
+			expect(request.transcriptPath).toBe(sessionFile);
+			expect(request.metadata.sessionId).toBe(sessionId);
+			expect("content" in request).toBe(false);
 		},
 	);
 
@@ -431,14 +603,21 @@ describe("full upload pipeline (dry-run)", () => {
 			const cliPath = join(import.meta.dir, "..", "bin", "cli.ts");
 			const proc = Bun.spawn(
 				["bun", cliPath, "upload", realSessionId, "--dry-run"],
-				{ stdout: "pipe", stderr: "pipe" },
+				{
+					env: {
+						...process.env,
+						OPALINE_CONFIG_DIR: join(tempDir, "config"),
+					},
+					stdout: "pipe",
+					stderr: "pipe",
+				},
 			);
 
 			const exitCode = await proc.exited;
 			const stdout = await new Response(proc.stdout).text();
 			const stderr = await new Response(proc.stderr).text();
 
-			expect(exitCode).toBe(0);
+			expect(exitCode, stderr).toBe(0);
 			expect(stdout).toContain("Resolving session:");
 			expect(stdout).toContain("Found session at:");
 			expect(stdout).toContain("Dry run - would upload:");
@@ -463,13 +642,21 @@ describe("full upload pipeline (dry-run)", () => {
 		const cliPath = join(import.meta.dir, "..", "bin", "cli.ts");
 		const proc = Bun.spawn(
 			["bun", cliPath, "upload", sessionFile, "--dry-run"],
-			{ stdout: "pipe", stderr: "pipe" },
+			{
+				env: {
+					...process.env,
+					OPALINE_CONFIG_DIR: join(tempDir, "config"),
+				},
+				stdout: "pipe",
+				stderr: "pipe",
+			},
 		);
 
 		const exitCode = await proc.exited;
 		const stdout = await new Response(proc.stdout).text();
+		const stderr = await new Response(proc.stderr).text();
 
-		expect(exitCode).toBe(0);
+		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain("Found session at:");
 		expect(stdout).toContain("Subagents: 1 file(s)");
 		expect(stdout).toContain("Dry run - would upload:");

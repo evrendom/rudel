@@ -11,12 +11,13 @@ Requires Node.js 20 or newer.
 ```bash
 npm install --global @opalinehq/cli
 opaline login
-opaline enable
+opaline upload
 ```
 
-`opaline login` opens a browser-based device flow. `opaline enable` installs
-the available Claude Code and/or Codex hooks so completed sessions upload
-automatically.
+`opaline login` opens a browser-based device flow. `opaline upload` groups local
+worktrees by repository, lets you choose which repositories stay synchronized,
+installs the required Claude Code and/or Codex hooks, and uploads new sessions.
+`opaline enable` remains a shortcut for enabling the current repository.
 
 Existing `rudel` users do not need to log in again. Opaline intentionally reads
 the existing `~/.rudel` credential and state directory, and the `rudel` package
@@ -45,8 +46,9 @@ opaline disable
 
 - **Sessions:** Claude Code and Codex JSONL transcripts discovered on the local
   machine.
-- **Hooks:** Agent lifecycle commands installed by `opaline enable`. Hooks run
-  headlessly, filter known secret patterns, and upload the completed session.
+- **Hooks:** Agent lifecycle commands installed by `opaline upload` or
+  `opaline enable`. Hooks run headlessly, consult the repository allowlist,
+  filter known secret patterns, and upload the completed session.
 - **Organizations:** The Opaline workspace receiving uploads. Use
   `opaline set-org` to change the organization associated with a project.
 - **Local state:** Credentials, retry queues, logs, and project mappings remain
@@ -64,9 +66,9 @@ opaline disable
 | `opaline logout` | Revoke the current credential and log out locally. |
 | `opaline whoami` | Show the authenticated user and local upload failures. |
 | `opaline doctor` | Run read-only auth, API latency, config, version, and hook diagnostics. |
-| `opaline enable` | Install available Claude Code and Codex upload hooks. |
-| `opaline disable` | Remove Opaline upload hooks. |
-| `opaline upload [session]` | Upload one session or choose past sessions interactively. |
+| `opaline enable` | Enable automatic upload for the current repository. |
+| `opaline disable` | Disable automatic upload and remove Opaline upload hooks. |
+| `opaline upload [session]` | Manage synchronized repositories or upload one session. |
 | `opaline upload --retry` | Retry locally queued transient upload failures. |
 | `opaline set-org` | Set the Opaline organization for the current project. |
 | `opaline --help` | Show complete command and flag help. |
@@ -122,6 +124,12 @@ unusual formats, screenshots, and other sensitive values may not match. Safety
 limits stop an upload when filtering cannot preserve transcript integrity,
 cannot converge, or redacts an unexpectedly large portion of the payload, but
 they cannot prove that the remaining transcript is free of secrets.
+
+When the authenticated server advertises direct R2 ingest support, the CLI
+stages filtered transcript objects in private temporary files and sends them as
+bounded multipart uploads. Servers without that capability continue to receive
+the filtered legacy ingest request; large file-backed requests fail locally
+rather than being materialized without a safe bound.
 
 Keep secrets out of agent sessions, review your organization's data policies,
 and treat filtering as defense in depth. Report security issues through the

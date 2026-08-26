@@ -24,16 +24,26 @@ export interface IngestStubRespondInfo {
 	readonly requestIndex: number;
 	readonly pathname: string;
 	readonly body: string;
+	readonly bodyBytes: number;
+	readonly headers: Headers;
+	readonly hostname: string;
+	readonly method: string;
 }
 
 export interface IngestStubOptions {
+	/** Defaults to the legacy all-interfaces binding used by existing tests. */
+	readonly hostname?: string;
+	/** Defaults to true for suites that assert the exact request payload. */
+	readonly captureBodies?: boolean;
 	/**
 	 * Fail the first n requests with the given status before serving the
 	 * default success envelope.
 	 */
 	readonly failFirstN?: { readonly n: number; readonly status: number };
 	/** Full custom response control. Takes precedence over failFirstN. */
-	readonly respond?: (info: IngestStubRespondInfo) => Response;
+	readonly respond?: (
+		info: IngestStubRespondInfo,
+	) => Promise<Response> | Response;
 }
 
 export interface IngestStub {
@@ -54,7 +64,7 @@ export function startIngestStub(options: IngestStubOptions = {}): IngestStub {
 	const requests: IngestStubRequest[] = [];
 	const bodies: string[] = [];
 	const server = Bun.serve({
-		hostname: "0.0.0.0",
+		hostname: options.hostname ?? "0.0.0.0",
 		port: 0,
 		async fetch(request) {
 			const url = new URL(request.url);
@@ -64,14 +74,32 @@ export function startIngestStub(options: IngestStubOptions = {}): IngestStub {
 				apiKey: request.headers.get("x-api-key"),
 				pathname: url.pathname,
 			});
-			bodies.push(body);
+			if (options.captureBodies !== false) {
+				bodies.push(body);
+			}
 
 			if (options.respond) {
-				return options.respond({ requestIndex, pathname: url.pathname, body });
+				return options.respond({
+					requestIndex,
+					pathname: url.pathname,
+					body,
+					bodyBytes: Buffer.byteLength(body),
+					headers: request.headers,
+					hostname: url.hostname,
+					method: request.method,
+				});
 			}
 			if (options.failFirstN && requestIndex < options.failFirstN.n) {
 				return new Response("upstream failure", {
 					status: options.failFirstN.status,
+				});
+			}
+			if (url.pathname === "/rpc/cli/sessionUploadStatus") {
+				return Response.json({
+					json: {
+						organizationId: "stub-organization",
+						uploadedSessionIds: [],
+					},
 				});
 			}
 			return Response.json({
@@ -222,13 +250,18 @@ export async function runCli(
 	options: {
 		readonly stdin?: string;
 		readonly env?: Readonly<Record<string, string>>;
+		readonly preload?: string;
 	} = {},
 ): Promise<CliResult> {
-	const proc = Bun.spawn(["bun", SOURCE_CLI_PATH, ...args], {
+	const command = ["bun"];
+	if (options.preload) command.push("--preload", options.preload);
+	command.push(SOURCE_CLI_PATH, ...args);
+	const proc = Bun.spawn(command, {
 		cwd: MONOREPO_ROOT,
 		env: {
 			...process.env,
 			HOME: fixture.home,
+			OPALINE_CONFIG_DIR: join(fixture.home, ".rudel"),
 			USERPROFILE: fixture.home,
 			RUDEL_CONFIG_DIR: join(fixture.home, ".rudel"),
 			POSTHOG_ENABLED: "false",

@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { open } from "node:fs/promises";
 import { SESSION_TAGS, type SessionTag } from "./types.js";
 
 const SYSTEM_PROMPT = `You are a session classifier. Analyze the Claude Code / Codex session transcript and classify it into exactly ONE of these categories:
@@ -59,6 +60,19 @@ export async function classifySession(
 		return "other";
 	} catch {
 		return undefined;
+	}
+}
+
+export async function classifySessionFile(
+	path: string,
+): Promise<SessionTag | undefined> {
+	const file = await open(path, "r");
+	try {
+		const buffer = Buffer.allocUnsafe(50_000);
+		const { bytesRead } = await file.read(buffer, 0, buffer.byteLength, 0);
+		return classifySession(buffer.subarray(0, bytesRead).toString("utf8"));
+	} finally {
+		await file.close();
 	}
 }
 

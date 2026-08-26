@@ -1,16 +1,18 @@
 import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
-import type { IngestSessionInput } from "../../../../contracts/index.js";
+import { scanBoundedJsonlFile } from "../../bounded-jsonl-scan.js";
 import { MissingTranscriptTimestampError } from "../../errors.js";
 import type {
 	AgentAdapter,
+	FileBackedUploadRequest,
+	FileBackedUploadSubagent,
 	ScannedProject,
 	SessionFile,
 	SessionTimestamps,
 	UploadContext,
 } from "../../types.js";
-import { readFileWithRetry, toDisplayPath } from "../../utils.js";
+import { toDisplayPath } from "../../utils.js";
 import {
 	addHook,
 	getClaudeSettingsPath,
@@ -99,6 +101,68 @@ export function extractAgentIds(sessionContent: string): string[] {
 interface SubagentFile {
 	agentId: string;
 	content: string;
+}
+
+async function resolveSubagentFilePaths(
+	sessionDir: string,
+	agentIds: string[],
+	sessionId?: string,
+): Promise<FileBackedUploadSubagent[]> {
+	const subagents: FileBackedUploadSubagent[] = [];
+	const subagentDirs = await resolveSubagentDirectories(sessionDir, sessionId);
+
+	for (const agentId of agentIds) {
+		if (!isSafeBasename(agentId)) continue;
+
+		for (const subagentDir of subagentDirs) {
+			let agentPath: string;
+			try {
+				agentPath = await realpath(join(subagentDir, `agent-${agentId}.jsonl`));
+			} catch {
+				continue;
+			}
+			if (!isContainedPath(subagentDir, agentPath)) continue;
+			subagents.push({ agentId, path: agentPath });
+			break;
+		}
+	}
+
+	return subagents;
+}
+
+async function scanUploadTranscript(path: string): Promise<{
+	agentIds: string[];
+	hasTimestamp: boolean;
+}> {
+	const state = await scanBoundedJsonlFile(
+		path,
+		() => ({ agentIds: new Set<string>(), hasTimestamp: false }),
+		(line, scanState) => {
+			if (!line) return true;
+			let entry: unknown;
+			try {
+				entry = JSON.parse(line);
+			} catch {
+				return true;
+			}
+			if (!isRecord(entry)) return true;
+			if (
+				(entry.type === "user" || entry.type === "assistant") &&
+				typeof entry.timestamp === "string" &&
+				Number.isFinite(Date.parse(entry.timestamp))
+			) {
+				scanState.hasTimestamp = true;
+			}
+			if (!isRecord(entry.toolUseResult)) return true;
+			const agentId = entry.toolUseResult.agentId;
+			if (isSafeBasename(agentId)) scanState.agentIds.add(agentId);
+			return true;
+		},
+	);
+	return {
+		agentIds: Array.from(state.agentIds),
+		hasTimestamp: state.hasTimestamp,
+	};
 }
 
 export async function readSubagentFiles(
@@ -218,33 +282,39 @@ class ClaudeCodeAdapter implements AgentAdapter {
 	async buildUploadRequest(
 		session: SessionFile,
 		context: UploadContext,
-	): Promise<IngestSessionInput> {
-		const content = await readFileWithRetry(session.transcriptPath);
-		if (!this.extractTimestamps(content)) {
+	): Promise<FileBackedUploadRequest> {
+		const scan = await scanUploadTranscript(session.transcriptPath);
+		if (!scan.hasTimestamp) {
 			throw new MissingTranscriptTimestampError(this.source);
 		}
 
-		const agentIds = extractAgentIds(content);
 		const sessionDir = dirname(session.transcriptPath);
 		const subagents =
-			agentIds.length > 0
-				? await readSubagentFiles(sessionDir, agentIds, session.sessionId)
+			scan.agentIds.length > 0
+				? await resolveSubagentFilePaths(
+						sessionDir,
+						scan.agentIds,
+						session.sessionId,
+					)
 				: [];
 
 		return {
-			source: this.source,
-			sessionId: session.sessionId,
-			projectPath: session.projectPath,
-			gitRemote: context.gitInfo.gitRemote,
-			packageName: context.gitInfo.packageName,
-			packageType: context.gitInfo.packageType,
-			gitBranch: context.gitInfo.branch,
-			gitSha: context.gitInfo.sha,
-			tag: context.tag,
-			content,
-			subagents: subagents.length > 0 ? subagents : undefined,
-			organizationId: context.organizationId,
-			upload_mode: context.uploadMode,
+			kind: "file",
+			metadata: {
+				source: this.source,
+				sessionId: session.sessionId,
+				projectPath: session.projectPath,
+				gitRemote: context.gitInfo.gitRemote,
+				packageName: context.gitInfo.packageName,
+				packageType: context.gitInfo.packageType,
+				gitBranch: context.gitInfo.branch,
+				gitSha: context.gitInfo.sha,
+				tag: context.tag,
+				organizationId: context.organizationId,
+				upload_mode: context.uploadMode,
+			},
+			subagents,
+			transcriptPath: session.transcriptPath,
 		};
 	}
 

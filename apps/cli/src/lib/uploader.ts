@@ -1,3 +1,4 @@
+import { readFile, stat } from "node:fs/promises";
 import { createORPCClient, ORPCError } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
@@ -13,7 +14,10 @@ import {
 	SESSION_OWNERSHIP_CONFLICT_CODE,
 	SESSION_UPLOAD_SHRINK_REJECTED_CODE,
 } from "../contracts/index.js";
-import { isMissingTranscriptTimestampMessage } from "../internal/agent-adapters/index.js";
+import {
+	type FileBackedUploadRequest,
+	isMissingTranscriptTimestampMessage,
+} from "../internal/agent-adapters/index.js";
 import {
 	FILTER_VERSION,
 	filterSessionTextFields,
@@ -26,6 +30,18 @@ import {
 	SecretFilterJsonIntegrityError,
 	type SessionTextFilterResult,
 } from "../internal/secret-filter/index.js";
+import { hasR2IngestUpgradeHint } from "./r2-ingest-contract.js";
+import type { R2MultipartProgress } from "./r2-multipart-upload.js";
+import {
+	forgetR2UploadCapability,
+	hasAdvertisedR2UploadCapability,
+	rememberR2UploadCapability,
+} from "./r2-upload-capability.js";
+import {
+	formatR2UploadFlowError,
+	isR2InitUnsupported,
+	uploadSessionViaR2,
+} from "./r2-upload-flow.js";
 import type { UploadResult } from "./types.js";
 import { describeUploadEndpointRejection } from "./upload-endpoint.js";
 
@@ -36,11 +52,15 @@ export interface UploadConfig {
 	authType?: "bearer" | "api-key";
 	maxAggregateBytes?: number;
 	onRetry?: (attempt: number, maxAttempts: number, error: string) => void;
+	onProgress?: (progress: R2MultipartProgress) => void;
+	r2MultipartBaseDelayMs?: number;
+	r2StatusPollIntervalMs?: number;
 }
 
 const RETRYABLE_STATUS_CODES = new Set([408, 502, 503, 504]);
 const MAX_ATTEMPTS = 3;
 const BASE_DELAY_MS = 1_000;
+const LEGACY_MATERIALIZATION_MAX_BYTES = 32 * 1024 * 1024;
 
 interface ErrorData {
 	readonly authMessage: string | null;
@@ -54,6 +74,31 @@ interface ErrorData {
 }
 
 type UploadSubagent = NonNullable<IngestSessionInput["subagents"]>[number];
+type UploadSessionRequest = FileBackedUploadRequest | IngestSessionInput;
+
+type LegacyUploadPreparation =
+	| {
+			readonly status: "empty-main";
+	  }
+	| {
+			readonly anomaly: RedactionBudgetAnomaly;
+			readonly status: "redaction-budget";
+	  }
+	| {
+			readonly actualBytes: number;
+			readonly maxBytes: number;
+			readonly status: "legacy-too-large";
+	  }
+	| {
+			readonly actualBytes: number;
+			readonly maxBytes: number;
+			readonly status: "too-large";
+	  }
+	| {
+			readonly filteredRequest: IngestSessionInput;
+			readonly filteredText: SessionTextFilterResult<UploadSubagent>;
+			readonly status: "ready";
+	  };
 
 export function isRetryableUploadError(error: unknown): boolean {
 	if (error instanceof ORPCError) {
@@ -294,55 +339,11 @@ function formatWait(milliseconds: number) {
  * Rate limit errors (429) are not retried — the window is too long.
  */
 export async function uploadSession(
-	request: IngestSessionInput,
+	request: UploadSessionRequest,
 	config: UploadConfig,
 ): Promise<UploadResult> {
-	const inputBytes = getUploadAggregateBytes(request);
-	let filteredText: SessionTextFilterResult<UploadSubagent>;
-	try {
-		filteredText = filterSessionTextFields({
-			content: request.content,
-			subagents: request.subagents,
-		});
-	} catch (error) {
-		const filterFailure = getSecretFilterUploadFailure(error);
-		if (filterFailure) {
-			return filterFailure;
-		}
-		throw error;
-	}
-	const redactionBudgetAnomaly = getRedactionBudgetAnomaly(
-		filteredText.redactedBytes,
-		inputBytes,
-		filteredText.counts,
-	);
-	if (redactionBudgetAnomaly) {
-		return {
-			success: false,
-			error: formatRedactionBudgetError(redactionBudgetAnomaly),
-			attempts: 0,
-			redactionBudgetExceeded: true,
-			retryable: false,
-		};
-	}
-	const filteredRequest: IngestSessionInput = {
-		...request,
-		content: filteredText.content,
-		subagents: filteredText.subagents ? [...filteredText.subagents] : undefined,
-		filter_version: FILTER_VERSION,
-	};
 	const maxAggregateBytes =
 		config.maxAggregateBytes ?? INGEST_AGGREGATE_CONTENT_MAX_BYTES;
-	const aggregateBytes = getUploadAggregateBytes(filteredRequest);
-	if (aggregateBytes > maxAggregateBytes) {
-		return {
-			success: false,
-			error: formatTranscriptTooLargeError(aggregateBytes, maxAggregateBytes),
-			attempts: 0,
-			retryable: false,
-		};
-	}
-
 	const endpoint = parseSafeApiEndpoint(config.endpoint, {
 		allowPlaintext: config.allowInsecureEndpoint,
 	});
@@ -365,6 +366,111 @@ export async function uploadSession(
 	});
 
 	const client: ContractRouterClient<typeof contract> = createORPCClient(link);
+	const authType = config.authType ?? "bearer";
+	const endpointUrl = new URL(endpoint.url);
+	if (
+		authType === "api-key" &&
+		hasAdvertisedR2UploadCapability(endpointUrl, authType, config.token)
+	) {
+		try {
+			const r2Result = await uploadSessionViaR2(request, {
+				authType,
+				endpoint: endpointUrl,
+				maxAggregateBytes,
+				multipartBaseDelayMs: config.r2MultipartBaseDelayMs,
+				onProgress: config.onProgress,
+				onRetry: config.onRetry,
+				statusPollIntervalMs: config.r2StatusPollIntervalMs,
+				token: config.token,
+			});
+			if (r2Result.status === "redaction-budget") {
+				return {
+					success: false,
+					error: formatRedactionBudgetError(r2Result.anomaly),
+					attempts: 0,
+					redactionBudgetExceeded: true,
+					retryable: false,
+				};
+			}
+			if (r2Result.status === "empty-main") {
+				return getEmptyMainUploadFailure();
+			}
+			if (r2Result.status === "too-large") {
+				return {
+					success: false,
+					error: formatTranscriptTooLargeError(
+						r2Result.actualBytes,
+						r2Result.maxBytes,
+					),
+					attempts: 0,
+					retryable: false,
+				};
+			}
+			return {
+				success: true,
+				status: 200,
+				attempts: r2Result.attempts,
+				redacted: r2Result.redactions,
+				redactedBytes: r2Result.redactedBytes,
+				usageChecksum: r2Result.result.usageChecksum,
+			};
+		} catch (error) {
+			const filterFailure = getSecretFilterUploadFailure(error);
+			if (filterFailure) return filterFailure;
+			if (isR2InitUnsupported(error)) {
+				await forgetR2UploadCapability(endpointUrl, authType, config.token);
+			} else {
+				const failure = formatR2UploadFlowError(error);
+				return {
+					success: false,
+					error: failure.message,
+					attempts: MAX_ATTEMPTS,
+					retryable: failure.retryable,
+				};
+			}
+		}
+	}
+
+	let legacy: LegacyUploadPreparation;
+	try {
+		legacy = await prepareLegacyUpload(request, maxAggregateBytes);
+	} catch (error) {
+		const filterFailure = getSecretFilterUploadFailure(error);
+		if (filterFailure) return filterFailure;
+		throw error;
+	}
+	if (legacy.status === "redaction-budget") {
+		return {
+			success: false,
+			error: formatRedactionBudgetError(legacy.anomaly),
+			attempts: 0,
+			redactionBudgetExceeded: true,
+			retryable: false,
+		};
+	}
+	if (legacy.status === "empty-main") {
+		return getEmptyMainUploadFailure();
+	}
+	if (legacy.status === "legacy-too-large") {
+		return {
+			success: false,
+			error: formatLegacyServerTooLargeError(
+				legacy.actualBytes,
+				legacy.maxBytes,
+			),
+			attempts: 0,
+			retryable: false,
+		};
+	}
+	if (legacy.status === "too-large") {
+		return {
+			success: false,
+			error: formatTranscriptTooLargeError(legacy.actualBytes, legacy.maxBytes),
+			attempts: 0,
+			retryable: false,
+		};
+	}
+	const { filteredRequest, filteredText } = legacy;
 
 	for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
 		try {
@@ -379,6 +485,9 @@ export async function uploadSession(
 					attempts: attempt,
 					retryable: false,
 				};
+			}
+			if (authType === "api-key" && hasR2IngestUpgradeHint(response)) {
+				await rememberR2UploadCapability(endpointUrl, authType, config.token);
 			}
 			return {
 				success: true,
@@ -396,7 +505,10 @@ export async function uploadSession(
 			if (
 				error instanceof ORPCError &&
 				error.status === 400 &&
-				isMissingTranscriptTimestampMessage(request.source, error.message)
+				isMissingTranscriptTimestampMessage(
+					filteredRequest.source,
+					error.message,
+				)
 			) {
 				return {
 					success: false,
@@ -466,6 +578,102 @@ export async function uploadSession(
 	};
 }
 
+async function prepareLegacyUpload(
+	request: UploadSessionRequest,
+	maxAggregateBytes: number,
+): Promise<LegacyUploadPreparation> {
+	if (isFileBackedUploadRequest(request)) {
+		const sourceBytes = await getFileBackedAggregateBytes(request);
+		if (sourceBytes > LEGACY_MATERIALIZATION_MAX_BYTES) {
+			return {
+				actualBytes: sourceBytes,
+				maxBytes: LEGACY_MATERIALIZATION_MAX_BYTES,
+				status: "legacy-too-large",
+			};
+		}
+	}
+	const materialized = await materializeLegacyUploadRequest(request);
+	const inputBytes = getUploadAggregateBytes(materialized);
+	const filteredText = filterSessionTextFields({
+		content: materialized.content,
+		subagents: materialized.subagents,
+	});
+	if (Buffer.byteLength(filteredText.content, "utf8") === 0) {
+		return { status: "empty-main" };
+	}
+	const anomaly = getRedactionBudgetAnomaly(
+		filteredText.redactedBytes,
+		inputBytes,
+		filteredText.counts,
+	);
+	if (anomaly) return { anomaly, status: "redaction-budget" };
+	const nonEmptySubagents = filteredText.subagents?.filter(
+		(subagent) => Buffer.byteLength(subagent.content, "utf8") > 0,
+	);
+	const filteredRequest: IngestSessionInput = {
+		...materialized,
+		content: filteredText.content,
+		subagents:
+			nonEmptySubagents && nonEmptySubagents.length > 0
+				? [...nonEmptySubagents]
+				: undefined,
+		filter_version: FILTER_VERSION,
+	};
+	const aggregateBytes = getUploadAggregateBytes(filteredRequest);
+	if (aggregateBytes > maxAggregateBytes) {
+		return {
+			actualBytes: aggregateBytes,
+			maxBytes: maxAggregateBytes,
+			status: "too-large",
+		};
+	}
+	return { filteredRequest, filteredText, status: "ready" };
+}
+
+async function getFileBackedAggregateBytes(
+	request: FileBackedUploadRequest,
+): Promise<number> {
+	const files = await Promise.all([
+		stat(request.transcriptPath),
+		...request.subagents.map((subagent) => stat(subagent.path)),
+	]);
+	return files.reduce((total, file) => total + file.size, 0);
+}
+
+async function materializeLegacyUploadRequest(
+	request: UploadSessionRequest,
+): Promise<IngestSessionInput> {
+	if (!isFileBackedUploadRequest(request)) return request;
+	const content = await readFile(request.transcriptPath, "utf8");
+	const subagents: UploadSubagent[] = [];
+	for (const subagent of request.subagents) {
+		subagents.push({
+			agentId: subagent.agentId,
+			content: await readFile(subagent.path, "utf8"),
+		});
+	}
+	return {
+		...request.metadata,
+		content,
+		subagents: subagents.length > 0 ? subagents : undefined,
+	};
+}
+
+function isFileBackedUploadRequest(
+	request: UploadSessionRequest,
+): request is FileBackedUploadRequest {
+	return "kind" in request && request.kind === "file";
+}
+
+function getEmptyMainUploadFailure(): UploadResult {
+	return {
+		success: false,
+		error: "The main session transcript is empty. Nothing was uploaded.",
+		attempts: 0,
+		retryable: false,
+	};
+}
+
 export function formatRedactionSummary(
 	counts: RedactionCounts | undefined,
 	redactedBytes: number | undefined,
@@ -502,6 +710,7 @@ export function formatRedactionBudgetError(
 interface IngestSessionResponse {
 	readonly success: true;
 	readonly sessionId: string;
+	readonly upgradeHint?: { readonly protocol: "r2_multipart_v1" };
 	readonly redacted?: RedactionCounts;
 	readonly redactedBytes?: number;
 	readonly usageChecksum?: string;
@@ -559,6 +768,13 @@ function formatTranscriptTooLargeError(
 	const actualText = `${formatMebibytes(actualBytes)} MiB`;
 	const limitText = `the ${formatMebibytes(maxBytes)} MiB per-session limit`;
 	return `Session transcript payload is ${actualText}, above ${limitText}. Reduce the transcript/subagent payload before retrying.`;
+}
+
+function formatLegacyServerTooLargeError(
+	actualBytes: number,
+	maxBytes: number,
+): string {
+	return `Transcript too large for this server: the ${formatMebibytes(actualBytes)} MiB transcript/subagent payload exceeds the CLI's ${formatMebibytes(maxBytes)} MiB safe limit for legacy uploads. Upgrade the Opaline server to one that supports direct R2 uploads, or upload a smaller transcript.`;
 }
 
 function formatMebibytes(bytes: number): string {
