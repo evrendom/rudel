@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.0
+
+### Features
+
+- Add bounded R2 multipart uploads with resumable progress and legacy-ingest fallback.
+- Filter known secrets locally before either upload transport and report merged redaction counts.
+- Preserve unrelated coding-agent hooks and reconcile automatic-upload configuration safely.
+
+### Bug fixes
+
+- Keep existing credentials compatible with the legacy API hostname.
+- Ship executable bin paths accepted by current npm publish validation.
+
 ## 0.4.0
 
 ### Breaking changes
