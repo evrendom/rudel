@@ -1,4 +1,3 @@
 {
-	"apps/cli": "0.5.1",
-	"packages/rudel-alias": "0.5.1"
+	"apps/cli": "0.5.1"
 }

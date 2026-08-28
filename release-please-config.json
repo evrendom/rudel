@@ -8,22 +8,12 @@
 		{
 			"type": "node-workspace",
 			"merge": false
-		},
-		{
-			"type": "linked-versions",
-			"groupName": "opaline-cli",
-			"components": ["opaline-cli", "rudel"]
 		}
 	],
 	"packages": {
 		"apps/cli": {
 			"release-type": "node",
 			"component": "opaline-cli",
-			"changelog-path": "CHANGELOG.md"
-		},
-		"packages/rudel-alias": {
-			"release-type": "node",
-			"component": "rudel",
 			"changelog-path": "CHANGELOG.md"
 		}
 	}
