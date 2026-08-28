@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1
+
+- Point the `rudel` compatibility executable at `@opalinehq/cli@0.5.1`.
+
 ## 0.5.0
 
 - Point the `rudel` compatibility executable at `@opalinehq/cli@0.5.0`.
