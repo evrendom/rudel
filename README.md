@@ -1,8 +1,8 @@
 # Opaline CLI
 
 Capture Claude Code and OpenAI Codex sessions and upload them to Opaline for
-team analytics. The production API remains at
-[`https://app.rudel.ai`](https://app.rudel.ai) during the Opaline migration.
+team analytics. The production API is at
+[`https://opaline.so`](https://opaline.so).
 
 ## Quick start
 
@@ -76,7 +76,7 @@ opaline disable
 
 ## Configuration
 
-The CLI defaults to the current production API at `https://app.rudel.ai`.
+The CLI defaults to the current production API at `https://opaline.so`.
 
 | Variable | Purpose |
 | --- | --- |
@@ -99,7 +99,7 @@ OPALINE_LOG_LEVEL=debug opaline doctor
 
 - **Not authenticated:** run `opaline login`. Existing credentials should be
   found automatically under `~/.rudel/credentials.json`.
-- **API unreachable:** confirm that `https://app.rudel.ai/health` is reachable
+- **API unreachable:** confirm that `https://opaline.so/health` is reachable
   and check `OPALINE_API_BASE`/`RUDEL_API_BASE` overrides.
 - **Hooks disabled:** run `opaline enable` from the project where the agent is
   used. Existing `rudel` hook commands are recognized and upgraded when the
