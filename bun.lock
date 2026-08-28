@@ -41,7 +41,7 @@
         "rudel": "./bin/rudel.js",
       },
       "dependencies": {
-        "@opalinehq/cli": "0.5.1",
+        "@opalinehq/cli": "0.5.2",
       },
     },
   },
