@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { scanBoundedJsonlFile } from "../../bounded-jsonl-scan.js";
 import { MissingTranscriptTimestampError } from "../../errors.js";
 import type {
@@ -91,6 +91,7 @@ export async function findActiveRolloutFile(
 	const files = await walkJsonlFiles(SESSIONS_BASE_DIR);
 
 	for (const filePath of files) {
+		if (!basename(filePath).includes(threadId)) continue;
 		const meta = await readCodexSessionMeta(filePath);
 		if (meta?.id === threadId) {
 			return filePath;
