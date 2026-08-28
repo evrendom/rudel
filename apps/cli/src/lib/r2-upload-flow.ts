@@ -32,8 +32,15 @@ import {
 
 const RPC_MAX_ATTEMPTS = 3;
 const RPC_BASE_DELAY_MS = 500;
-const STATUS_MAX_POLLS = 20;
-const STATUS_POLL_INTERVAL_MS = 500;
+// Commit normally returns the terminal result. This longer fallback is used
+// only when another worker owns the accepted job, and stays bounded so an
+// automatic-upload hook cannot remain alive indefinitely.
+const STATUS_MAX_POLLS = 300;
+const STATUS_POLL_INTERVAL_MS = 1_000;
+const COMMITTED_JOB_IN_PROGRESS_REASONS = new Set([
+	"R2_INGEST_JOB_BUSY",
+	"R2_INGEST_JOB_RETRY_LATER",
+]);
 
 export interface R2UploadFlowConfig {
 	readonly authType: "api-key" | "bearer";
@@ -178,29 +185,43 @@ async function uploadStagedSession(
 		jobId: initCall.value.jobId,
 		objects: multipart.objects,
 	};
-	const commitCall = await callRpcWithRetry(
-		() => client.ingest.commit(commitInput),
-		config.onRetry,
-	);
-	if (!isR2IngestCommitOutput(commitCall.value)) {
-		throw new R2IngestFlowError(
-			"Opaline API returned an invalid R2 commit response",
-			false,
+	let commitAttempts = RPC_MAX_ATTEMPTS;
+	let commitResult: R2IngestSuccess | null = null;
+	try {
+		const commitCall = await callRpcWithRetry(
+			() => client.ingest.commit(commitInput),
+			config.onRetry,
 		);
-	}
-	if (commitCall.value.jobId !== initCall.value.jobId) {
-		throw new R2IngestFlowError(
-			"Opaline API returned an R2 commit response for a different job",
-			false,
-		);
+		commitAttempts = commitCall.attempts;
+		if (!isR2IngestCommitOutput(commitCall.value)) {
+			throw new R2IngestFlowError(
+				"Opaline API returned an invalid R2 commit response",
+				false,
+			);
+		}
+		if (commitCall.value.jobId !== initCall.value.jobId) {
+			throw new R2IngestFlowError(
+				"Opaline API returned an R2 commit response for a different job",
+				false,
+			);
+		}
+		commitResult = commitCall.value.result;
+	} catch (error) {
+		if (!isCommittedJobInProgressError(error)) throw error;
 	}
 	const statusCall = await pollJobStatus(client, initCall.value.jobId, config);
-	const serverResult = statusCall.result ?? commitCall.value.result;
+	const serverResult = statusCall.result ?? commitResult;
+	if (!serverResult) {
+		throw new R2IngestFlowError(
+			"Opaline API returned a completed R2 status without a result",
+			false,
+		);
+	}
 	return {
 		attempts: Math.max(
 			initCall.attempts,
 			multipart.attempts,
-			commitCall.attempts,
+			commitAttempts,
 			statusCall.attempts,
 		),
 		redactedBytes: staged.redactedBytes + (serverResult.redactedBytes ?? 0),
@@ -353,6 +374,14 @@ function isRetryableRpcError(error: unknown): boolean {
 	return true;
 }
 
+function isCommittedJobInProgressError(error: unknown): boolean {
+	if (!(error instanceof ORPCError) || !isRecord(error.data)) return false;
+	const reason = error.data.reason;
+	return (
+		typeof reason === "string" && COMMITTED_JOB_IN_PROGRESS_REASONS.has(reason)
+	);
+}
+
 export function formatR2UploadFlowError(error: unknown): {
 	readonly message: string;
 	readonly retryable: boolean;
@@ -382,4 +411,8 @@ export function formatR2UploadFlowError(error: unknown): {
 async function delay(milliseconds: number): Promise<void> {
 	if (milliseconds <= 0) return;
 	await new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
 }
