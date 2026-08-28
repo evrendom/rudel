@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1
+
+### Bug fixes
+
+- Keep polling accepted R2 ingest jobs after busy or retry-later commit responses so successful background completion is not reported as failure.
+
 ## 0.5.0
 
 ### Features
