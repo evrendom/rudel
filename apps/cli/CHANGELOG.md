@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.2
+
+### Bug fixes
+
+- Support positional Codex uploads by resolving Conductor session IDs to canonical rollout metadata and normalize repository labels across platforms.
+
 ## 0.5.1
 
 ### Bug fixes
