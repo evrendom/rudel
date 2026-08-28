@@ -1,4 +1,5 @@
 import { stat } from "node:fs/promises";
+import { basename } from "node:path";
 import * as p from "@clack/prompts";
 import { buildCommand } from "@stricli/core";
 import pMap from "p-map";
@@ -647,7 +648,7 @@ async function runSingleUpload(
 	const displayName =
 		gitInfo.gitRemote ||
 		gitInfo.packageName ||
-		sessionInfo.projectPath.split("/").pop();
+		basename(sessionInfo.projectPath);
 	if (displayName) write(`Repository: ${displayName}`);
 	if (gitInfo.branch) write(`Branch: ${gitInfo.branch}`);
 
