@@ -128,6 +128,46 @@ describe("session resolver", () => {
 		expect(result.transcriptPath).toBe(sessionFile);
 		expect(result.sessionId).toBe(sessionId);
 		expect(result.sessionDir).toBe(tempDir);
+		expect(result.source).toBe("claude_code");
+	});
+
+	test("resolves a Codex rollout path from session metadata", async () => {
+		const sessionId = "01a03d7a-9676-7021-8083-169df61d2142";
+		const projectPath = join(tempDir, "codex-project");
+		const sessionFile = join(
+			tempDir,
+			`rollout-2026-08-26T11-50-39-${sessionId}.jsonl`,
+		);
+		await writeFile(
+			sessionFile,
+			[
+				JSON.stringify({
+					timestamp: "2026-08-26T09:50:39.000Z",
+					type: "session_meta",
+					payload: {
+						id: sessionId,
+						cwd: projectPath,
+						git: { branch: "feat/codex", sha: "a".repeat(40) },
+					},
+				}),
+				JSON.stringify({
+					timestamp: "2026-08-26T09:50:40.000Z",
+					type: "response_item",
+					payload: { type: "message", role: "user", content: [] },
+				}),
+			].join("\n"),
+		);
+
+		const result = await resolveSession(sessionFile);
+
+		expect(result).toMatchObject({
+			gitBranch: "feat/codex",
+			gitSha: "a".repeat(40),
+			projectPath,
+			sessionId,
+			source: "codex",
+			transcriptPath: sessionFile,
+		});
 	});
 
 	test.skipIf(!hasClaudeProjects)(

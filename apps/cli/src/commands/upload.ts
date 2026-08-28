@@ -660,16 +660,21 @@ async function runSingleUpload(
 		sessionId: sessionInfo.sessionId,
 		transcriptPath: sessionInfo.transcriptPath,
 		projectPath: sessionInfo.projectPath,
+		gitBranch: sessionInfo.gitBranch,
+		gitSha: sessionInfo.gitSha,
 	};
 
 	let request: FileBackedUploadRequest;
 	try {
-		request = await claudeCodeAdapter.buildUploadRequest(sessionFile, {
-			tag: flags.tag,
-			gitInfo,
-			organizationId,
-			uploadMode: "manual",
-		});
+		request = await getAdapter(sessionInfo.source).buildUploadRequest(
+			sessionFile,
+			{
+				tag: flags.tag,
+				gitInfo,
+				organizationId,
+				uploadMode: "manual",
+			},
+		);
 	} catch (error) {
 		if (error instanceof MissingTranscriptTimestampError) {
 			return new Error(

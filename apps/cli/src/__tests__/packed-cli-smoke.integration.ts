@@ -133,6 +133,46 @@ test("clean upload succeeds and stamps the current filter_version on the wire", 
 	}
 }, 60_000);
 
+test("single-file Codex upload uses Codex metadata and adapter", async () => {
+	const packedCliPath = requirePackedCliPath();
+	const stub = startIngestStub();
+	const fixture = await createCliFixture("codex");
+	try {
+		const result = await runBuiltCli(
+			[
+				"upload",
+				fixture.transcriptPath,
+				"--endpoint",
+				`${stub.loopbackBase}/rpc`,
+			],
+			{
+				home: fixture.home,
+				configDir: fixtureConfigDir(fixture),
+				cliPath: packedCliPath,
+				env: { RUDEL_ALLOW_INSECURE_ENDPOINT: "" },
+			},
+		);
+
+		expect(result.exitCode, result.stderr).toBe(0);
+		expect(result.stdout).toContain("Upload successful!");
+		expect(result.stdout).toContain("Repository: project");
+		expect(stub.requests).toEqual([
+			{ apiKey: INGEST_STUB_TEST_TOKEN, pathname: "/rpc/ingestSession" },
+		]);
+		const wireBody = JSON.parse(stub.bodies[0] ?? "") as {
+			json?: { projectPath?: unknown; sessionId?: unknown; source?: unknown };
+		};
+		expect(wireBody.json).toMatchObject({
+			projectPath: fixture.projectPath,
+			sessionId: fixture.sessionId,
+			source: "codex",
+		});
+	} finally {
+		await stub.server.stop(true);
+		await rm(fixture.home, { recursive: true, force: true });
+	}
+}, 60_000);
+
 test("dirty upload is filtered client-side on this Node runtime", async () => {
 	// The test class that would have caught the Node 20 (?i:) filter crash:
 	// the packed artifact must compile every rule and redact on the ambient

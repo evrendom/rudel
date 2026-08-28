@@ -1,7 +1,12 @@
 import { access, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { decodeProjectPath } from "../internal/agent-adapters/index.js";
+import type { Source } from "../contracts/index.js";
+import {
+	decodeProjectPath,
+	findActiveRolloutFile,
+	readCodexSessionMeta,
+} from "../internal/agent-adapters/index.js";
 
 export const SESSIONS_BASE_DIR = join(homedir(), ".claude", "projects");
 
@@ -10,6 +15,9 @@ export interface SessionInfo {
 	projectPath: string;
 	sessionDir: string;
 	sessionId: string;
+	source: Source;
+	gitBranch?: string;
+	gitSha?: string;
 }
 
 export async function resolveSession(input: string): Promise<SessionInfo> {
@@ -33,13 +41,31 @@ async function resolveFromPath(filePath: string): Promise<SessionInfo> {
 
 	const sessionId = filename.replace(/\.jsonl$/, "");
 	const sessionDir = dirname(filePath);
+	const codexMeta = await readCodexSessionMeta(filePath);
+	if (codexMeta) {
+		return {
+			transcriptPath: filePath,
+			projectPath: codexMeta.cwd,
+			sessionDir,
+			sessionId: codexMeta.id,
+			source: "codex",
+			gitBranch: codexMeta.gitBranch,
+			gitSha: codexMeta.gitSha,
+		};
+	}
 
 	// Walk up from sessionDir to find the project directory name
 	// Sessions live at: ~/.claude/projects/<encoded-project-dir>/<sessionId>.jsonl
 	const parentDir = basename(sessionDir);
 	const projectPath = await decodeProjectPath(parentDir);
 
-	return { transcriptPath: filePath, projectPath, sessionDir, sessionId };
+	return {
+		transcriptPath: filePath,
+		projectPath,
+		sessionDir,
+		sessionId,
+		source: "claude_code",
+	};
 }
 
 async function resolveFromId(sessionId: string): Promise<SessionInfo> {
@@ -65,9 +91,15 @@ async function resolveFromId(sessionId: string): Promise<SessionInfo> {
 					projectPath,
 					sessionDir,
 					sessionId,
+					source: "claude_code",
 				};
 			}
 		} catch {}
+	}
+
+	const codexTranscriptPath = await findActiveRolloutFile(sessionId);
+	if (codexTranscriptPath) {
+		return resolveFromPath(codexTranscriptPath);
 	}
 
 	throw new Error(`Session not found: ${sessionId}`);
