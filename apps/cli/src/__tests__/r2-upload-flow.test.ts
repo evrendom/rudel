@@ -218,6 +218,130 @@ describe("capability-gated R2 upload flow", () => {
 		});
 	});
 
+	test("polls terminal status when commit retries end with a busy job", async () => {
+		await isolateCapabilityCache();
+		const requestPaths: string[] = [];
+		let commitCalls = 0;
+		let statusCalls = 0;
+		let server: FetchStub;
+		server = serveFetchStub({
+			hostname: "127.0.0.1",
+			port: 0,
+			async fetch(request) {
+				const pathname = new URL(request.url).pathname;
+				requestPaths.push(pathname);
+				if (pathname === "/r2/busy/part/1") {
+					await request.arrayBuffer();
+					return new Response(null, { headers: { etag: '"busy-etag"' } });
+				}
+
+				const input = await readRpcInput(request);
+				if (pathname === "/rpc/ingest/init") {
+					const main = getMainObject(input);
+					const byteLength = getRequiredNumber(main, "byteLength");
+					return rpcResponse({
+						expiresAt: "2026-08-25T12:15:00.000Z",
+						jobId: JOB_ID,
+						objects: [
+							{
+								byteLength,
+								kind: "main",
+								objectKey: `ingest/${JOB_ID}/main.jsonl`,
+								parts: [
+									{
+										byteLength,
+										headers: {
+											"Content-Length": byteLength.toString(),
+										},
+										partNumber: 1,
+										uploadUrl: `http://127.0.0.1:${server.port}/r2/busy/part/1`,
+									},
+								],
+								sha256: getRequiredString(main, "sha256"),
+								uploadId: "busy-upload",
+							},
+						],
+						partSizeBytes: R2_INGEST_PART_SIZE_BYTES,
+						protocol: "r2_multipart_v1",
+					});
+				}
+				if (pathname === "/rpc/ingest/commit") {
+					const failures = [
+						{
+							message: "Language-signal scanning temporarily failed",
+							reason: "language_signal_scanner_failed",
+						},
+						{
+							message: "Ingest job is waiting for its retry window",
+							reason: "R2_INGEST_JOB_RETRY_LATER",
+						},
+						{
+							message: "Ingest job is already being processed",
+							reason: "R2_INGEST_JOB_BUSY",
+						},
+					];
+					const failure = failures[commitCalls];
+					commitCalls += 1;
+					if (!failure) throw new Error("unexpected commit retry");
+					return Response.json(
+						{
+							json: {
+								code: "SERVICE_UNAVAILABLE",
+								data: { reason: failure.reason, retryAfterMs: 1_000 },
+								defined: false,
+								message: failure.message,
+								status: 503,
+							},
+						},
+						{ status: 503 },
+					);
+				}
+				if (pathname === "/rpc/ingest/status") {
+					statusCalls += 1;
+					return rpcResponse({
+						attempts: 2,
+						availableAt: "2026-08-25T12:00:00.000Z",
+						error: null,
+						jobId: JOB_ID,
+						leaseExpiresAt:
+							statusCalls === 1 ? "2026-08-25T12:30:00.000Z" : null,
+						protocol: "r2_multipart_v1",
+						result:
+							statusCalls === 1
+								? null
+								: createSuccessResult("busy-recovery-session"),
+						status: statusCalls === 1 ? "running" : "completed",
+						updatedAt: "2026-08-25T12:00:01.000Z",
+					});
+				}
+				return new Response("not found", { status: 404 });
+			},
+		});
+		activeServers.push(server);
+		const config = createUploadConfig(server);
+		await rememberR2UploadCapability(
+			new URL(config.endpoint),
+			"api-key",
+			TOKEN,
+		);
+
+		const result = await uploadSession(
+			createRequest("busy-recovery-session", "clean"),
+			config,
+		);
+
+		expect(result).toMatchObject({ attempts: 3, success: true });
+		expect(requestPaths).toEqual([
+			"/rpc/ingest/init",
+			"/r2/busy/part/1",
+			"/rpc/ingest/commit",
+			"/rpc/ingest/commit",
+			"/rpc/ingest/commit",
+			"/rpc/ingest/status",
+			"/rpc/ingest/status",
+		]);
+	});
+
 	test("rejects an over-budget streamed transcript before R2 init or PUT while a normal transcript passes", async () => {
 		await isolateCapabilityCache();
 		const directory = await mkdtemp(join(tmpdir(), "opaline-r2-budget-"));
